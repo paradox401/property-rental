@@ -1,0 +1,48 @@
+.owner-layout {
+    display: flex;
+    min-height: 100vh;
+    font-family: sans-serif;
+  }
+  
+  .sidebar {
+    width: 220px;
+    background: #2f3542;
+    color: white;
+    padding: 20px;
+  }
+  
+  .sidebar .logo {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+  }
+  
+  .sidebar nav a {
+    display: block;
+    color: white;
+    padding: 10px 0;
+    text-decoration: none;
+  }
+  
+  .sidebar nav a.active {
+    font-weight: bold;
+    background: #57606f;
+    padding-left: 10px;
+  }
+  
+  .main {
+    flex-grow: 1;
+    background: #f1f2f6;
+  }
+  
+  .topbar {
+    background: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #ccc;
+  }
+  
+  .user-menu {
+    font-weight: 500;
+  }
+  

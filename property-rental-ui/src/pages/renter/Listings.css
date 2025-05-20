@@ -1,0 +1,64 @@
+.listings-page {
+    padding: 2rem;
+    background-color: #f9f9f9;
+  }
+  
+  .listings-page h2 {
+    margin-bottom: 1.5rem;
+    font-size: 1.8rem;
+  }
+  
+  .listings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .listing-card {
+    background-color: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s;
+  }
+  
+  .listing-card:hover {
+    transform: scale(1.02);
+  }
+  
+  .listing-card img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+  }
+  
+  .listing-info {
+    padding: 1rem;
+  }
+  
+  .listing-info h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.3rem;
+  }
+  
+  .listing-info p {
+    margin: 0.2rem 0;
+    font-size: 0.95rem;
+    color: #555;
+  }
+  
+  .listing-info button {
+    margin-top: 0.5rem;
+    padding: 0.4rem 1rem;
+    border: none;
+    background-color: #1f9e5f;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .listing-info button:hover {
+    background-color: #178c50;
+  }
+  

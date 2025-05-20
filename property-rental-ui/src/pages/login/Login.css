@@ -1,0 +1,153 @@
+.login-container {
+  display: flex;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  flex-direction: row;
+}
+
+.login-left {
+  flex: 1;
+  background: #f0f4f8;
+  padding: 3rem;
+  text-align: center;
+}
+
+.login-left h1 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.login-left .green {
+  color: #4caf50;
+}
+
+.login-left p {
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+}
+
+.login-left img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.login-right {
+  flex: 1;
+  padding: 3rem 4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #fff;
+  box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.login-right h2 {
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: #4caf50;
+}
+
+.login-right h3 {
+  color: #2196f3;
+}
+
+.login-right .logo {
+  color: #2196f3;
+}
+
+.login-right form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.login-right form input,
+.login-right form select {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.login-right .error {
+  color: #f44336;
+  margin-bottom: 1rem;
+}
+
+.login-right button {
+  width: 100%;
+  padding: 0.8rem;
+  background: linear-gradient(to right, #1e90ff, #00c896);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.login-right button:hover {
+  background-color: #1976d2;
+}
+
+.login-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.login-footer a {
+  color: #2196f3;
+  text-decoration: none;
+}
+
+.login-footer p {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .login-container {
+    flex-direction: column;
+  }
+
+  .login-left,
+  .login-right {
+    width: 100%;
+    padding: 2rem;
+    box-shadow: none;
+  }
+
+  .login-left h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .login-left p {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .login-left img {
+    display: none;
+  }
+
+  .login-right {
+    padding: 2rem 1.5rem;
+  }
+
+  .login-right h2 {
+    font-size: 1.5rem;
+  }
+
+  .login-right button {
+    font-size: 1rem;
+  }
+
+  .login-footer p {
+    font-size: 0.85rem;
+  }
+}

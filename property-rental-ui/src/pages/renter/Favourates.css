@@ -1,0 +1,63 @@
+.favourites-page {
+    padding: 2rem;
+    background-color: #fdfdfd;
+  }
+  
+  .favourites-page h2 {
+    margin-bottom: 1.5rem;
+    font-size: 1.8rem;
+  }
+  
+  .favourites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .favourite-card {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    transition: 0.3s;
+  }
+  
+  .favourite-card:hover {
+    transform: translateY(-3px);
+  }
+  
+  .favourite-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: contain;
+  }
+  
+  .favourite-info {
+    padding: 1rem;
+  }
+  
+  .favourite-info h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+  }
+  
+  .favourite-info p {
+    margin: 0.2rem 0;
+    color: #444;
+  }
+  
+  .favourite-info button {
+    margin-top: 0.5rem;
+    padding: 0.4rem 1rem;
+    border: none;
+    background-color: #d32f2f;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .favourite-info button:hover {
+    background-color: #b71c1c;
+  }
+  

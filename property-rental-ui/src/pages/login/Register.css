@@ -1,0 +1,67 @@
+.register-container {
+    display: flex;
+    flex-direction: column;
+    max-width: 400px;
+    margin: 60px auto;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  
+  .register-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333;
+  }
+  
+  .register-container form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .register-container label {
+    margin-top: 15px;
+    font-weight: 500;
+    color: #444;
+  }
+  
+  .register-container input,
+  .register-container select {
+    padding: 10px;
+    margin-top: 5px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+  }
+  
+  .register-container button {
+    margin-top: 25px;
+    padding: 12px;
+    background-color: #28a745;
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .register-container button:hover {
+    background-color: #218838;
+  }
+  
+  .error {
+    color: #e74c3c;
+    margin-top: 10px;
+    font-weight: 500;
+  }
+  
+  .success {
+    color: #2ecc71;
+    margin-top: 10px;
+    font-weight: 500;
+  }
+  

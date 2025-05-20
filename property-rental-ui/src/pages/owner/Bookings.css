@@ -1,0 +1,86 @@
+body {
+    font-family: 'Inter', sans-serif;
+    color: #2c3e50; /* dark blue-gray for professional look */
+    background: #f7f9fc;
+    line-height: 1.6;
+  }
+
+.bookings-container {
+    
+    padding: 1.5rem;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: var(--box-shadow);
+    max-width: 900px;
+    margin: 0 auto;
+    margin-top: 30px;
+  }
+  
+  .bookings-container h2 {
+    margin-bottom: 1rem;
+    font-weight: 700;
+    font-size: 1.8rem;
+  }
+  
+  .bookings-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .bookings-table th,
+  .bookings-table td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+  }
+  
+  .bookings-table th {
+    background-color: var(--primary-color-light);
+    font-weight: 600;
+  }
+  
+  .status {
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  
+  .status.pending {
+    color: #f0ad4e;
+  }
+  
+  .status.approved {
+    color: #5cb85c;
+  }
+  
+  .status.rejected {
+    color: #d9534f;
+  }
+  
+  .btn-approve,
+  .btn-reject {
+    cursor: pointer;
+    border: none;
+    padding: 0.3rem 0.7rem;
+    border-radius: 4px;
+    margin-right: 0.3rem;
+    font-weight: 600;
+    color: #fff;
+    transition: background-color 0.3s ease;
+  }
+  
+  .btn-approve {
+    background-color: #5cb85c;
+  }
+  
+  .btn-approve:hover {
+    background-color: #4cae4c;
+  }
+  
+  .btn-reject {
+    background-color: #d9534f;
+  }
+  
+  .btn-reject:hover {
+    background-color: #c9302c;
+  }
+  

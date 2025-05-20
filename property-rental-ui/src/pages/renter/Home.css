@@ -1,0 +1,46 @@
+.renter-home {
+    padding: 2rem;
+    background-color: #f9f9f9;
+  }
+  
+  .renter-home h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .renter-home p {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    color: #555;
+  }
+  
+  .home-cards {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .home-card {
+    flex: 1;
+    min-width: 220px;
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease;
+  }
+  
+  .home-card:hover {
+    transform: translateY(-5px);
+  }
+  
+  .home-card h3 {
+    margin-bottom: 0.5rem;
+    color: #333;
+  }
+  
+  .home-card p {
+    color: #666;
+    font-size: 0.95rem;
+  }
+  
