@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import './AddProperty.css'; // create this for styling
+import React, { useState, useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
+import './AddProperty.css';
 
 export default function AddProperty() {
   const [title, setTitle] = useState('');
@@ -8,28 +9,67 @@ export default function AddProperty() {
   const [bedrooms, setBedrooms] = useState('');
   const [bathrooms, setBathrooms] = useState('');
   const [description, setDescription] = useState('');
+  const [type, setType] = useState('Apartment');
+  const [image, setImage] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const { user, token } = useContext(AuthContext);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setSuccess('');
 
-    if (!title || !location || !price || !bedrooms || !bathrooms) {
+    if (!title || !location || !price || !bedrooms || !bathrooms || !type) {
       setError('Please fill in all required fields.');
-      setSuccess('');
       return;
     }
 
-    // For now just simulate success (you can replace with API call later)
-    setError('');
-    setSuccess('Property added successfully!');
-    // Reset form (optional)
-    setTitle('');
-    setLocation('');
-    setPrice('');
-    setBedrooms('');
-    setBathrooms('');
-    setDescription('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/properties', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+           Authorization: `Bearer ${token}`, 
+        },
+        body: JSON.stringify({
+          title,
+          location,
+          price: Number(price),
+          bedrooms: Number(bedrooms),
+          bathrooms: Number(bathrooms),
+          description,
+          type,
+          image,
+          
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || 'Failed to add property.');
+      } else {
+        setSuccess('Property added successfully!');
+        // Reset form
+        setTitle('');
+        setLocation('');
+        setPrice('');
+        setBedrooms('');
+        setBathrooms('');
+        setDescription('');
+        setType('Apartment');
+        setImage('');
+      }
+    } catch (err) {
+      setError('Server error. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -76,6 +116,13 @@ export default function AddProperty() {
           onChange={(e) => setBathrooms(e.target.value)}
         />
 
+        <label>Type *</label>
+        <select value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="Apartment">Apartment</option>
+          <option value="House">House</option>
+          <option value="Condo">Condo</option>
+        </select>
+
         <label>Description</label>
         <textarea
           placeholder="Additional details about the property"
@@ -84,10 +131,20 @@ export default function AddProperty() {
           rows={4}
         ></textarea>
 
+        <label>Image URL</label>
+        <input
+          type="text"
+          placeholder="http://example.com/image.jpg"
+          value={image}
+          onChange={(e) => setImage(e.target.value)}
+        />
+
         {error && <p className="error">{error}</p>}
         {success && <p className="success">{success}</p>}
 
-        <button type="submit">Add Property</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Adding...' : 'Add Property'}
+        </button>
       </form>
     </div>
   );

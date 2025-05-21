@@ -1,67 +1,130 @@
 .register-container {
-    display: flex;
-    flex-direction: column;
-    max-width: 400px;
-    margin: 60px auto;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-    background-color: #ffffff;
-    font-family: 'Segoe UI', sans-serif;
-  }
+  display: flex;
+  height: 100vh;
+  background-color: #f0f2f5;
+}
+
+.register-left, .register-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.register-left {
   
-  .register-container h2 {
-    text-align: center;
-    margin-bottom: 20px;
-    color: #333;
-  }
-  
-  .register-container form {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .register-container label {
-    margin-top: 15px;
-    font-weight: 500;
-    color: #444;
-  }
-  
-  .register-container input,
-  .register-container select {
-    padding: 10px;
-    margin-top: 5px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    font-size: 16px;
-  }
-  
-  .register-container button {
-    margin-top: 25px;
-    padding: 12px;
-    background-color: #28a745;
-    color: #fff;
-    font-size: 16px;
-    font-weight: bold;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-  
-  .register-container button:hover {
-    background-color: #218838;
-  }
-  
-  .error {
-    color: #e74c3c;
-    margin-top: 10px;
-    font-weight: 500;
-  }
-  
-  .success {
-    color: #2ecc71;
-    margin-top: 10px;
-    font-weight: 500;
-  }
-  
+  color: black;
+  text-align: center;
+}
+
+.register-left h1 {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.register-left .green {
+  color: #2ecc71;
+}
+
+.register-left img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.register-right {
+  flex: 1;
+  padding: 3rem 4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #fff;
+  box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.register-right h2 {
+  font-size: 28px;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.register-right h3 {
+  font-size: 22px;
+  margin-bottom: 20px;
+  color: #555;
+}
+
+.register-right form {
+  width: 100%;
+  max-width: 350px;
+}
+
+.register-right label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #444;
+}
+
+.register-right input,
+.register-right select {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.register-right button {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(to right, #1e90ff, #00c896);
+  color: white;
+  font-size: 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.register-right button:hover {
+  background-color: #0056b3;
+}
+
+.register-footer {
+  margin-top: 15px;
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+}
+
+.register-footer a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.register-footer a:hover {
+  text-decoration: underline;
+}
+
+.error {
+  color: #e74c3c;
+  text-align: center;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.success {
+  color: #2ecc71;
+  text-align: center;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.logo {
+  color: #007bff;
+  font-weight: bold;
+}

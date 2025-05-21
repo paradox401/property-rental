@@ -1,35 +1,33 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
 
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(() => {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
+  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
 
   const login = async (email, password, role) => {
     try {
       const res = await fetch('http://localhost:8000/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, role }),
       });
 
       const data = await res.json();
 
-      if (!res.ok) {
-        return { error: data.error || 'Login failed' };
-      }
+      if (!res.ok) return { error: data.error || 'Login failed' };
 
-      setUser({ email: data.user.email, role: data.user.role });
+      setUser({ _id: data.user._id, email: data.user.email, role: data.user.role });
       setToken(data.token);
 
-      // Optionally, store token in localStorage for persistence
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      return data; // no error, successful login info
+      return data;
     } catch (error) {
       return { error: 'Server error. Please try again later.' };
     }

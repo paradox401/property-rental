@@ -82,4 +82,14 @@ body {
   .add-property-form button:hover {
     background-color: #1f6391;
   }
-  
+  .add-property-form select {
+    width: 100%;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    border: 1.8px solid #ccc;
+    border-radius: 6px;
+    font-size: 16px;
+    color: #2c3e50;
+    transition: border-color 0.3s ease;
+    font-family: inherit;
+  }
