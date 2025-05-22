@@ -1,43 +1,43 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import './Listings.css';
-import { propertiesimage } from '../../assets/assets';
-
-const dummyListings = [
-  {
-    id: 1,
-    title: 'Cozy 2BHK Apartment',
-    location: 'Kathmandu, Nepal',
-    rent: 12000,
-    image: propertiesimage.twobhk,
-  },
-  {
-    id: 2,
-    title: 'Modern Studio Flat',
-    location: 'Lalitpur, Nepal',
-    rent: 9000,
-    image: propertiesimage.studioflat,
-  },
-  {
-    id: 3,
-    title: 'Spacious 3BHK Apartment',
-    location: 'Bhaktapur, Nepal',
-    rent: 15000,
-    image: propertiesimage.threebhk,
-  },
-];
 
 export default function Listings() {
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchProperties = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/properties');
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch properties');
+        setProperties(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProperties();
+  }, []);
+
+  if (loading) return <p>Loading properties...</p>;
+  if (error) return <p className="error">{error}</p>;
+
   return (
     <div className="listings-page">
       <h2>Available Properties</h2>
       <div className="listings-grid">
-        {dummyListings.map((listing) => (
-          <div className="listing-card" key={listing.id}>
-            <img src={listing.image} alt={listing.title} />
+        {properties.map((listing) => (
+          <div className="listing-card" key={listing._id}>
+            <img src={listing.image || '/default-property.jpg'} alt={listing.title} />
             <div className="listing-info">
               <h3>{listing.title}</h3>
               <p>{listing.location}</p>
-              <p>Rs. {listing.rent}/month</p>
+              <p>Rs. {listing.price}/month</p>
               <button>View Details</button>
             </div>
           </div>

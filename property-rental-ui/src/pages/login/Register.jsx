@@ -4,6 +4,8 @@ import { image } from '../../assets/assets';
 import './Register.css';
 
 export default function Register() {
+  const [name, setName] = useState('');
+  const [citizenshipNumber, setCitizenshipNumber] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('owner');
@@ -28,7 +30,7 @@ export default function Register() {
       const res = await fetch('http://localhost:8000/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({ name, citizenshipNumber, email, password, role }),
       });
 
       const data = await res.json();
@@ -58,6 +60,20 @@ export default function Register() {
         <h2><span className="logo">Property</span> Rental</h2>
         <h3>Register</h3>
         <form onSubmit={handleSubmit}>
+          <label> Name</label>
+          <input 
+          type="text" 
+          placeholder="Full Name" 
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          />
+          <label>Citizenship Number</label>
+          <input 
+          type="text"
+          placeholder="Citizenship Number" 
+          value={citizenshipNumber}
+          onChange={(e) => setCitizenshipNumber(e.target.value)}
+          />
           <label>Email</label>
           <input
             type="email"

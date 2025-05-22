@@ -4,19 +4,32 @@ import jwt from 'jsonwebtoken';
 
 export const register = async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { name, citizenshipNumber, email, password, role } = req.body;
+
+    if (!name || !citizenshipNumber || !email || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ error: 'User already exists' });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already in use' });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = new User({ email, password: hashedPassword, role });
-    await newUser.save();
+    const newUser = new User({
+      name,
+      citizenshipNumber,
+      email,
+      password: hashedPassword,
+      role
+    });
 
+    await newUser.save();
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    console.error(err);
+    res.status(500).json({ error: 'Server error during registration' });
   }
 };
 
