@@ -1,0 +1,389 @@
+body {
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Navbar */
+.navbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid #eee;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  height: 60px;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 30px;
+  width: 100%;
+}
+
+.logo {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #0077cc;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 25px;
+  flex: 1;
+}
+
+.nav-links a {
+  color: #333;
+  text-decoration: none;
+  font-weight: 500;
+  position: relative;
+  transition: color 0.3s;
+}
+
+.nav-links a:hover {
+  color: #0077cc;
+}
+
+.nav-links a::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 2px;
+  background: #0077cc;
+  bottom: -5px;
+  left: 0;
+  transition: width 0.3s ease;
+}
+
+.nav-links a:hover::after {
+  width: 100%;
+}
+
+.login-button {
+  padding: 8px 18px;
+  background-color: #0077cc;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0, 119, 204, 0.2);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.login-button:hover {
+  background-color: #005fa3;
+  transform: translateY(-2px);
+}
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  cursor: pointer;
+  gap: 4px;
+}
+
+.bar {
+  width: 25px;
+  height: 3px;
+  background-color: #333;
+}
+
+/* Hero Section */
+.hero {
+  position: relative;
+  background: url('/images/hero-house.jpg') no-repeat center center/cover;
+  padding: 60px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 450px;
+  overflow: hidden;
+  transition: transform 0.5s ease;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0,119,204,0.7), rgba(0,119,204,0.3));
+  z-index: 1;
+}
+
+.hero:hover {
+  transform: scale(1.05);
+}
+
+.hero-container {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  max-width: 1200px;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  animation: fadeInUp 1s ease forwards;
+}
+
+.hero-left,
+.hero-right {
+  padding: 40px;
+  flex: 1;
+}
+
+.hero-left {
+  flex: 0.6;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hero-left h1 {
+  font-size: 2.8rem;
+  margin-bottom: 15px;
+  color: #0077cc;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  line-height: 1.1;
+}
+
+.hero-left p {
+  font-size: 1.2rem;
+  margin-bottom: 30px;
+  color: #333;
+  line-height: 1.6;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.hero-search {
+  display: flex;
+  gap: 12px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 14px 16px;
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.search-input:focus {
+  border-color: #0077cc;
+  outline: none;
+  box-shadow: 0 0 8px rgba(0,119,204,0.4);
+}
+
+.search-button {
+  padding: 14px 24px;
+  background-color: #0077cc;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 5px 10px rgba(0, 119, 204, 0.3);
+  transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.search-button:hover {
+  background-color: #005fa3;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 15px rgba(0, 95, 163, 0.5);
+}
+
+.hero-right {
+  flex: 0.4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.features-list {
+  list-style: none;
+  padding-left: 0;
+  font-size: 1rem;
+}
+
+.features-list li {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: #333;
+  position: relative;
+  padding-left: 24px;
+}
+
+.features-list li::before {
+  content: "✔";
+  position: absolute;
+  left: 0;
+  color: #0077cc;
+  font-weight: bold;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+/* Featured Listings */
+.featured {
+  padding: 40px 20px;
+}
+
+.listing-grid {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.listing-card {
+  border: 1px solid #ddd;
+  padding: 10px;
+  width: 250px;
+}
+
+.listing-image {
+  background-color: #ccc;
+  height: 150px;
+  margin-bottom: 10px;
+}
+
+/* How It Works */
+.how-it-works {
+  padding: 40px 20px;
+  background-color: #fafafa;
+}
+
+.steps {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.step {
+  text-align: center;
+  width: 150px;
+}
+
+.step-icon {
+  font-size: 30px;
+}
+
+/* Testimonials */
+.testimonials {
+  padding: 40px 20px;
+}
+
+.testimonial-grid {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.testimonial-card {
+  border: 1px solid #eee;
+  padding: 15px;
+  width: 250px;
+}
+
+/* Call to Action */
+.cta {
+  padding: 60px 20px;
+  text-align: center;
+  background-color: #e0f7fa;
+}
+
+.cta-button {
+  padding: 10px 20px;
+  margin-top: 20px;
+  background-color: #0077cc;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.cta-button:hover {
+  background-color: #005fa3;
+}
+
+/* Footer */
+.footer {
+  padding: 20px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .nav-links {
+    position: absolute;
+    top: 60px;
+    right: 0;
+    background: #fff;
+    flex-direction: column;
+    width: 200px;
+    border-left: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+    padding: 20px;
+    gap: 15px;
+    display: none;
+  }
+
+  .nav-links.open {
+display: flex;
+}
+
+.hamburger {
+display: flex;
+}
+
+.nav-links,
+.login-button {
+z-index: 999;
+}
+
+.navbar-container {
+flex-wrap: wrap;
+}
+
+.hero-container {
+flex-direction: column;
+text-align: center;
+}
+
+.hero-left,
+.hero-right {
+padding: 20px;
+}
+
+.hero-left h1 {
+font-size: 2rem;
+}
+}

@@ -12,6 +12,7 @@ import MyBookings from '../pages/renter/MyBookings';
 import Listings from '../pages/renter/Listings';
 import Favourites from '../pages/renter/Favourates';
 import Register from '../pages/login/register';
+import Landing from '../pages/Landing';
 import { AuthContext } from '../context/AuthContext';
 
 function PrivateRoute({ children, role }) {
@@ -31,6 +32,7 @@ function PrivateRoute({ children, role }) {
 export default function AppRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
@@ -45,7 +47,7 @@ export default function AppRoutes() {
         <Route index element={<OwnerDashboard />} />
         <Route path="properties" element={<MyProperties />} /> 
         <Route path="add" element={<AddProperty />} />
-        <Route path='requests' element={<Bookings />} />
+        <Route path="requests" element={<Bookings />} />
       </Route>
 
       <Route
@@ -62,7 +64,8 @@ export default function AppRoutes() {
         <Route path="favourates" element={<Favourites />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Updated wildcard route */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
