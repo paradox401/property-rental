@@ -93,4 +93,18 @@ export const getMyProperties = async (req, res) => {
     }
   };
   
+ 
+
+  export const getPropertyById = async (req, res) => {
+    try {
+      const property = await Property.findById(req.params.id);
+      if (!property) {
+        return res.status(404).json({ error: 'Property not found' });
+      }
+      res.status(200).json(property);
+    } catch (error) {
+      console.error('Error fetching property:', error);
+      res.status(500).json({ error: 'Failed to fetch property details' });
+    }
+  };
   

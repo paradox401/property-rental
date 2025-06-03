@@ -1,48 +1,82 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './MyBookings.css';
-import { propertiesimage } from '../../assets/assets';
+import PropertyDetails from '../../components/common/PropertyDetails';
 
-const dummyBookings = [
-  {
-    id: 1,
-    title: 'Cozy 2BHK Apartment',
-    location: 'Kathmandu, Nepal',
-    rent: 12000,
-    status: 'Confirmed',
-    date: '2025-05-18',
-    image: propertiesimage.twobhk
-  },
-  {
-    id: 2,
-    title: 'Modern Studio Flat',
-    location: 'Lalitpur, Nepal',
-    rent: 9000,
-    status: 'Pending',
-    date: '2025-05-20',
-    image: propertiesimage.studioflat
-  }
-];
+export default function Bookings() {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProperty, setSelectedProperty] = useState(null);
 
-export default function MyBookings() {
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:8000/api/bookings/my', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) throw new Error('Failed to fetch bookings');
+
+        const data = await res.json();
+        setBookings(data);
+      } catch (err) {
+        console.error('Error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookings();
+  }, []);
+
+  const onViewDetails = (property) => {
+    setSelectedProperty(property);
+  };
+
+  const closeModal = () => {
+    setSelectedProperty(null);
+  };
+
   return (
-    <div className="my-bookings">
+    <div className="bookings-container">
       <h2>My Bookings</h2>
-      {dummyBookings.length === 0 ? (
-        <p>You have no bookings yet.</p>
+      {loading ? (
+        <p>Loading bookings...</p>
+      ) : bookings.length === 0 ? (
+        <p>No bookings found.</p>
       ) : (
-        <div className="bookings-list">
-          {dummyBookings.map((booking) => (
-            <div className="booking-card" key={booking.id}>
-              <img src={booking.image} alt={booking.title} />
-              <div className="booking-details">
-                <h3>{booking.title}</h3>
-                <p>{booking.location}</p>
-                <p>Rent: Rs. {booking.rent}</p>
-                <p>Status: <span className={`status ${booking.status.toLowerCase()}`}>{booking.status}</span></p>
-                <p>Booked on: {booking.date}</p>
-              </div>
-            </div>
-          ))}
+        <table className="bookings-table">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bookings.map(({ _id, property, createdAt }) => (
+              <tr key={_id}>
+                <td>{property?.title || 'N/A'}</td>
+                <td>{new Date(createdAt).toLocaleDateString()}</td>
+                <td>Pending</td>
+                <td>
+                  <button onClick={() => onViewDetails(property)}>View Details</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {selectedProperty && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeModal}>X</button>
+            <PropertyDetails id={selectedProperty._id} />
+          </div>
         </div>
       )}
     </div>

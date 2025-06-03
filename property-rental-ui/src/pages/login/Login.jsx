@@ -50,42 +50,45 @@ export default function Login() {
         <img src={image.property} alt="Property" />
       </div>
       <div className="login-right">
-        <h2><span className="logo">Property</span> Rental</h2>
-        <h3>LogIn</h3>
-        <form onSubmit={handleSubmit}>
-          <label>Email</label>
-          <input
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+        <div className="login-box">
 
-          <label>Password</label>
-          <input
-            type="password"
-            placeholder="********"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <h2><span className="logo">Property</span> Rental</h2>
+          <h3>LogIn</h3>
+          <form onSubmit={handleSubmit}>
+            <label>Email</label>
+            <input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
 
-          <label>Login As</label>
-          <select value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="owner">Owner</option>
-            <option value="renter">Renter</option>
-          </select>
+            <label>Password</label>
+            <input
+              type="password"
+              placeholder="********"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
 
-          {error && <p className="error">{error}</p>}
+            <label>Login As</label>
+            <select value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="owner">Owner</option>
+              <option value="renter">Renter</option>
+            </select>
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Logging in...' : 'Log In'}
-          </button>
-        </form>
-        <div className="login-footer">
-          <a href="#">Forgot Password?</a>
-          <p>
-            Don't have an account? <Link to="/register">Sign Up</Link>
-          </p>
+            {error && <p className="error">{error}</p>}
+
+            <button type="submit" disabled={loading}>
+              {loading ? 'Logging in...' : 'Log In'}
+            </button>
+          </form>
+          <div className="login-footer">
+            <a href="#">Forgot Password?</a>
+            <p>
+              Don't have an account? <Link to="/register">Sign Up</Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

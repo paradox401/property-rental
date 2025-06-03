@@ -1,17 +1,22 @@
 import React, { useEffect, useState } from 'react';
+import PropertyCard from '../../components/common/PropertyCard';
 import './Listings.css';
+import PropertyDetails from '../../components/common/PropertyDetails';
+import BookingPopup from '../../components/common/BookingPopup';
 
 export default function Listings() {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [showDetailsId, setShowDetailsId] = useState(null);
+  const [selectedProperty, setSelectedProperty] = useState(null); // for booking popup
+
   useEffect(() => {
     const fetchProperties = async () => {
       try {
         const res = await fetch('http://localhost:8000/api/properties');
         const data = await res.json();
-
         if (!res.ok) throw new Error(data.error || 'Failed to fetch properties');
         setProperties(data);
       } catch (err) {
@@ -20,9 +25,12 @@ export default function Listings() {
         setLoading(false);
       }
     };
-
     fetchProperties();
   }, []);
+
+  const closeDetailsModal = () => setShowDetailsId(null);
+  const openBookingPopup = (property) => setSelectedProperty(property);
+  const closeBookingPopup = () => setSelectedProperty(null);
 
   if (loading) return <p>Loading properties...</p>;
   if (error) return <p className="error">{error}</p>;
@@ -32,17 +40,30 @@ export default function Listings() {
       <h2>Available Properties</h2>
       <div className="listings-grid">
         {properties.map((listing) => (
-          <div className="listing-card" key={listing._id}>
-            <img src={listing.image || '/default-property.jpg'} alt={listing.title} />
-            <div className="listing-info">
-              <h3>{listing.title}</h3>
-              <p>{listing.location}</p>
-              <p>Rs. {listing.price}/month</p>
-              <button>View Details</button>
-            </div>
-          </div>
+          <PropertyCard
+            key={listing._id}
+            property={listing}
+            onViewDetails={() => setShowDetailsId(listing._id)}
+            onApplyBooking={() => openBookingPopup(listing)}
+          />
         ))}
       </div>
+
+      {showDetailsId && (
+        <div className="modal-overlay" onClick={closeDetailsModal}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeDetailsModal}>X</button>
+            <PropertyDetails id={showDetailsId} />
+          </div>
+        </div>
+      )}
+
+      {selectedProperty && (
+        <BookingPopup
+          property={selectedProperty}
+          onClose={closeBookingPopup}
+        />
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import Favourites from '../pages/renter/Favourates';
 import Register from '../pages/login/register';
 import Landing from '../pages/Landing';
 import { AuthContext } from '../context/AuthContext';
+import PropertyDetails from '../components/common/PropertyDetails';
 
 function PrivateRoute({ children, role }) {
   const { user } = useContext(AuthContext);
@@ -63,8 +64,7 @@ export default function AppRoutes() {
         <Route path="listings" element={<Listings />} />
         <Route path="favourates" element={<Favourites />} />
       </Route>
-
-      {/* Updated wildcard route */}
+      <Route path="/property/:id" element={<PropertyDetails />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

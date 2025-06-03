@@ -27,7 +27,7 @@
 }
 
 .login-left img {
-  max-width: 100%;
+  width: 700px;
   height: auto;
   border-radius: 10px;
 }
@@ -39,7 +39,7 @@
   flex-direction: column;
   justify-content: center;
   background: #fff;
-  box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
+  /* box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1); */
 }
 
 .login-right h2 {
@@ -106,6 +106,17 @@
 .login-footer p {
   margin-top: 0.5rem;
   font-size: 0.9rem;
+}
+
+.login-box{
+  
+  padding: 10px 10px 40px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #fff;
+  box-shadow: -9px 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
 }
 
 /* Responsive adjustments */

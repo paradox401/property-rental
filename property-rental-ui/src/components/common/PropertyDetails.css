@@ -1,0 +1,28 @@
+.property-details-popup {
+  max-width: 800px;
+  margin: 10px auto;
+  padding: 20px;
+  background: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.property-details-popup img {
+  width: 50%;
+  height: auto;
+  margin-bottom: 20px;
+  border-radius: 6px;
+}
+
+.property-details-popup h2 {
+  margin-bottom: 10px;
+  color: #111010;
+}
+.property-details-popup strong {
+  margin-bottom: 8px;
+  color: #116f38;
+}
+.property-details-popup p {
+  margin-bottom: 8px;
+  color: #22242b;
+}

@@ -23,9 +23,9 @@ const Navbar = () => {
           Property Rental
         </div>
         <div className={`nav-links ${menuOpen ? "open" : ""}`}>
-          <Link to="/" onClick={() => setMenuOpen(false)}>
+          <a  href="#home" onClick={() => setMenuOpen(false)}>
             Home
-          </Link>
+          </a>
           <a href="#listings" onClick={() => setMenuOpen(false)}>
             Listings
           </a>
@@ -39,7 +39,12 @@ const Navbar = () => {
         <div className="nav-right">
           <Link to="/login">
             <button className="login-button">
-              <span className="button-text">Login</span>
+              <span className="button-text">Log in</span>
+            </button>
+          </Link>
+          <Link to="/register">
+            <button className="login-button">
+              <span className="button-text">Sign Up</span>
             </button>
           </Link>
           <div className={`hamburger ${menuOpen ? "active" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
@@ -71,7 +76,7 @@ const Hero = () => {
   }
 
   return (
-    <section className="hero">
+    <section className="hero" id = "home">
       <div className="hero-background">
         <div className="hero-overlay"></div>
       </div>
@@ -100,7 +105,7 @@ const Hero = () => {
                 />
                 <button className="search-button" onClick={handleSearch} disabled={!searchValue.trim()}>
                   <span>Search</span>
-                  <span className="search-arrow">→</span>
+                  <span className="search-arrow">🔍</span>
                 </button>
               </div>
             </div>
@@ -361,11 +366,11 @@ const CallToAction = () => (
         <h2>Ready to Start Your Journey?</h2>
         <p>Join thousands of travelers who have found their perfect stay with StayEase</p>
         <div className="cta-buttons">
-          <Link to="/Login" className="cta-button primary">
+          <Link to="/register" className="cta-button primary">
             <span>Browse Rentals</span>
             <span className="button-icon">🏠</span>
           </Link>
-          <Link to="/Login" className="cta-button secondary">
+          <Link to="/register" className="cta-button secondary">
             <span>Become a Host</span>
             <span className="button-icon">💼</span>
           </Link>
