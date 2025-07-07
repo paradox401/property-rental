@@ -12,8 +12,9 @@ const protect = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Fix: set _id to match controller expectations
     req.user = {
-      id: decoded.id,
+      _id: decoded.id, // 👈 this is the key fix
       role: decoded.role
     };
 

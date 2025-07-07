@@ -21,6 +21,7 @@ export default function Bookings() {
 
         const data = await res.json();
         setBookings(data);
+        console.log('Bookings fetched:', data); // Log the fetched data
       } catch (err) {
         console.error('Error:', err);
       } finally {
@@ -38,7 +39,6 @@ export default function Bookings() {
   const closeModal = () => {
     setSelectedProperty(null);
   };
-
   return (
     <div className="bookings-container">
       <h2>My Bookings</h2>
@@ -51,23 +51,26 @@ export default function Bookings() {
           <thead>
             <tr>
               <th>Property</th>
-              <th>Date</th>
+              <th>From</th>
+              <th>To</th>
               <th>Status</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {bookings.map(({ _id, property, createdAt }) => (
+            {bookings.map(({ _id, property, fromDate, toDate, status}) => (
               <tr key={_id}>
                 <td>{property?.title || 'N/A'}</td>
-                <td>{new Date(createdAt).toLocaleDateString()}</td>
-                <td>Pending</td>
+                <td>{new Date(fromDate).toLocaleDateString()}</td>
+                <td>{new Date(toDate).toLocaleDateString()}</td>
+                <td>{status || 'N/A'}</td>
                 <td>
                   <button onClick={() => onViewDetails(property)}>View Details</button>
                 </td>
               </tr>
             ))}
           </tbody>
+
         </table>
       )}
 

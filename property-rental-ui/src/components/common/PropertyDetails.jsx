@@ -27,6 +27,8 @@ export default function PropertyDetails({ id }) {
     fetchProperty();
   }, [id]);
 
+  
+
   if (loading) return <p>Loading...</p>;
   if (error) return <p className="error">{error}</p>;
   if (!property) return <p>No property found</p>;
@@ -38,6 +40,7 @@ export default function PropertyDetails({ id }) {
       <p><strong>Location:</strong> {property.location}</p>
       <p><strong>Rent:</strong> Rs. {property.price}/month</p>
       <p><strong>Description:</strong> {property.description}</p>
+      <p><strong>Status:</strong>{property.status}</p>
     </div>
   );
 }

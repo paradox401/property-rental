@@ -9,7 +9,12 @@ const propertySchema = new mongoose.Schema({
   description: { type: String },
   type: { type: String, enum: ['Apartment', 'House', 'Condo'], required: true },
   image: { type: String },
-  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  status: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: 'Pending'
+  }
 }, {
   timestamps: true
 });

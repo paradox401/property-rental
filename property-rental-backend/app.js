@@ -13,15 +13,12 @@ connectDB();
 
 const app = express();
 
-app.use(cors({
-  origin: '*',
-}));
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
-app.use('/api/bookings', bookingRoutes);  // <-- Added booking routes
+app.use('/api/bookings', bookingRoutes);
 
 app.get('/', (req, res) => {
   res.send('Property Rental API is running');
