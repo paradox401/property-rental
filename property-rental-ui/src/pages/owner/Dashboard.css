@@ -1,60 +1,81 @@
-body {
-    font-family: 'Inter', sans-serif;
-    color: #2c3e50; /* dark blue-gray for professional look */
-    background: #f7f9fc;
-    line-height: 1.6;
-  }
-  
-  .sidebar {
-    background: #34495e; /* a subtle, dark blue */
-    color: #ecf0f1;
-  }
-  
-  .sidebar nav a {
-    color: #ecf0f1;
-    font-weight: 500;
-    letter-spacing: 0.03em;
-  }
-  
-  .sidebar nav a.active {
-    background: linear-gradient(to right, #1e90ff, #00c896); /* nice teal highlight */
-    color: white;
-    font-weight: 700;
-  }
-  
-  .topbar {
-    background: white;
-    color: #2c3e50;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-  
+.dashboard-container {
+  padding: 2rem;
+  font-family: sans-serif;
+}
 
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 20px;
-    padding: 20px;
-  }
-  
-  .card {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    text-align: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-  
-  .card h4 {
-    margin-bottom: 10px;
-    font-size: 1rem;
-    color: #2f3542;
-  }
-  
-  .card p {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #1e90ff;
-  }
+.dashboard-cards {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
 
-  
+.card {
+  background: #f1f1f1;
+  padding: 1.5rem;
+  border-radius: 10px;
+  flex: 1;
+  text-align: center;
+}
+
+.card h3 {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.status-summary {
+  margin-bottom: 2rem;
+}
+
+.status-grid {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.status-card {
+  flex: 1;
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+  color: white;
+}
+
+.approved {
+  background-color: #2a9d8f;
+}
+
+.pending {
+  background-color: #e9c46a;
+}
+
+.rejected {
+  background-color: #e76f51;
+}
+
+.recent-properties ul {
+  list-style: none;
+  padding: 0;
+}
+
+.recent-properties li {
+  background: #f9f9f9;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+}
+.chart-section {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.chart-card {
+  flex: 1;
+  min-width: 300px;
+  background: #fdfdfd;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+}

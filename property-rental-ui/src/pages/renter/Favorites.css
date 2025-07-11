@@ -1,0 +1,163 @@
+.favorites-page {
+  padding: 2rem;
+  background-color: #f9f9f9;
+}
+
+.favorites-page h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+  color: #333;
+  text-align: center;
+}
+
+.favorites-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Card Style */
+.favorite-card {
+  background-color: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.favorite-card:hover {
+  transform: scale(1.02);
+}
+
+.favorite-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+}
+
+.favorite-info {
+  padding: 1rem;
+  flex-grow: 1;
+}
+
+.favorite-info h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.3rem;
+  color: #222;
+}
+
+.favorite-info p {
+  margin: 0.2rem 0;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+/* Remove Favorite Button */
+.favorite-info button {
+  margin-top: 0.6rem;
+  padding: 0.4rem 1rem;
+  border: none;
+  background-color: #e74c3c;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.favorite-info button:hover {
+  background-color: #c0392b;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  width: 90%;
+  max-width: 600px;
+  border-radius: 10px;
+  position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: #ff0000;
+}
+
+/* Error Message */
+.error {
+  text-align: center;
+  color: #e74c3c;
+  font-size: 0.95rem;
+  margin-top: 1rem;
+}
+
+/* Property Actions Area */
+.property-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.property-actions button {
+  padding: 0.4rem 1rem;
+  background-color: #1f9e5f;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+
+.property-actions button:hover {
+  background-color: #178c50;
+}
+
+/* Favorite Button Inline in Property Card */
+.favorite-btn {
+  padding: 0.4rem 0.7rem;
+  background-color: #eee;
+  color: #333;
+  border: none;
+  border-radius: 5px;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.1);
+}
+
+.favorite-btn.favorited {
+  background-color: #e74c3c;
+  color: white;
+}

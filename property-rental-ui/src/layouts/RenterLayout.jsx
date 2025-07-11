@@ -11,7 +11,7 @@ export default function RenterLayout() {
           <NavLink to="/renter" end>Home</NavLink>
           <NavLink to="/renter/bookings">My Bookings</NavLink>
           <NavLink to="/renter/listings">Listings</NavLink>
-          <NavLink to="/renter/favourates">favourates</NavLink>
+          <NavLink to="/renter/favorites">favourites</NavLink>
           <NavLink to="/renter/message">Message</NavLink>
           <NavLink to="/login">Logout</NavLink>
         </nav>

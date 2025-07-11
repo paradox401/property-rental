@@ -5,12 +5,13 @@ import { AuthContext } from '../../context/AuthContext';
 const PROPERTY_TYPES = ['Apartment', 'House', 'Condo'];
 
 export default function MyProperties() {
+  const [viewProperty, setViewProperty] = useState(null);
+
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { token } = useContext(AuthContext);
 
-  // For edit modal
   const [isEditing, setIsEditing] = useState(false);
   const [currentProperty, setCurrentProperty] = useState(null);
   const [formData, setFormData] = useState({
@@ -78,7 +79,7 @@ export default function MyProperties() {
       setFormError('Please fill in all required fields');
       return;
     }
-  
+
     try {
       const res = await fetch(`http://localhost:8000/api/properties/${currentProperty._id}`, {
         method: 'PUT',
@@ -93,21 +94,21 @@ export default function MyProperties() {
           bathrooms: Number(formData.bathrooms),
         }),
       });
-  
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update property');
-  
+
       setProperties((prev) =>
         prev.map((p) => (p._id === currentProperty._id ? data : p))
       );
-  
+
       setIsEditing(false);
       setCurrentProperty(null);
     } catch (err) {
       setFormError(err.message || 'Something went wrong');
     }
   };
-  
+
 
   const handleCancel = () => {
     setIsEditing(false);
@@ -131,11 +132,19 @@ export default function MyProperties() {
               <img src={property.image || '/default-image.jpg'} alt={property.title} className="property-image" />
               <div className="property-details">
                 <h3>{property.title}</h3>
-                <p>{property.location}</p>
+                <p>Location: {property.location}</p>
                 <p>
                   Rent: <span className="rent-amount">Rs. {property.price}</span>
                 </p>
-                <p className="status-available">Available</p>
+                <p className={`status ${property.status === 'Approved'
+                    ? 'approved'
+                    : 'available'
+                  }`}>
+                  Status: {property.status === 'Approved' ? 'Approved' : 'Available'}
+                </p>
+
+
+
                 <div className="property-actions">
                   <button className="btn-edit" onClick={() => handleEditClick(property)}>Edit</button>
                   <button
@@ -149,21 +158,24 @@ export default function MyProperties() {
                               Authorization: `Bearer ${token}`,
                             },
                           });
-                    
+
                           const data = await res.json();
                           if (!res.ok) throw new Error(data.error || 'Failed to delete');
-                    
+
                           setProperties((prev) => prev.filter((p) => p._id !== property._id));
                         } catch (err) {
                           alert(err.message || 'Failed to delete property');
                         }
                       }
                     }}
-                    
+
                   >
                     Delete
                   </button>
-                  <button className="btn-view">View Details</button>
+                  <button className="btn-view" onClick={() => setViewProperty(property)}>
+                    View Details
+                  </button>
+
                 </div>
               </div>
             </div>
@@ -226,6 +238,27 @@ export default function MyProperties() {
           </div>
         </div>
       )}
+      {viewProperty && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Property Details</h2>
+            <img src={viewProperty.image || '/default-image.jpg'} alt={viewProperty.title} className="modal-image" />
+            <p><strong>Title:</strong> {viewProperty.title}</p>
+            <p><strong>Location:</strong> {viewProperty.location}</p>
+            <p><strong>Rent:</strong> Rs. {viewProperty.price}</p>
+            <p><strong>Bedrooms:</strong> {viewProperty.bedrooms}</p>
+            <p><strong>Bathrooms:</strong> {viewProperty.bathrooms}</p>
+            <p><strong>Description:</strong> {viewProperty.description || 'N/A'}</p>
+            <p><strong>Type:</strong> {viewProperty.type}</p>
+            <div className="modal-buttons">
+              <button className="btn-cancel" onClick={() => setViewProperty(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

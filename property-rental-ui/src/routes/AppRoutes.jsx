@@ -10,7 +10,7 @@ import AddProperty from '../pages/owner/AddProperty';
 import Bookings from '../pages/owner/Bookings';
 import MyBookings from '../pages/renter/MyBookings';
 import Listings from '../pages/renter/Listings';
-import Favourites from '../pages/renter/Favourates';
+import Favorites from '../pages/renter/Favorites';
 import Register from '../pages/login/register';
 import Landing from '../pages/Landing';
 import { AuthContext } from '../context/AuthContext';
@@ -62,7 +62,7 @@ export default function AppRoutes() {
         <Route index element={<RenterHome />} />
         <Route path="bookings" element={<MyBookings />} />
         <Route path="listings" element={<Listings />} />
-        <Route path="favourates" element={<Favourites />} />
+        <Route path="favorites" element={<Favorites />} />
       </Route>
       <Route path="/property/:id" element={<PropertyDetails />} />
       <Route path="*" element={<Navigate to="/" replace />} />

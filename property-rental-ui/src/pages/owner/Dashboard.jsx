@@ -1,22 +1,109 @@
-import React from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import './Dashboard.css';
+import { AuthContext } from '../../context/AuthContext';
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
+} from 'recharts';
 
-export default function OwnerDashboard() {
-  const stats = [
-    { title: 'Total Properties', value: 12 },
-    { title: 'Pending Requests', value: 4 },
-    { title: 'Approved Requests', value: 8 },
-    { title: 'Total Tenants', value: 6 },
+const COLORS = ['#2a9d8f', '#e9c46a', '#e76f51'];
+
+export default function Dashboard() {
+  const { token } = useContext(AuthContext);
+  const [stats, setStats] = useState({
+    totalProperties: 0,
+    totalBookings: 0,
+    totalFavorites: 0,
+    bookingStatusCount: { Approved: 0, Pending: 0, Rejected: 0 },
+    recentProperties: [],
+    propertyStats: [],
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/dashboard/owner', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        console.log("Dashboard stats data:", data);
+        setStats(data);
+      } catch (err) {
+        console.error('Dashboard load error', err);
+      }
+    };
+    fetchStats();
+  }, [token]);
+
+  const statusData = [
+    { name: 'Approved', value: stats.bookingStatusCount?.Approved || 0 },
+    { name: 'Pending', value: stats.bookingStatusCount?.Pending || 0 },
+    { name: 'Rejected', value: stats.bookingStatusCount?.Rejected || 0 },
   ];
 
   return (
-    <div className="dashboard-grid">
-      {stats.map((item, index) => (
-        <div className="card" key={index}>
-          <h4>{item.title}</h4>
-          <p>{item.value}</p>
+    <div className="dashboard-container">
+      <h2>Owner Dashboard</h2>
+
+      <div className="dashboard-cards">
+        <div className="card"><h3>{stats.totalProperties ?? 0}</h3><p>Total Properties</p></div>
+        <div className="card"><h3>{stats.totalBookings ?? 0}</h3><p>Total Bookings</p></div>
+        <div className="card"><h3>{stats.totalFavorites ?? 0}</h3><p>Favorites</p></div>
+      </div>
+
+      <div className="chart-section">
+        <div className="chart-card">
+          <h3>Booking Status Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={statusData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label
+              >
+                {statusData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
-      ))}
+
+        <div className="chart-card">
+          <h3>Properties Added Per Month</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={stats.propertyStats || []}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="count" fill="#2a9d8f" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="recent-properties">
+        <h3>Recent Properties</h3>
+        {Array.isArray(stats.recentProperties) && stats.recentProperties.length > 0 ? (
+          <ul>
+            {stats.recentProperties.map((p) => (
+              <li key={p._id}>
+                {p.title} - Rs. {p.price} - {p.status || 'Available'}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No recent properties</p>
+        )}
+      </div>
     </div>
   );
 }
