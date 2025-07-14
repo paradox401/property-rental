@@ -83,7 +83,7 @@
 /* Favorite button clean and independent */
 .favorite-btn {
   all: unset;
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   cursor: pointer;
   color: #ccc;
   display: flex;
@@ -92,7 +92,6 @@
   padding: 0.3rem;
   transition: color 0.25s ease, transform 0.2s ease;
   border-radius: 50%;
-  line-height: 1;
 }
 
 .favorite-btn:hover {
@@ -104,12 +103,10 @@
   color: #e74c3c;
 }
 
-.favorite-btn:focus,
 .favorite-btn:focus-visible {
   outline: none;
   box-shadow: none;
 }
-
 
 /* Responsive tweaks */
 @media (max-width: 480px) {

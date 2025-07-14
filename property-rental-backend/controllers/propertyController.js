@@ -1,4 +1,5 @@
 import Property from "../models/Property.js";
+import Booking from "../models/Booking.js";
 
 export const addProperty = async (req, res) => {
   try {
@@ -105,6 +106,39 @@ export const getMyProperties = async (req, res) => {
     } catch (error) {
       console.error('Error fetching property:', error);
       res.status(500).json({ error: 'Failed to fetch property details' });
+    }
+  };
+  
+  export const getOwnerPropertiesWithBookingStatus = async (req, res) => {
+    try {
+      const properties = await Property.find({ ownerId: req.user._id });
+      const propertyIds = properties.map((p) => p._id);
+  
+      const latestBookings = await Booking.aggregate([
+        { $match: { property: { $in: propertyIds } } },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: '$property',
+            latestStatus: { $first: '$status' },
+          },
+        },
+      ]);
+  
+      const statusMap = {};
+      latestBookings.forEach((b) => {
+        statusMap[b._id.toString()] = b.latestStatus;
+      });
+  
+      const propertiesWithStatus = properties.map((p) => ({
+        ...p.toObject(),
+        status: statusMap[p._id.toString()] || 'Available',
+      }));
+  
+      res.json(propertiesWithStatus);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error fetching properties with booking status' });
     }
   };
   

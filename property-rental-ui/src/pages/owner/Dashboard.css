@@ -1,81 +1,287 @@
+/* Reset and base styles for the owner dashboard component */
 .dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
   padding: 2rem;
-  font-family: sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
+    "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f8fafc;
+  min-height: 100vh;
 }
 
+.dashboard-container h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+  margin: 0 0 2.5rem 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+/* Dashboard summary cards */
 .dashboard-cards {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 2rem;
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
 }
 
-.card {
-  background: #f1f1f1;
-  padding: 1.5rem;
-  border-radius: 10px;
-  flex: 1;
+.dashboard-cards .card {
+  background-color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 2rem;
   text-align: center;
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.card h3 {
-  font-size: 2rem;
+.dashboard-cards .card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-cards .card h3 {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #2a9d8f; /* Primary accent color */
+  margin: 0 0 0.5rem 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.dashboard-cards .card p {
+  font-size: 1.125rem;
+  color: #64748b;
   margin: 0;
+  padding: 0;
 }
 
-.status-summary {
-  margin-bottom: 2rem;
+/* Chart section */
+.chart-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
 }
 
-.status-grid {
+.chart-card {
+  background-color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 2rem;
+  border: 1px solid #e2e8f0;
   display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
-.status-card {
-  flex: 1;
-  padding: 1rem;
-  border-radius: 8px;
+.chart-card h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 1.5rem 0;
+  padding: 0;
   text-align: center;
-  font-weight: bold;
-  color: white;
 }
 
-.approved {
-  background-color: #2a9d8f;
+/* Recharts specific styling (adjust as needed, these are general) */
+.recharts-wrapper {
+  font-size: 0.875rem;
+  color: #64748b;
 }
 
-.pending {
-  background-color: #e9c46a;
+.recharts-tooltip-wrapper {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
 }
 
-.rejected {
-  background-color: #e76f51;
+.recharts-tooltip-item {
+  color: #1e293b !important;
+}
+
+.recharts-legend-wrapper {
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+/* Recent properties section */
+.recent-properties {
+  background-color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 2rem;
+  border: 1px solid #e2e8f0;
+}
+
+.recent-properties h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 1.5rem 0;
+  padding: 0;
+  text-align: center;
 }
 
 .recent-properties ul {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
 .recent-properties li {
-  background: #f9f9f9;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
-  border-radius: 6px;
-}
-.chart-section {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem 1.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  color: #374151;
   display: flex;
-  gap: 2rem;
+  justify-content: space-between;
+  align-items: center;
   flex-wrap: wrap;
-  margin-bottom: 2rem;
+  gap: 0.5rem;
 }
 
-.chart-card {
-  flex: 1;
-  min-width: 300px;
-  background: #fdfdfd;
-  padding: 1.5rem;
-  border-radius: 10px;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+.recent-properties li:last-child {
+  margin-bottom: 0;
+}
+
+/* No recent properties message */
+.recent-properties p {
+  font-size: 1rem;
+  color: #64748b;
+  text-align: center;
+  padding: 1rem;
+  margin: 0;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .dashboard-container {
+    padding: 1.5rem;
+  }
+
+  .dashboard-cards {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .chart-section {
+    grid-template-columns: 1fr; /* Stack charts on smaller screens */
+    gap: 1.5rem;
+  }
+
+  .chart-card {
+    padding: 1.5rem;
+  }
+
+  .recent-properties {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 1rem;
+  }
+
+  .dashboard-container h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .dashboard-cards {
+    grid-template-columns: 1fr; /* Single column for cards */
+    gap: 1rem;
+  }
+
+  .dashboard-cards .card {
+    padding: 1.5rem;
+  }
+
+  .dashboard-cards .card h3 {
+    font-size: 2.5rem;
+  }
+
+  .dashboard-cards .card p {
+    font-size: 1rem;
+  }
+
+  .chart-card h3,
+  .recent-properties h3 {
+    font-size: 1.375rem;
+    margin-bottom: 1rem;
+  }
+
+  .recent-properties li {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-container {
+    padding: 0.75rem;
+  }
+
+  .dashboard-container h2 {
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .dashboard-cards .card {
+    padding: 1rem;
+  }
+
+  .dashboard-cards .card h3 {
+    font-size: 2rem;
+  }
+
+  .chart-card {
+    padding: 1rem;
+  }
+
+  .chart-card h3,
+  .recent-properties h3 {
+    font-size: 1.25rem;
+  }
+
+  .recent-properties {
+    padding: 1rem;
+  }
+
+  .recent-properties li {
+    font-size: 0.875rem;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .dashboard-cards .card,
+  .chart-card,
+  .recent-properties,
+  .recent-properties li {
+    border: 2px solid #000000;
+  }
+
+  .dashboard-cards .card h3 {
+    color: #00ff00;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-cards .card {
+    transition: none;
+    transform: none;
+  }
 }

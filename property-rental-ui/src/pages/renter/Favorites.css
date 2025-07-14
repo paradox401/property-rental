@@ -1,163 +1,190 @@
-.favorites-page {
+/* Reset and base styles for the favorites component */
+.favorites-container {
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 2rem;
-  background-color: #f9f9f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
+    "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f8fafc;
+  min-height: 100vh;
 }
 
-.favorites-page h2 {
-  margin-bottom: 1.5rem;
-  font-size: 1.8rem;
-  color: #333;
+.favorites-container h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1e293b;
   text-align: center;
+  margin: 0 0 2rem 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+.favorites-container .error {
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.favorites-container p {
+  font-size: 1.125rem;
+  color: #64748b;
+  text-align: center;
+  margin: 2rem 0;
+  padding: 0;
+  line-height: 1.6;
 }
 
 .favorites-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
+  margin-top: 2rem;
 }
 
-/* Card Style */
 .favorite-card {
-  background-color: white;
-  border-radius: 10px;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   overflow: hidden;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s;
-  display: flex;
-  flex-direction: column;
+  transition: all 0.3s ease;
+  border: 1px solid #e2e8f0;
+  position: relative;
 }
 
 .favorite-card:hover {
-  transform: scale(1.02);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px 0 rgba(0, 0, 0, 0.1), 0 4px 6px 0 rgba(0, 0, 0, 0.05);
 }
 
 .favorite-card img {
   width: 100%;
-  height: 160px;
+  height: 200px;
   object-fit: cover;
-}
-
-.favorite-info {
-  padding: 1rem;
-  flex-grow: 1;
-}
-
-.favorite-info h3 {
-  font-size: 1.1rem;
-  margin-bottom: 0.3rem;
-  color: #222;
-}
-
-.favorite-info p {
-  margin: 0.2rem 0;
-  font-size: 0.9rem;
-  color: #555;
-}
-
-/* Remove Favorite Button */
-.favorite-info button {
-  margin-top: 0.6rem;
-  padding: 0.4rem 1rem;
+  display: block;
   border: none;
-  background-color: #e74c3c;
-  color: white;
-  border-radius: 5px;
+  margin: 0;
+  padding: 0;
+}
+
+.favorite-card h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 1rem 1rem 0.5rem 1rem;
+  padding: 0;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-card p {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0.25rem 1rem;
+  padding: 0;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.favorite-card p:last-of-type {
+  font-weight: 600;
+  color: #059669;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.favorite-card button {
+  width: calc(100% - 2rem);
+  margin: 0 1rem 1rem 1rem;
+  padding: 0.75rem 1rem;
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.favorite-info button:hover {
-  background-color: #c0392b;
-}
-
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
-}
-
-.modal-content {
-  background-color: white;
-  padding: 20px;
-  width: 90%;
-  max-width: 600px;
-  border-radius: 10px;
-  position: relative;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.modal-close {
-  position: absolute;
-  top: 10px;
-  right: 15px;
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-}
-
-.modal-close:hover {
-  color: #ff0000;
-}
-
-/* Error Message */
-.error {
-  text-align: center;
-  color: #e74c3c;
-  font-size: 0.95rem;
-  margin-top: 1rem;
-}
-
-/* Property Actions Area */
-.property-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.property-actions button {
-  padding: 0.4rem 1rem;
-  background-color: #1f9e5f;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.2s ease;
-}
-
-.property-actions button:hover {
-  background-color: #178c50;
-}
-
-/* Favorite Button Inline in Property Card */
-.favorite-btn {
-  padding: 0.4rem 0.7rem;
-  background-color: #eee;
-  color: #333;
-  border: none;
-  border-radius: 5px;
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.2s ease;
+  font-family: inherit;
 }
 
-.favorite-btn:hover {
-  transform: scale(1.1);
+.favorite-card button:hover {
+  background-color: #b91c1c;
+  transform: translateY(-1px);
 }
 
-.favorite-btn.favorited {
-  background-color: #e74c3c;
-  color: white;
+.favorite-card button:active {
+  transform: translateY(0);
+  background-color: #991b1b;
+}
+
+.favorite-card button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .favorites-container {
+    padding: 1rem;
+  }
+
+  .favorites-container h1 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .favorites-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .favorite-card {
+    margin: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .favorites-container {
+    padding: 0.75rem;
+  }
+
+  .favorites-container h1 {
+    font-size: 1.75rem;
+  }
+
+  .favorite-card h3 {
+    font-size: 1.125rem;
+  }
+
+  .favorite-card img {
+    height: 180px;
+  }
+}
+
+/* Loading state (optional) */
+.favorites-container.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Empty state styling */
+.favorites-container p:only-child {
+  background-color: #ffffff;
+  border: 2px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 3rem 2rem;
+  margin: 2rem auto;
+  max-width: 400px;
+  color: #64748b;
+  font-size: 1rem;
 }

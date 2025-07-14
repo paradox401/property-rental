@@ -1,46 +1,278 @@
-.renter-home {
-    padding: 2rem;
-    background-color: #f9f9f9;
-  }
-  
-  .renter-home h1 {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-  }
-  
-  .renter-home p {
-    font-size: 1.1rem;
-    margin-bottom: 2rem;
-    color: #555;
-  }
-  
-  .home-cards {
-    display: flex;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-  }
-  
-  .home-card {
-    flex: 1;
-    min-width: 220px;
-    background-color: white;
+/* Reset and base styles for the renter dashboard component */
+.dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
+    "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+.dashboard-container h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+  margin: 0 0 2.5rem 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+/* Dashboard summary cards */
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.dashboard-cards .card {
+  background-color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 2rem;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-cards .card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-cards .card h3 {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #2a9d8f; /* Primary accent color */
+  margin: 0 0 0.5rem 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.dashboard-cards .card p {
+  font-size: 1.125rem;
+  color: #64748b;
+  margin: 0;
+  padding: 0;
+}
+
+/* Chart section */
+.chart-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.chart-card {
+  background-color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 2rem;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-card h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 1.5rem 0;
+  padding: 0;
+  text-align: center;
+}
+
+/* Recharts specific styling (adjust as needed, these are general) */
+.recharts-wrapper {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.recharts-tooltip-wrapper {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.recharts-tooltip-item {
+  color: #1e293b !important;
+}
+
+.recharts-legend-wrapper {
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+/* Recent properties section */
+.recent-properties {
+  background-color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 2rem;
+  border: 1px solid #e2e8f0;
+}
+
+.recent-properties h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 1.5rem 0;
+  padding: 0;
+  text-align: center;
+}
+
+.recent-properties ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.recent-properties li {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem 1.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  color: #374151;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.recent-properties li:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .dashboard-container {
     padding: 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    transition: transform 0.2s ease;
   }
-  
-  .home-card:hover {
-    transform: translateY(-5px);
+
+  .dashboard-cards {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
   }
-  
-  .home-card h3 {
-    margin-bottom: 0.5rem;
-    color: #333;
+
+  .chart-section {
+    grid-template-columns: 1fr; /* Stack charts on smaller screens */
+    gap: 1.5rem;
   }
-  
-  .home-card p {
-    color: #666;
-    font-size: 0.95rem;
+
+  .chart-card {
+    padding: 1.5rem;
   }
-  
+
+  .recent-properties {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 1rem;
+  }
+
+  .dashboard-container h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .dashboard-cards {
+    grid-template-columns: 1fr; /* Single column for cards */
+    gap: 1rem;
+  }
+
+  .dashboard-cards .card {
+    padding: 1.5rem;
+  }
+
+  .dashboard-cards .card h3 {
+    font-size: 2.5rem;
+  }
+
+  .dashboard-cards .card p {
+    font-size: 1rem;
+  }
+
+  .chart-card h3,
+  .recent-properties h3 {
+    font-size: 1.375rem;
+    margin-bottom: 1rem;
+  }
+
+  .recent-properties li {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-container {
+    padding: 0.75rem;
+  }
+
+  .dashboard-container h2 {
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .dashboard-cards .card {
+    padding: 1rem;
+  }
+
+  .dashboard-cards .card h3 {
+    font-size: 2rem;
+  }
+
+  .chart-card {
+    padding: 1rem;
+  }
+
+  .chart-card h3,
+  .recent-properties h3 {
+    font-size: 1.25rem;
+  }
+
+  .recent-properties {
+    padding: 1rem;
+  }
+
+  .recent-properties li {
+    font-size: 0.875rem;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .dashboard-cards .card,
+  .chart-card,
+  .recent-properties,
+  .recent-properties li {
+    border: 2px solid #000000;
+  }
+
+  .dashboard-cards .card h3 {
+    color: #00ff00;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-cards .card {
+    transition: none;
+    transform: none;
+  }
+}

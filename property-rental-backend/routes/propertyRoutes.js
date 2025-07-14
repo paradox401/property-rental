@@ -5,13 +5,13 @@ import {
   deleteProperty,
   updateProperty,
   getProperty,
-  getPropertyById
+  getPropertyById,
+  getOwnerPropertiesWithBookingStatus
 } from '../controllers/propertyController.js';
 import protect from '../middleware/authMiddleware.js';
 const router = express.Router();
-
+router.get('/my', protect, getOwnerPropertiesWithBookingStatus);
 router.post('/', protect, addProperty);
-router.get('/my', protect, getMyProperties); 
 router.put('/:id', protect, updateProperty);
 router.delete('/:id', protect, deleteProperty);
 router.get('/', getProperty); 

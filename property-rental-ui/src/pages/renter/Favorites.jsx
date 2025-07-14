@@ -50,8 +50,8 @@ export default function Favorites() {
             <div className="favorite-card" key={property._id}>
               <img src={property.image || '/default-image.jpg'} alt={property.title} />
               <h3>{property.title}</h3>
-              <p>{property.location}</p>
-              <p>Rs. {property.price}</p>
+              <p>Location: {property.location}</p>
+              <p>Price: Rs. {property.price}</p>
               <button onClick={() => removeFavorite(property._id)}>Remove</button>
             </div>
           ))}
