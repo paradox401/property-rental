@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import './OwnerLayout.css';
+import { AuthContext } from '../context/AuthContext';
 
 export default function OwnerLayout() {
+  const { user } = useContext(AuthContext);
+
   return (
     <div className="owner-layout">
       <aside className="sidebar">
@@ -19,8 +22,12 @@ export default function OwnerLayout() {
 
       <div className="main">
         <header className="topbar">
-          <h3>Welcome, Owner</h3>
-          <div className="user-menu">owner@test.com</div>
+          {user && (
+            <>
+              <h3>Welcome, {user.name || 'Owner'}</h3>
+              <div className="user-menu">{user.email}</div>
+            </>
+          )}
         </header>
         <main className="dashboard-content">
           <Outlet />

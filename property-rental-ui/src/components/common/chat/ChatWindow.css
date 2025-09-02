@@ -1,0 +1,107 @@
+.chat-window {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #f9f9f9;
+  }
+  
+  .chat-header {
+    padding: 16px;
+    background-color: #f0f0f0;
+    border-bottom: 1px solid #e0e0e0;
+    color: #333;
+    font-size: 1.1em;
+    font-weight: 600;
+  }
+  
+  .chat-messages {
+    flex-grow: 1;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .chat-message {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 18px;
+    line-height: 1.4;
+    word-wrap: break-word;
+  }
+  
+  .chat-message.sent {
+    align-self: flex-end;
+    background-color: #dcf8c6; /* Light green for sent messages */
+    color: #333;
+    border-bottom-right-radius: 4px;
+  }
+  
+  .chat-message.received {
+    align-self: flex-start;
+    background-color: #ffffff; /* White for received messages */
+    color: #333;
+    border: 1px solid #e0e0e0;
+    border-bottom-left-radius: 4px;
+  }
+  
+  .chat-input {
+    display: flex;
+    padding: 16px;
+    border-top: 1px solid #e0e0e0;
+    background-color: #f0f0f0;
+    gap: 10px;
+  }
+  
+  .chat-input input {
+    flex-grow: 1;
+    padding: 10px 15px;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    font-size: 1em;
+    outline: none;
+  }
+  
+  .chat-input input:focus {
+    border-color: #a0a0a0;
+  }
+  
+  .chat-input button {
+    padding: 10px 20px;
+    background-color: #4caf50; /* Green send button */
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease-in-out;
+  }
+  
+  .chat-input button:hover {
+    background-color: #45a049;
+  }
+  
+  /* Basic responsiveness */
+  @media (max-width: 768px) {
+    .chat-window {
+      border-radius: 0;
+    }
+  
+    .chat-message {
+      max-width: 85%;
+    }
+  
+    .chat-input {
+      flex-direction: column;
+      gap: 8px;
+    }
+  
+    .chat-input button {
+      width: 100%;
+    }
+  }
+  

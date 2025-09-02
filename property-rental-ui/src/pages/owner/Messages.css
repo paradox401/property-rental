@@ -1,0 +1,43 @@
+.message-page {
+    display: flex;
+    height: 80vh;
+    border: 1px solid #ccc;
+  }
+  
+  .chat-sidebar {
+    width: 30%;
+    border-right: 1px solid #ccc;
+    overflow-y: auto;
+  }
+  
+  .chat-window {
+    width: 70%;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .chat-messages {
+    flex: 1;
+    padding: 10px;
+    overflow-y: scroll;
+  }
+  
+  .chat-input {
+    display: flex;
+    border-top: 1px solid #ccc;
+  }
+  
+  .chat-input input {
+    flex: 1;
+    padding: 10px;
+  }
+  
+  .chat-input button {
+    padding: 10px;
+  }
+  
+  .own {
+    text-align: right;
+    font-weight: bold;
+  }
+  

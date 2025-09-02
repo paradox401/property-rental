@@ -9,29 +9,37 @@ export function AuthProvider({ children }) {
   });
   const [token, setToken] = useState(() => localStorage.getItem('token') || null);
 
-  const login = async (email, password, role) => {
+  const login = async ( email, password, role) => {
     try {
       const res = await fetch('http://localhost:8000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({email, password, role }),
       });
-
+  
       const data = await res.json();
-
+  
       if (!res.ok) return { error: data.error || 'Login failed' };
+  
+      const userData = {
+        _id: data.user._id,
+        email: data.user.email,
+        role: data.user.role,
 
-      setUser({ _id: data.user._id, email: data.user.email, role: data.user.role });
+      };
+  
+      setUser(userData);
       setToken(data.token);
-
+  
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
+      localStorage.setItem('user', JSON.stringify(userData));
+  
       return data;
     } catch (error) {
       return { error: 'Server error. Please try again later.' };
     }
   };
+  
 
   const logout = () => {
     setUser(null);

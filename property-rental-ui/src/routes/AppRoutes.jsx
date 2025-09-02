@@ -15,6 +15,8 @@ import Register from '../pages/login/register';
 import Landing from '../pages/Landing';
 import { AuthContext } from '../context/AuthContext';
 import PropertyDetails from '../components/common/PropertyDetails';
+import Messages from '../pages/owner/Messages';
+import Message from '../pages/renter/Message';
 
 function PrivateRoute({ children, role }) {
   const { user } = useContext(AuthContext);
@@ -49,6 +51,7 @@ export default function AppRoutes() {
         <Route path="properties" element={<MyProperties />} /> 
         <Route path="add" element={<AddProperty />} />
         <Route path="requests" element={<Bookings />} />
+        <Route path="messages" element={<Messages />} />
       </Route>
 
       <Route
@@ -63,6 +66,7 @@ export default function AppRoutes() {
         <Route path="bookings" element={<MyBookings />} />
         <Route path="listings" element={<Listings />} />
         <Route path="favorites" element={<Favorites />} />
+        <Route path="message" element={<Message />} />
       </Route>
       <Route path="/property/:id" element={<PropertyDetails />} />
       <Route path="*" element={<Navigate to="/" replace />} />
