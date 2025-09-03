@@ -140,7 +140,7 @@ export default function MyProperties() {
                     ? 'approved'
                     : 'available'
                   }`}>
-                  Status: {property.status === 'Approved' ? 'Approved' : 'Available'}
+                  Status: {property.status === 'Approved' ? 'booked' : 'Available'}
                 </p>
 
 

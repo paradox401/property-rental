@@ -1,47 +1,39 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import ChatList from '../../components/common/chat/ChatList';
 import ChatWindow from '../../components/common/chat/ChatWindow';
-import axios from 'axios';
 import './Messages.css';
 
-export default function Messages() {
-  const [selectedUser, setSelectedUser] = useState(null);
+export default function Message() {
   const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   const user = JSON.parse(localStorage.getItem('user'));
   const token = localStorage.getItem('token');
 
-  console.log('User from localStorage:', user);
-console.log('Token from localStorage:', token);
-
-
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchAllowedUsers = async () => {
       try {
-        const res = await axios.get('http://localhost:8000/api/users', {
+        const res = await axios.get('http://localhost:8000/api/chat/allowed-users', {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        console.log('res.data:', res.data);
-
-        const usersData = Array.isArray(res.data) ? res.data : res.data.users;
-
-        if (!Array.isArray(usersData)) {
-          throw new Error('Expected an array of users, but got: ' + JSON.stringify(res.data));
-        }
-
-        setUsers(usersData.filter((u) => u._id !== user._id));
+        setUsers(Array.isArray(res.data) ? res.data : []);
       } catch (error) {
-        console.error('fetchUsers error:', error.message);
+        console.error('Error fetching allowed users:', error.message);
       }
     };
 
-    fetchUsers();
-  }, [token, user]);
+    fetchAllowedUsers();
+  }, [token]);
 
   return (
     <div className="message-page">
-      <ChatList users={users} onSelectUser={setSelectedUser} />
+      <ChatList
+        users={users}
+        onSelectUser={setSelectedUser}
+        selectedUser={selectedUser}
+      />
       {selectedUser && <ChatWindow selectedUser={selectedUser} />}
     </div>
   );
