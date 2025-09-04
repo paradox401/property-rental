@@ -16,6 +16,7 @@ export default function OwnerLayout() {
           <NavLink to="/owner/add">Add Property</NavLink>
           <NavLink to="/owner/requests">Bookings</NavLink>
           <NavLink to="/owner/messages">Messages</NavLink>
+          <NavLink to="/owner/ocomplaint">Complaints</NavLink>
           <NavLink to="/login">Logout</NavLink>
         </nav>
       </aside>

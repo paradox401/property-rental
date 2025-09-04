@@ -17,6 +17,9 @@ import { AuthContext } from '../context/AuthContext';
 import PropertyDetails from '../components/common/PropertyDetails';
 import Messages from '../pages/owner/Messages';
 import Message from '../pages/renter/Message';
+import ComplaintPage from '../pages/renter/ComplaintPage';
+import OwnerComplaint from '../pages/owner/OwnerComplaint';
+import ComplaintHistory from '../pages/renter/ComplaintHistory';
 
 function PrivateRoute({ children, role }) {
   const { user } = useContext(AuthContext);
@@ -52,6 +55,7 @@ export default function AppRoutes() {
         <Route path="add" element={<AddProperty />} />
         <Route path="requests" element={<Bookings />} />
         <Route path="messages" element={<Messages />} />
+        <Route path="ocomplaint" element={<OwnerComplaint />} />
       </Route>
 
       <Route
@@ -67,6 +71,8 @@ export default function AppRoutes() {
         <Route path="listings" element={<Listings />} />
         <Route path="favorites" element={<Favorites />} />
         <Route path="message" element={<Message />} />
+        <Route path="complaint" element={<ComplaintPage />} />
+        <Route path="complaint-history" element={<ComplaintHistory/>} />
       </Route>
       <Route path="/property/:id" element={<PropertyDetails />} />
       <Route path="*" element={<Navigate to="/" replace />} />

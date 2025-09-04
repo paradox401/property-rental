@@ -109,3 +109,20 @@ export const updateStatus = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+
+export const getApprovedBookings = async (req, res) => {
+  try {
+    const renterId = req.params.renterId;
+
+    const bookings = await Booking.find({ renter: renterId, status: "Approved" })
+      .populate("property");
+
+    res.json(bookings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Failed to fetch bookings" });
+  }
+};
+
+
