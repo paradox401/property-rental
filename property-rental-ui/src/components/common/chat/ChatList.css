@@ -1,122 +1,35 @@
 .chat-sidebar {
   width: 300px;
   height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f7f7f7;            /* light gray sidebar */
+  border-right: 1px solid #e0e0e0;
   padding: 20px;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 2px 0 8px rgba(0,0,0,0.05);
   overflow-y: auto;
   position: relative;
 }
 
-.chat-sidebar::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  z-index: -1;
-}
-
 .chat-sidebar h1 {
-  color: white;
+  color: #1a1a1a;
   font-size: 24px;
   font-weight: 700;
   margin-bottom: 30px;
   text-align: center;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  letter-spacing: 0.5px;
 }
 
 .chat-sidebar > div {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
   border-radius: 12px;
   padding: 16px 20px;
   margin-bottom: 12px;
-  color: white;
+  color: #1a1a1a;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-weight: 500;
-  position: relative;
-  overflow: hidden;
-}
-
-.chat-sidebar > div::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
+  transition: all 0.3s ease;
 }
 
 .chat-sidebar > div:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: #f1f1f1;
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.chat-sidebar > div:hover::before {
-  left: 100%;
-}
-
-.chat-sidebar > div:active {
-  transform: translateY(0);
-  transition: transform 0.1s;
-}
-
-.chat-sidebar p {
-  color: rgba(255, 255, 255, 0.8);
-  text-align: center;
-  font-style: italic;
-  margin-top: 40px;
-  font-size: 14px;
-}
-
-/* Scrollbar styling */
-.chat-sidebar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-sidebar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-.chat-sidebar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
-}
-
-.chat-sidebar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .chat-sidebar {
-    width: 100%;
-    height: auto;
-    max-height: 200px;
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .chat-sidebar h1 {
-    font-size: 20px;
-    margin-bottom: 20px;
-  }
-
-  .chat-sidebar > div {
-    padding: 12px 16px;
-    margin-bottom: 8px;
-  }
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }

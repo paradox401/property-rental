@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import './ChatList.css';
 
-export default function ChatList({ users, onSelectUser }) {
+export default function ChatList({ users, onSelectUser, fetchUsers }) {
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (fetchUsers) fetchUsers(); // call parent-provided fetch function
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [fetchUsers]);
+
   return (
     <div className="chat-sidebar">
       <h1>Users</h1>

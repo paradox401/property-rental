@@ -9,9 +9,9 @@
   --surface-gray-50: #f8fafc;
   --surface-gray-100: #f1f5f9;
   --surface-gray-900: #0f172a;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
+  --text-primary: #151516;
+  --text-secondary: #1b2026;
+  --text-muted: #060505;
   --border-light: #e2e8f0;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -372,20 +372,32 @@
     --surface-white: #1e293b;
     --surface-gray-50: #334155;
     --surface-gray-100: #475569;
-    --text-primary: #f1f5f9;
-    --text-secondary: #cbd5e1;
+    --text-primary: #101213;
+    --text-secondary: #17181a;
     --text-muted: #94a3b8;
     --border-light: #334155;
   }
 
   .payment-container {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+    background: #ffffff;          /* solid white background */
+    color: #000000;               /* black text */
   }
+  
 
   .booking-card,
-  .history-card {
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-  }
+.history-card {
+  background: #f9f9f9;     /* very light gray */
+  color: #000;             /* black text */
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
 
   .date-box {
     background: var(--surface-gray-100);
