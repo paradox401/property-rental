@@ -20,6 +20,9 @@ import Message from '../pages/renter/Message';
 import ComplaintPage from '../pages/renter/ComplaintPage';
 import OwnerComplaint from '../pages/owner/OwnerComplaint';
 import ComplaintHistory from '../pages/renter/ComplaintHistory';
+import PaymentPage from '../pages/renter/PaymentPage';
+import PaymentSuccess from '../pages/renter/PaymentSuccess';
+import PaymentFailure from '../pages/renter/PaymentFailure';
 
 function PrivateRoute({ children, role }) {
   const { user } = useContext(AuthContext);
@@ -73,6 +76,9 @@ export default function AppRoutes() {
         <Route path="message" element={<Message />} />
         <Route path="complaint" element={<ComplaintPage />} />
         <Route path="complaint-history" element={<ComplaintHistory/>} />
+        <Route path="payments" element={<PaymentPage/>} />
+        <Route path="payment/success" element={<PaymentSuccess />} />
+        <Route path="payment/failure" element={<PaymentFailure />} />
       </Route>
       <Route path="/property/:id" element={<PropertyDetails />} />
       <Route path="*" element={<Navigate to="/" replace />} />

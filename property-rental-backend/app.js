@@ -13,6 +13,7 @@ import userRoutes from './routes/userRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import complaintRoutes from "./routes/complaintRoutes.js";
+import paymentRoutes from './routes/paymentRoutes.js';
 
 dotenv.config();
 connectDB();
@@ -31,6 +32,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/chat', chatRoutes); 
 app.use("/api/complaints", complaintRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.get('/', (req, res) => {
   res.send('Property Rental API is running');

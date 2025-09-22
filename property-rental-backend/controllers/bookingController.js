@@ -124,5 +124,3 @@ export const getApprovedBookings = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to fetch bookings" });
   }
 };
-
-

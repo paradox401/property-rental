@@ -14,6 +14,7 @@ export default function RenterLayout() {
           <NavLink to="/renter/favorites">favourites</NavLink>
           <NavLink to="/renter/message">Message</NavLink>
           <NavLink to="/renter/complaint">Make Complaint</NavLink>
+          <NavLink to="/renter/payments">Payments</NavLink>
           <NavLink to="/login">Logout</NavLink>
         </nav>
       </aside>

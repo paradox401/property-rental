@@ -25,7 +25,7 @@ export default function ChatWindow({ selectedUser }) {
     if (selectedUser) {
       fetchMessages();
     }
-  }, [selectedUser]);
+  }, [selectedUser, token]);
 
   const handleSend = async () => {
     if (!newMessage.trim()) return;
@@ -49,6 +49,13 @@ export default function ChatWindow({ selectedUser }) {
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
     <div className="chat-window">
       <div className="chat-header">
@@ -69,7 +76,9 @@ export default function ChatWindow({ selectedUser }) {
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Type a message"
+          rows={2}
         />
         <button onClick={handleSend}>Send</button>
       </div>
