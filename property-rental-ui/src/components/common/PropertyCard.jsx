@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { FaHeart, FaRegHeart } from "react-icons/fa";
+import { FaHeart, FaRegHeart, FaStar } from "react-icons/fa";
 import './PropertyCard.css';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -29,30 +29,25 @@ function PropertyCard({ property, onViewDetails, onApplyBooking }) {
     }
   };
 
-useEffect(() => {
-  const checkFavorite = async () => {
-    try {
-      const res = await fetch(`http://localhost:8000/api/favorites/check/${property._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await res.json();
-
-      // ✅ Ensure correct type checking
-      if (res.ok && typeof data.isFavorited === 'boolean') {
-        setIsFavorited(data.isFavorited);
-      } else {
+  useEffect(() => {
+    const checkFavorite = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/api/favorites/check/${property._id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok && typeof data.isFavorited === 'boolean') {
+          setIsFavorited(data.isFavorited);
+        } else {
+          setIsFavorited(false);
+        }
+      } catch (err) {
+        console.error('Error checking favorite:', err.message);
         setIsFavorited(false);
       }
-    } catch (err) {
-      console.error('Error checking favorite:', err.message);
-      setIsFavorited(false);
-    }
-  };
-
-  if (token) checkFavorite();
-}, [property._id, token]);
-
+    };
+    if (token) checkFavorite();
+  }, [property._id, token]);
 
   return (
     <div className="property-card">
@@ -61,6 +56,16 @@ useEffect(() => {
         <h3>{property.title}</h3>
         <p>{property.location}</p>
         <p>Rs. {property.price}/month</p>
+
+        <div className="property-rating">
+          {[...Array(5)].map((_, i) => (
+            <FaStar
+              key={i}
+              color={i < Math.round(property.rating) ? '#FFD700' : '#ccc'}
+            />
+          ))}
+          <span> ({property.numRatings})</span>
+        </div>
 
         <div className="property-actions">
           <div className="action-buttons">
@@ -77,7 +82,6 @@ useEffect(() => {
           >
             {isFavorited ? <FaHeart /> : <FaRegHeart />}
           </div>
-
         </div>
       </div>
     </div>
