@@ -1,5 +1,7 @@
 import Property from "../models/Property.js";
 import Booking from "../models/Booking.js";
+import User from "../models/User.js";
+import { sendNotification } from '../socket.js';
 
 export const addProperty = async (req, res) => {
   try {
@@ -24,6 +26,17 @@ export const addProperty = async (req, res) => {
 
     await newProperty.save();
 
+    // ✅ Notify all users except the owner about new listing
+    const users = await User.find({ _id: { $ne: ownerId } });
+    for (const user of users) {
+      await sendNotification(
+        user._id,
+        'newListing',
+        `A new property "${title}" has been leasted near you hope you are intreasted in.`,
+        `/properties/${newProperty._id}`
+      );
+    }
+
     res.status(201).json({ message: 'Property added successfully', property: newProperty });
   } catch (error) {
     console.error('Add property error:', error);
@@ -31,114 +44,102 @@ export const addProperty = async (req, res) => {
   }
 };
 
-
 export const getMyProperties = async (req, res) => {
-    try {
-      const properties = await Property.find({ ownerId: req.user._id });
-      res.status(200).json(properties);
-    } catch (error) {
-      console.error('Get my properties error:', error);
-      res.status(500).json({ error: 'Server error' });
-    }
-  };
-  
-  export const updateProperty = async (req, res) => {
-    try {
-      const propertyId = req.params.id;
-      const ownerId = req.user._id;
-  
-      const property = await Property.findOne({ _id: propertyId, ownerId });
-  
-      if (!property) {
-        return res.status(404).json({ error: 'Property not found' });
-      }
-  
-      const updatedData = req.body;
-      Object.assign(property, updatedData);
-  
-      await property.save();
-      res.status(200).json({ message: 'Property updated successfully', property });
-    } catch (error) {
-      console.error('Update property error:', error);
-      res.status(500).json({ error: 'Server error' });
-    }
-  };
-  
+  try {
+    const properties = await Property.find({ ownerId: req.user._id });
+    res.status(200).json(properties);
+  } catch (error) {
+    console.error('Get my properties error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
 
-  export const deleteProperty = async (req, res) => {
-    try {
-      const property = await Property.findById(req.params.id);
-      if (!property) {
-        return res.status(404).json({ error: 'Property not found' });
-      }
-  
-      if (!property.ownerId.equals(req.user._id)) {
-        return res.status(401).json({ error: 'Not authorized to delete this property' });
-      }
-  
-      await Property.findByIdAndDelete(req.params.id);
-      res.json({ message: 'Property deleted successfully' });
-    } catch (error) {
-      console.error('Delete property error:', error);
-      res.status(500).json({ error: 'Server error' });
-    }
-  };
-  
-  export const getProperty =  async (req, res) => {
-    try {
-      const properties = await Property.find();
-      res.status(200).json(properties);
-    } catch (error) {
-      console.error('Error fetching properties:', error);
-      res.status(500).json({ error: 'Failed to fetch properties' });
-    }
-  };
-  
- 
+export const updateProperty = async (req, res) => {
+  try {
+    const propertyId = req.params.id;
+    const ownerId = req.user._id;
 
-  export const getPropertyById = async (req, res) => {
-    try {
-      const property = await Property.findById(req.params.id);
-      if (!property) {
-        return res.status(404).json({ error: 'Property not found' });
-      }
-      res.status(200).json(property);
-    } catch (error) {
-      console.error('Error fetching property:', error);
-      res.status(500).json({ error: 'Failed to fetch property details' });
+    const property = await Property.findOne({ _id: propertyId, ownerId });
+
+    if (!property) {
+      return res.status(404).json({ error: 'Property not found' });
     }
-  };
-  
-  export const getOwnerPropertiesWithBookingStatus = async (req, res) => {
-    try {
-      const properties = await Property.find({ ownerId: req.user._id });
-      const propertyIds = properties.map((p) => p._id);
-  
-      const latestBookings = await Booking.aggregate([
-        { $match: { property: { $in: propertyIds } } },
-        { $sort: { createdAt: -1 } },
-        {
-          $group: {
-            _id: '$property',
-            latestStatus: { $first: '$status' },
-          },
+
+    Object.assign(property, req.body);
+
+    await property.save();
+    res.status(200).json({ message: 'Property updated successfully', property });
+  } catch (error) {
+    console.error('Update property error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const deleteProperty = async (req, res) => {
+  try {
+    const property = await Property.findById(req.params.id);
+    if (!property) return res.status(404).json({ error: 'Property not found' });
+    if (!property.ownerId.equals(req.user._id)) {
+      return res.status(401).json({ error: 'Not authorized to delete this property' });
+    }
+    await Property.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Property deleted successfully' });
+  } catch (error) {
+    console.error('Delete property error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const getProperty = async (req, res) => {
+  try {
+    const properties = await Property.find();
+    res.status(200).json(properties);
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+    res.status(500).json({ error: 'Failed to fetch properties' });
+  }
+};
+
+export const getPropertyById = async (req, res) => {
+  try {
+    const property = await Property.findById(req.params.id);
+    if (!property) return res.status(404).json({ error: 'Property not found' });
+    res.status(200).json(property);
+  } catch (error) {
+    console.error('Error fetching property:', error);
+    res.status(500).json({ error: 'Failed to fetch property details' });
+  }
+};
+
+export const getOwnerPropertiesWithBookingStatus = async (req, res) => {
+  try {
+    const properties = await Property.find({ ownerId: req.user._id });
+    const propertyIds = properties.map((p) => p._id);
+
+    const latestBookings = await Booking.aggregate([
+      { $match: { property: { $in: propertyIds } } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: '$property',
+          latestStatus: { $first: '$status' },
         },
-      ]);
-  
-      const statusMap = {};
-      latestBookings.forEach((b) => {
-        statusMap[b._id.toString()] = b.latestStatus;
-      });
-  
-      const propertiesWithStatus = properties.map((p) => ({
-        ...p.toObject(),
-        status: statusMap[p._id.toString()] || 'Available',
-      }));
-  
-      res.json(propertiesWithStatus);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Error fetching properties with booking status' });
-    }
-  };
-  
+      },
+    ]);
+
+    const statusMap = {};
+    latestBookings.forEach((b) => {
+      statusMap[b._id.toString()] = b.latestStatus;
+    });
+
+    const propertiesWithStatus = properties.map((p) => ({
+      ...p.toObject(),
+      status: statusMap[p._id.toString()] || 'Available',
+    }));
+
+    res.json(propertiesWithStatus);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error fetching properties with booking status' });
+  }
+};

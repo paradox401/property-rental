@@ -1,6 +1,10 @@
 import Booking from '../models/Booking.js';
 import Property from '../models/Property.js';
+import { sendNewBookingNotification, sendBookingStatusNotification } from '../cronJobs/paymentReminder.js';
 
+// ==========================
+// CREATE BOOKING
+// ==========================
 export const createBooking = async (req, res) => {
   const { propertyId, fromDate, toDate } = req.body;
 
@@ -26,6 +30,13 @@ export const createBooking = async (req, res) => {
     });
 
     await booking.save();
+
+    // ✅ Notify property owner about new booking
+    const property = await Property.findById(propertyId);
+    if (property && property.ownerId) {
+      await sendNewBookingNotification(property.ownerId, property.title, booking._id);
+    }
+
     res.status(201).json({ message: 'Booking successful', booking });
   } catch (err) {
     console.error(err);
@@ -33,6 +44,9 @@ export const createBooking = async (req, res) => {
   }
 };
 
+// ==========================
+// GET BOOKINGS OF CURRENT RENTER
+// ==========================
 export const getMyBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ renter: req.user._id }).populate('property');
@@ -43,24 +57,24 @@ export const getMyBookings = async (req, res) => {
   }
 };
 
-
+// ==========================
+// GET BOOKINGS OF OWNER
+// ==========================
 export const getOwnerBookings = async (req, res) => {
   try {
     const ownerId = req.user._id;
 
-    // 1. Populate 'property.ownerId' and 'renter'
     const bookings = await Booking.find()
       .populate({
         path: 'property',
         populate: {
-          path: 'ownerId', // ✅ this matches the field in Property schema
+          path: 'ownerId',
           model: 'User',
           select: '_id name email',
         },
       })
-      .populate('renter', 'name email'); // populate renter info
+      .populate('renter', 'name email');
 
-    // 2. Filter bookings where booking.property.ownerId._id matches logged-in user
     const filteredBookings = bookings.filter(
       (booking) =>
         booking.property &&
@@ -75,7 +89,9 @@ export const getOwnerBookings = async (req, res) => {
   }
 };
 
-// PUT /api/bookings/:id/status
+// ==========================
+// UPDATE BOOKING STATUS
+// ==========================
 export const updateStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -88,20 +104,27 @@ export const updateStatus = async (req, res) => {
   try {
     const booking = await Booking.findById(id).populate({
       path: 'property',
-      select: 'ownerId',
+      select: 'ownerId title',
     });
 
     if (!booking) {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    // Only the property owner can update the booking
     if (booking.property.ownerId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
     booking.status = status;
     await booking.save();
+
+    // ✅ Notify renter about booking status update
+    await sendBookingStatusNotification(
+      booking.renter,
+      status.toLowerCase(),
+      booking.property.title,
+      booking._id
+    );
 
     res.status(200).json({ message: 'Status updated', booking });
   } catch (err) {
@@ -110,14 +133,14 @@ export const updateStatus = async (req, res) => {
   }
 };
 
-
+// ==========================
+// GET APPROVED BOOKINGS FOR A RENTER
+// ==========================
 export const getApprovedBookings = async (req, res) => {
   try {
     const renterId = req.params.renterId;
-
     const bookings = await Booking.find({ renter: renterId, status: "Approved" })
       .populate("property");
-
     res.json(bookings);
   } catch (err) {
     console.error(err);

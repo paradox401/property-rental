@@ -5,6 +5,7 @@ import { sendNotification } from '../socket.js';
 
 const router = express.Router();
 
+// Get all notifications for logged-in user
 router.get('/', protect, async (req, res) => {
   try {
     const notifications = await Notification.find({ userId: req.user._id })
@@ -15,6 +16,7 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// Mark notification as read
 router.put('/:id/read', protect, async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
@@ -22,7 +24,6 @@ router.put('/:id/read', protect, async (req, res) => {
     if (notification.userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
-
     notification.read = true;
     await notification.save();
     res.json({ message: 'Notification marked as read', notification });
@@ -31,10 +32,22 @@ router.put('/:id/read', protect, async (req, res) => {
   }
 });
 
+// Test route to send notifications to all users with pending bookings
 router.get('/test-send', async (req, res) => {
-  const testUserId = 'PUT_A_REAL_USER_ID_HERE'; // replace with a valid user _id from MongoDB
-  await sendNotification(testUserId, 'payment', 'Test notification from server!', '/');
-  res.json({ success: true });
+  const Booking = (await import('../models/Booking.js')).default;
+  const pendingBookings = await Booking.find({ paymentStatus: 'pending' }).populate('renter property');
+
+  for (const booking of pendingBookings) {
+    if (!booking.renter) continue;
+    await sendNotification(
+      booking.renter._id,
+      'payment',
+      `Test: Your rent for "${booking.property.title}" is due soon.`,
+      `/bookings/${booking._id}`
+    );
+  }
+
+  res.json({ success: true, sent: pendingBookings.length });
 });
 
 export default router;

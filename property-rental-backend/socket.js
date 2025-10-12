@@ -16,12 +16,14 @@ export const setupSocket = (server) => {
   io.on('connection', (socket) => {
     console.log('✅ Socket connected:', socket.id);
 
+    // Track online users
     socket.on('addUser', (userId) => {
       if (!userId) return;
       onlineUsers.set(userId.toString(), socket.id);
       console.log('👤 User online:', userId);
     });
 
+    // Real-time messaging (existing feature)
     socket.on('sendMessage', ({ sender, receiver, text }) => {
       const receiverSocket = onlineUsers.get(receiver?.toString());
       if (receiverSocket) {
@@ -29,6 +31,7 @@ export const setupSocket = (server) => {
       }
     });
 
+    // Disconnect cleanup
     socket.on('disconnect', () => {
       for (const [userId, socketId] of onlineUsers.entries()) {
         if (socketId === socket.id) {
@@ -41,18 +44,20 @@ export const setupSocket = (server) => {
   });
 };
 
+// Unified notification function
 export const sendNotification = async (userId, type, message, link = '') => {
   if (!io) throw new Error('Socket.io not initialized');
 
   try {
+    // Save to database
     const notification = await Notification.create({
       userId,
       type,
       message,
       link,
-      createdAt: new Date(),
     });
 
+    // Send real-time if user is online
     const socketId = onlineUsers.get(userId?.toString());
     if (socketId) {
       io.to(socketId).emit('newNotification', {
@@ -60,13 +65,21 @@ export const sendNotification = async (userId, type, message, link = '') => {
         type: notification.type,
         message: notification.message,
         link: notification.link,
-        createdAt: notification.createdAt,
         read: notification.read,
+        createdAt: notification.createdAt,
       });
+      console.log(`📢 Notification sent in real-time to ${userId} (${type})`);
+    } else {
+      console.log(`🕒 User ${userId} offline, notification saved (${type})`);
     }
-
-    console.log(`📢 Notification sent to ${userId}`);
   } catch (err) {
     console.error('❌ Error sending notification:', err.message);
+  }
+};
+
+// Helper function: broadcast notification to multiple users
+export const broadcastNotification = async (userIds, type, message, link = '') => {
+  for (const id of userIds) {
+    await sendNotification(id, type, message, link);
   }
 };
