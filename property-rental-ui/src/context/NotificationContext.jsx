@@ -1,27 +1,27 @@
-import { createContext, useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { useSocket } from './SocketContext'; // your existing socket for messaging
+import { AuthContext } from './AuthContext';
 
 export const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
+  const { user } = useContext(AuthContext);
+  const socket = useSocket(); // reuse messaging socket
   const [notifications, setNotifications] = useState([]);
   const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user'));
-  const userId = user?._id;
 
+  // Fetch existing notifications
   useEffect(() => {
-    if (!token || !userId) return;
+    if (!user || !token) return;
 
     const fetchNotifications = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/notifications`, {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
           setNotifications(data);
-        } else {
-          console.error('Failed to fetch notifications');
         }
       } catch (err) {
         console.error('Error fetching notifications:', err);
@@ -29,20 +29,19 @@ export const NotificationProvider = ({ children }) => {
     };
 
     fetchNotifications();
+  }, [user, token]);
 
-    const socket = io('http://localhost:8000', {
-      auth: { token }
+  // Listen for real-time notifications using existing socket
+  useEffect(() => {
+    if (!socket?.current) return;
+
+    socket.current.on('newNotification', (notification) => {
+      console.log('🔔 New notification received:', notification);
+      setNotifications((prev) => [notification, ...prev]);
     });
 
-    // Join room for current user
-    socket.emit('join', userId);
-
-    socket.on('newNotification', (notification) => {
-      setNotifications(prev => [notification, ...prev]);
-    });
-
-    return () => socket.disconnect();
-  }, [token, userId]);
+    return () => socket.current.off('newNotification');
+  }, [socket]);
 
   return (
     <NotificationContext.Provider value={{ notifications, setNotifications }}>

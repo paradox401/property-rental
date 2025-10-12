@@ -3,16 +3,13 @@ import { sendNotification } from '../socket.js';
 
 export const sendTestPaymentReminder = async () => {
   try {
-    const now = new Date();
-    const fiveMinutesLater = new Date(Date.now() + 5 * 60 * 1000);
-
-    // Find bookings with pending payments due within next 5 minutes
+    // Get all bookings with pending payments (ignore time)
     const upcoming = await Booking.find({
-      paymentStatus: 'pending',
-      toDate: { $gte: now, $lte: fiveMinutesLater }
+      paymentStatus: 'pending'
     }).populate('renter property');
 
     for (const booking of upcoming) {
+      if (!booking.renter) continue; // safety check
       await sendNotification(
         booking.renter._id,
         'payment',
@@ -21,11 +18,11 @@ export const sendTestPaymentReminder = async () => {
       );
     }
 
-    console.log(`[TestPaymentReminder] Sent ${upcoming.length} notifications at ${now.toISOString()}`);
+    console.log(`[Reminder] Sent ${upcoming.length} notifications`);
   } catch (err) {
-    console.error('Test payment reminder error:', err.message);
+    console.error('Reminder error:', err.message);
   }
 };
 
-// Trigger exactly 5 minutes from now
-setTimeout(sendTestPaymentReminder, 5 * 60 * 1000);
+// Optional test trigger: run immediately after server starts
+setTimeout(sendTestPaymentReminder, 1000); // 1 second after server starts

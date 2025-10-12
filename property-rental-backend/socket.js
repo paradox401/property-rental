@@ -7,29 +7,33 @@ const onlineUsers = new Map();
 export const setupSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: 'http://localhost:5173', // Update for production
+      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
       methods: ['GET', 'POST'],
+      credentials: true,
     },
   });
 
   io.on('connection', (socket) => {
-    // Track online users
+    console.log('✅ Socket connected:', socket.id);
+
     socket.on('addUser', (userId) => {
-      onlineUsers.set(userId, socket.id);
+      if (!userId) return;
+      onlineUsers.set(userId.toString(), socket.id);
+      console.log('👤 User online:', userId);
     });
 
-    // Real-time messaging
     socket.on('sendMessage', ({ sender, receiver, text }) => {
-      const receiverSocket = onlineUsers.get(receiver);
+      const receiverSocket = onlineUsers.get(receiver?.toString());
       if (receiverSocket) {
         io.to(receiverSocket).emit('receiveMessage', { sender, text });
       }
     });
 
     socket.on('disconnect', () => {
-      for (let [userId, socketId] of onlineUsers) {
+      for (const [userId, socketId] of onlineUsers.entries()) {
         if (socketId === socket.id) {
           onlineUsers.delete(userId);
+          console.log('❌ User disconnected:', userId);
           break;
         }
       }
@@ -37,17 +41,32 @@ export const setupSocket = (server) => {
   });
 };
 
-// ----------------------
-// Notifications Function
-// ----------------------
-export const sendNotification = async (userId, type, message, link) => {
+export const sendNotification = async (userId, type, message, link = '') => {
   if (!io) throw new Error('Socket.io not initialized');
 
-  const notification = await Notification.create({ userId, type, message, link });
+  try {
+    const notification = await Notification.create({
+      userId,
+      type,
+      message,
+      link,
+      createdAt: new Date(),
+    });
 
-  // Send real-time notification if user is online
-  const socketId = onlineUsers.get(userId.toString());
-  if (socketId) {
-    io.to(socketId).emit('newNotification', notification);
+    const socketId = onlineUsers.get(userId?.toString());
+    if (socketId) {
+      io.to(socketId).emit('newNotification', {
+        _id: notification._id,
+        type: notification.type,
+        message: notification.message,
+        link: notification.link,
+        createdAt: notification.createdAt,
+        read: notification.read,
+      });
+    }
+
+    console.log(`📢 Notification sent to ${userId}`);
+  } catch (err) {
+    console.error('❌ Error sending notification:', err.message);
   }
 };
