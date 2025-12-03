@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import './OwnerLayout.css';
 import { AuthContext } from '../context/AuthContext';
-
+import NotificationList from '../components/NotificationList.jsx';
 export default function OwnerLayout() {
   const { user } = useContext(AuthContext);
 
@@ -27,6 +27,7 @@ export default function OwnerLayout() {
             <>
               <h3>Welcome, {user.name || 'Owner'}</h3>
               <div className="user-menu">{user.email}</div>
+              <NotificationList />
             </>
           )}
         </header>
