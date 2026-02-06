@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../config/api';
 import './AddProperty.css';
 
 export default function AddProperty() {
@@ -15,7 +16,7 @@ export default function AddProperty() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { user, token } = useContext(AuthContext);
+  const { token } = useContext(AuthContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,14 +28,19 @@ export default function AddProperty() {
       return;
     }
 
+    if (!token) {
+      setError('Please log in to add a property.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/properties', {
+      const response = await fetch(`${API_BASE_URL}/api/properties`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-           Authorization: `Bearer ${token}`, 
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title,
@@ -45,7 +51,6 @@ export default function AddProperty() {
           description,
           type,
           image,
-          
         }),
       });
 
@@ -55,7 +60,6 @@ export default function AddProperty() {
         setError(data.message || 'Failed to add property.');
       } else {
         setSuccess('Property added successfully!');
-        // Reset form
         setTitle('');
         setLocation('');
         setPrice('');

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { image } from '../../assets/assets';
+import { API_BASE_URL } from '../../config/api';
 import './Register.css';
 
 export default function Register() {
@@ -27,7 +28,7 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/auth/register', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, citizenshipNumber, email, password, role }),
@@ -53,26 +54,30 @@ export default function Register() {
   return (
     <div className="register-container">
       <div className="register-left">
-        <h1>JOIN<span className="green"> US</span></h1>
+        <h1>
+          JOIN<span className="green"> US</span>
+        </h1>
         <img src={image.property} alt="Property" />
       </div>
       <div className="register-right">
-        <h2><span className="logo">Property</span> Rental</h2>
+        <h2>
+          <span className="logo">Property</span> Rental
+        </h2>
         <h3>Register</h3>
         <form onSubmit={handleSubmit}>
           <label> Name</label>
-          <input 
-          type="text" 
-          placeholder="Full Name" 
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          <input
+            type="text"
+            placeholder="Full Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
           <label>Citizenship Number</label>
-          <input 
-          type="text"
-          placeholder="Citizenship Number" 
-          value={citizenshipNumber}
-          onChange={(e) => setCitizenshipNumber(e.target.value)}
+          <input
+            type="text"
+            placeholder="Citizenship Number"
+            value={citizenshipNumber}
+            onChange={(e) => setCitizenshipNumber(e.target.value)}
           />
           <label>Email</label>
           <input

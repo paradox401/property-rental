@@ -1,33 +1,36 @@
-import React, { useState, useEffect, useContext } from "react";
-import { NavLink } from "react-router-dom";
-import { AuthContext } from "../../context/AuthContext";
-import "./ComplaintPage.css";
+import React, { useState, useEffect, useContext } from 'react';
+import { NavLink } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../config/api';
+import './ComplaintPage.css';
 
 export default function ComplaintPage() {
-  const { user } = useContext(AuthContext);
-  const renterEmail = user?.email || "";
+  const { user, token } = useContext(AuthContext);
+  const renterEmail = user?.email || '';
 
   const [formData, setFormData] = useState({
-    name: user?.name || "",
+    name: user?.name || '',
     email: renterEmail,
-    propertyId: "",
-    subject: "",
-    complaint: "",
+    propertyId: '',
+    subject: '',
+    complaint: '',
   });
 
   const [properties, setProperties] = useState([]);
   const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
-  // Fetch accepted bookings for renter and extract property + owner
   useEffect(() => {
     const fetchProperties = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/bookings/approved/${user._id}`);
+        if (!user || !token) return;
+
+        const res = await fetch(`${API_BASE_URL}/api/bookings/approved/${user._id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await res.json();
 
-        // Map properties along with ownerId
-        const propertyList = data.map(b => ({
+        const propertyList = data.map((b) => ({
           _id: b.property._id,
           title: b.property.title,
           ownerId: b.property.ownerId._id || b.property.ownerId,
@@ -35,16 +38,16 @@ export default function ComplaintPage() {
 
         setProperties(propertyList);
       } catch (err) {
-        console.error("Error fetching properties:", err);
+        console.error('Error fetching properties:', err);
       }
     };
 
     if (user) fetchProperties();
-  }, [user]);
+  }, [user, token]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
@@ -52,20 +55,22 @@ export default function ComplaintPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setSubmitted(false);
 
-    // Attach ownerId based on selected property
-    const selectedProperty = properties.find(p => p._id === formData.propertyId);
+    const selectedProperty = properties.find((p) => p._id === formData.propertyId);
     const complaintPayload = {
       ...formData,
       ownerId: selectedProperty?.ownerId,
     };
 
     try {
-      const res = await fetch("http://localhost:8000/api/complaints", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch(`${API_BASE_URL}/api/complaints`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(complaintPayload),
       });
 
@@ -73,12 +78,18 @@ export default function ComplaintPage() {
 
       if (res.ok) {
         setSubmitted(true);
-        setFormData({ name: user?.name || "", email: renterEmail, propertyId: "", subject: "", complaint: "" });
+        setFormData({
+          name: user?.name || '',
+          email: renterEmail,
+          propertyId: '',
+          subject: '',
+          complaint: '',
+        });
       } else {
-        setError(data.message || "Something went wrong");
+        setError(data.message || 'Something went wrong');
       }
     } catch (err) {
-      setError("Server not reachable. Please try again later.");
+      setError('Server not reachable. Please try again later.');
     }
   };
 
@@ -86,7 +97,9 @@ export default function ComplaintPage() {
     <div className="complaint-container">
       <h1>Submit a Complaint</h1>
 
-      {submitted && <p className="success-msg">✅ Your complaint has been submitted successfully!</p>}
+      {submitted && (
+        <p className="success-msg">✅ Your complaint has been submitted successfully!</p>
+      )}
       {error && <p className="error-msg">❌ {error}</p>}
 
       <form className="complaint-form" onSubmit={handleSubmit}>
@@ -104,8 +117,10 @@ export default function ComplaintPage() {
           <label>Select Property</label>
           <select name="propertyId" value={formData.propertyId} onChange={handleChange} required>
             <option value="">-- Select Property --</option>
-            {properties.map(p => (
-              <option key={p._id} value={p._id}>{p.title}</option>
+            {properties.map((p) => (
+              <option key={p._id} value={p._id}>
+                {p.title}
+              </option>
             ))}
           </select>
         </div>
@@ -121,11 +136,21 @@ export default function ComplaintPage() {
         </div>
 
         <div className="form-buttons">
-          <button type="submit" className="btn-submit">Submit Complaint</button>
+          <button type="submit" className="btn-submit">
+            Submit Complaint
+          </button>
           <button
             type="reset"
             className="btn-reset"
-            onClick={() => setFormData({ name: user?.name || "", email: renterEmail, propertyId: "", subject: "", complaint: "" })}
+            onClick={() =>
+              setFormData({
+                name: user?.name || '',
+                email: renterEmail,
+                propertyId: '',
+                subject: '',
+                complaint: '',
+              })
+            }
           >
             Reset
           </button>
@@ -133,11 +158,7 @@ export default function ComplaintPage() {
       </form>
 
       <div className="history-btn-container">
-        <NavLink
-          to="/renter/complaint-history"
-          state={{ email: renterEmail }}
-          className="btn-history"
-        >
+        <NavLink to="/renter/complaint-history" state={{ email: renterEmail }} className="btn-history">
           View Complaint History
         </NavLink>
       </div>

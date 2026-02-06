@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../config/api';
 import './Favorites.css';
 
 export default function Favorites() {
@@ -10,7 +11,12 @@ export default function Favorites() {
   useEffect(() => {
     const fetchFavorites = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/favorites', {
+        if (!token) {
+          setError('Please log in to view favorites.');
+          return;
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/favorites`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -26,7 +32,7 @@ export default function Favorites() {
 
   const removeFavorite = async (id) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/favorites/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/favorites/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

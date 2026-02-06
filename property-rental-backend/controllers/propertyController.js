@@ -1,7 +1,8 @@
-import Property from "../models/Property.js";
-import Booking from "../models/Booking.js";
-import User from "../models/User.js";
+import Property from '../models/Property.js';
+import Booking from '../models/Booking.js';
+import User from '../models/User.js';
 import { sendNotification } from '../socket.js';
+import mongoose from 'mongoose';
 
 export const addProperty = async (req, res) => {
   try {
@@ -19,21 +20,23 @@ export const addProperty = async (req, res) => {
       price,
       type,
       bedrooms,
+      bedroomsGte,
       bathrooms,
+      bathroomsGte,
       image,
       ownerId,
+      status: 'Pending',
     });
 
     await newProperty.save();
 
-    // ✅ Notify all users except the owner about new listing
-    const users = await User.find({ _id: { $ne: ownerId } });
-    for (const user of users) {
+    const admins = await User.find({ role: 'admin' }).select('_id');
+    for (const admin of admins) {
       await sendNotification(
-        user._id,
-        'newListing',
-        `A new property "${title}" has been leasted near you hope you are intreasted in.`,
-        `/properties/${newProperty._id}`
+        admin._id,
+        'listingApproval',
+        `New listing pending approval: "${title}"`,
+        `/admin/approvals`
       );
     }
 
@@ -92,7 +95,77 @@ export const deleteProperty = async (req, res) => {
 
 export const getProperty = async (req, res) => {
   try {
-    const properties = await Property.find();
+    const {
+      q,
+      location,
+      minPrice,
+      maxPrice,
+      bedrooms,
+      bedroomsGte,
+      bathrooms,
+      bathroomsGte,
+      type,
+      status,
+      ownerId,
+      sort,
+    } = req.query;
+
+    const filter = {};
+
+    if (q) {
+      filter.$or = [
+        { title: new RegExp(q, 'i') },
+        { location: new RegExp(q, 'i') },
+        { description: new RegExp(q, 'i') },
+      ];
+    }
+
+    if (location) {
+      filter.location = new RegExp(location, 'i');
+    }
+
+    if (type) {
+      filter.type = type;
+    }
+
+    if (bedroomsGte) {
+      filter.bedrooms = { $gte: Number(bedroomsGte) };
+    } else if (bedrooms) {
+      filter.bedrooms = Number(bedrooms);
+    }
+
+    if (bathroomsGte) {
+      filter.bathrooms = { $gte: Number(bathroomsGte) };
+    } else if (bathrooms) {
+      filter.bathrooms = Number(bathrooms);
+    }
+
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
+
+    if (ownerId) {
+      filter.ownerId = ownerId;
+    }
+
+    if (status) {
+      filter.status = status;
+    } else {
+      filter.status = 'Approved';
+    }
+
+    const sortMap = {
+      newest: { createdAt: -1 },
+      priceLow: { price: 1 },
+      priceHigh: { price: -1 },
+    };
+
+    const properties = await Property.find(filter)
+      .populate('ownerId', 'name ownerVerificationStatus')
+      .sort(sortMap[sort] || { createdAt: -1 });
+
     res.status(200).json(properties);
   } catch (error) {
     console.error('Error fetching properties:', error);
@@ -102,9 +175,20 @@ export const getProperty = async (req, res) => {
 
 export const getPropertyById = async (req, res) => {
   try {
-    const property = await Property.findById(req.params.id);
+    const property = await Property.findById(req.params.id)
+      .populate('ownerId', 'name email ownerVerificationStatus')
+      .populate('reviews.user', 'name email');
     if (!property) return res.status(404).json({ error: 'Property not found' });
-    res.status(200).json(property);
+
+    const response = property.toObject();
+    if (req.user?._id) {
+      const userRating = property.reviews?.find(
+        (review) => review.user?._id?.toString() === req.user._id.toString()
+      );
+      response.userRating = userRating?.rating || null;
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     console.error('Error fetching property:', error);
     res.status(500).json({ error: 'Failed to fetch property details' });
@@ -134,12 +218,119 @@ export const getOwnerPropertiesWithBookingStatus = async (req, res) => {
 
     const propertiesWithStatus = properties.map((p) => ({
       ...p.toObject(),
-      status: statusMap[p._id.toString()] || 'Available',
+      bookingStatus: statusMap[p._id.toString()] || 'Available',
+      approvalStatus: p.status,
     }));
 
     res.json(propertiesWithStatus);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error fetching properties with booking status' });
+  }
+};
+
+export const addReview = async (req, res) => {
+  const { rating, comment } = req.body;
+
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+  }
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid property ID' });
+    }
+
+    const propertyId = new mongoose.Types.ObjectId(req.params.id);
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+
+    const booking = await Booking.findOne({
+      renter: userId,
+      property: propertyId,
+      status: 'Approved',
+    });
+
+    if (!booking) {
+      return res.status(403).json({ message: 'You can only review properties you have booked' });
+    }
+
+    const property = await Property.findById(propertyId);
+    if (!property) return res.status(404).json({ message: 'Property not found' });
+
+    const existingReview = property.reviews?.find((r) => r.user.equals(userId));
+    if (existingReview) {
+      return res.status(400).json({ message: 'You have already reviewed this property' });
+    }
+
+    property.reviews.push({ user: userId, rating, comment });
+    property.numRatings += 1;
+    property.rating = (property.rating * (property.numRatings - 1) + rating) / property.numRatings;
+
+    await property.save();
+
+    await sendNotification(
+      property.ownerId,
+      'review',
+      `New review received for "${property.title}"`,
+      `/owner/properties`
+    );
+
+    return res.json({ message: 'Review submitted successfully', rating: property.rating });
+  } catch (err) {
+    console.error('Review error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getReviews = async (req, res) => {
+  try {
+    const property = await Property.findById(req.params.id).populate('reviews.user', 'name email');
+    if (!property) return res.status(404).json({ message: 'Property not found' });
+    res.json(property.reviews || []);
+  } catch (err) {
+    console.error('Get reviews error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const adminGetPendingProperties = async (req, res) => {
+  try {
+    const properties = await Property.find({ status: 'Pending' }).populate(
+      'ownerId',
+      'name email ownerVerificationStatus'
+    );
+    res.json(properties);
+  } catch (err) {
+    console.error('Admin pending properties error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const adminUpdatePropertyStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!['Approved', 'Rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  try {
+    const property = await Property.findById(id);
+    if (!property) return res.status(404).json({ error: 'Property not found' });
+
+    property.status = status;
+    await property.save();
+
+    await sendNotification(
+      property.ownerId,
+      'listingApproval',
+      `Your listing "${property.title}" was ${status.toLowerCase()}.`,
+      `/owner/properties`
+    );
+
+    res.json({ message: 'Property status updated', property });
+  } catch (err) {
+    console.error('Admin update property error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 };

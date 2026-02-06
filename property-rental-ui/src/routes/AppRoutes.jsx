@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../pages/login/Login';
 import OwnerLayout from '../layouts/OwnerLayout';
 import RenterLayout from '../layouts/RenterLayout';
+import AdminLayout from '../layouts/AdminLayout';
 import OwnerDashboard from '../pages/owner/Dashboard';
 import MyProperties from '../pages/owner/MyProperties';
 import RenterHome from '../pages/renter/Home';
@@ -11,7 +12,7 @@ import Bookings from '../pages/owner/Bookings';
 import MyBookings from '../pages/renter/MyBookings';
 import Listings from '../pages/renter/Listings';
 import Favorites from '../pages/renter/Favorites';
-import Register from '../pages/login/register';
+import Register from '../pages/login/Register';
 import Landing from '../pages/Landing';
 import { AuthContext } from '../context/AuthContext';
 import PropertyDetails from '../components/common/PropertyDetails';
@@ -23,6 +24,10 @@ import ComplaintHistory from '../pages/renter/ComplaintHistory';
 import PaymentPage from '../pages/renter/PaymentPage';
 import PaymentSuccess from '../pages/renter/PaymentSuccess';
 import PaymentFailure from '../pages/renter/PaymentFailure';
+import Settings from '../pages/common/Settings';
+import AdminOverview from '../pages/admin/AdminOverview';
+import Approvals from '../pages/admin/Approvals';
+import OwnerVerifications from '../pages/admin/OwnerVerifications';
 
 function PrivateRoute({ children, role }) {
   const { user } = useContext(AuthContext);
@@ -54,11 +59,12 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<OwnerDashboard />} />
-        <Route path="properties" element={<MyProperties />} /> 
+        <Route path="properties" element={<MyProperties />} />
         <Route path="add" element={<AddProperty />} />
         <Route path="requests" element={<Bookings />} />
         <Route path="messages" element={<Messages />} />
         <Route path="ocomplaint" element={<OwnerComplaint />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
 
       <Route
@@ -75,11 +81,26 @@ export default function AppRoutes() {
         <Route path="favorites" element={<Favorites />} />
         <Route path="message" element={<Message />} />
         <Route path="complaint" element={<ComplaintPage />} />
-        <Route path="complaint-history" element={<ComplaintHistory/>} />
-        <Route path="payments" element={<PaymentPage/>} />
+        <Route path="complaint-history" element={<ComplaintHistory />} />
+        <Route path="payments" element={<PaymentPage />} />
         <Route path="payment/success" element={<PaymentSuccess />} />
         <Route path="payment/failure" element={<PaymentFailure />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
+
+      <Route
+        path="/admin/*"
+        element={
+          <PrivateRoute role="admin">
+            <AdminLayout />
+          </PrivateRoute>
+        }
+      >
+        <Route index element={<AdminOverview />} />
+        <Route path="approvals" element={<Approvals />} />
+        <Route path="owners" element={<OwnerVerifications />} />
+      </Route>
+
       <Route path="/property/:id" element={<PropertyDetails />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

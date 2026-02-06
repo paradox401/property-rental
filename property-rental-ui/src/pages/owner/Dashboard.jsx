@@ -1,15 +1,25 @@
 import React, { useEffect, useState, useContext } from 'react';
 import './Dashboard.css';
 import { AuthContext } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../config/api';
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
 } from 'recharts';
 
 const COLORS = ['#2a9d8f', '#e9c46a', '#e76f51'];
 
 export default function Dashboard() {
-  const { token } = useContext(AuthContext);
+  const { token, user, setUser } = useContext(AuthContext);
   const [stats, setStats] = useState({
     totalProperties: 0,
     totalBookings: 0,
@@ -18,15 +28,17 @@ export default function Dashboard() {
     recentProperties: [],
     propertyStats: [],
   });
+  const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
+      if (!token) return;
+
       try {
-        const res = await fetch('http://localhost:8000/api/dashboard/owner', {
-          headers: { Authorization: `Bearer ${token}` }
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/owner`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        console.log("Dashboard stats data:", data);
         setStats(data);
       } catch (err) {
         console.error('Dashboard load error', err);
@@ -34,6 +46,20 @@ export default function Dashboard() {
     };
     fetchStats();
   }, [token]);
+
+  const requestVerification = async () => {
+    if (!token) return;
+    setRequesting(true);
+    const res = await fetch(`${API_BASE_URL}/api/users/owner/verify-request`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setUser((prev) => ({ ...prev, ownerVerificationStatus: data.status }));
+    }
+    setRequesting(false);
+  };
 
   const statusData = [
     { name: 'Approved', value: stats.bookingStatusCount?.Approved || 0 },
@@ -46,9 +72,28 @@ export default function Dashboard() {
       <h2>Owner Dashboard</h2>
 
       <div className="dashboard-cards">
-        <div className="card"><h3>{stats.totalProperties ?? 0}</h3><p>Total Properties</p></div>
-        <div className="card"><h3>{stats.totalBookings ?? 0}</h3><p>Total Bookings</p></div>
-        <div className="card"><h3>{stats.totalFavorites ?? 0}</h3><p>Favorites</p></div>
+        <div className="card">
+          <h3>{stats.totalProperties ?? 0}</h3>
+          <p>Total Properties</p>
+        </div>
+        <div className="card">
+          <h3>{stats.totalBookings ?? 0}</h3>
+          <p>Total Bookings</p>
+        </div>
+        <div className="card">
+          <h3>{stats.totalFavorites ?? 0}</h3>
+          <p>Favorites</p>
+        </div>
+      </div>
+
+      <div className="surface-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+        <h3>Owner Verification</h3>
+        <p>Status: {user?.ownerVerificationStatus || 'unverified'}</p>
+        {user?.ownerVerificationStatus !== 'verified' && (
+          <button onClick={requestVerification} disabled={requesting}>
+            {requesting ? 'Requesting...' : 'Request Verification'}
+          </button>
+        )}
       </div>
 
       <div className="chart-section">

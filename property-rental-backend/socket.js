@@ -1,5 +1,6 @@
 import { Server } from 'socket.io';
 import Notification from './models/Notification.js';
+import User from './models/User.js';
 
 let io;
 const onlineUsers = new Map();
@@ -16,14 +17,12 @@ export const setupSocket = (server) => {
   io.on('connection', (socket) => {
     console.log('✅ Socket connected:', socket.id);
 
-    // Track online users
     socket.on('addUser', (userId) => {
       if (!userId) return;
       onlineUsers.set(userId.toString(), socket.id);
       console.log('👤 User online:', userId);
     });
 
-    // Real-time messaging (existing feature)
     socket.on('sendMessage', ({ sender, receiver, text }) => {
       const receiverSocket = onlineUsers.get(receiver?.toString());
       if (receiverSocket) {
@@ -31,7 +30,27 @@ export const setupSocket = (server) => {
       }
     });
 
-    // Disconnect cleanup
+    socket.on('typing', ({ from, to }) => {
+      const receiverSocket = onlineUsers.get(to?.toString());
+      if (receiverSocket) {
+        io.to(receiverSocket).emit('typing', { from });
+      }
+    });
+
+    socket.on('stopTyping', ({ from, to }) => {
+      const receiverSocket = onlineUsers.get(to?.toString());
+      if (receiverSocket) {
+        io.to(receiverSocket).emit('stopTyping', { from });
+      }
+    });
+
+    socket.on('messageRead', ({ from, to }) => {
+      const receiverSocket = onlineUsers.get(to?.toString());
+      if (receiverSocket) {
+        io.to(receiverSocket).emit('messageRead', { from });
+      }
+    });
+
     socket.on('disconnect', () => {
       for (const [userId, socketId] of onlineUsers.entries()) {
         if (socketId === socket.id) {
@@ -44,12 +63,19 @@ export const setupSocket = (server) => {
   });
 };
 
-// Unified notification function
 export const sendNotification = async (userId, type, message, link = '') => {
   if (!io) throw new Error('Socket.io not initialized');
 
   try {
-    // Save to database
+    const user = await User.findById(userId).select('notificationPreferences');
+    const prefs = user?.notificationPreferences;
+    const inAppEnabled = prefs?.inApp !== false;
+    const typeEnabled = prefs?.types?.[type] !== false;
+
+    if (!inAppEnabled || !typeEnabled) {
+      return;
+    }
+
     const notification = await Notification.create({
       userId,
       type,
@@ -57,7 +83,6 @@ export const sendNotification = async (userId, type, message, link = '') => {
       link,
     });
 
-    // Send real-time if user is online
     const socketId = onlineUsers.get(userId?.toString());
     if (socketId) {
       io.to(socketId).emit('newNotification', {
@@ -77,7 +102,6 @@ export const sendNotification = async (userId, type, message, link = '') => {
   }
 };
 
-// Helper function: broadcast notification to multiple users
 export const broadcastNotification = async (userIds, type, message, link = '') => {
   for (const id of userIds) {
     await sendNotification(id, type, message, link);

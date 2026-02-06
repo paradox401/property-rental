@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useContext } from "react";
-import { FaHeart, FaRegHeart, FaStar } from "react-icons/fa";
+import React, { useState, useEffect, useContext } from 'react';
+import { FaHeart, FaRegHeart, FaStar } from 'react-icons/fa';
 import './PropertyCard.css';
 import { AuthContext } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../config/api';
 
 function PropertyCard({ property, onViewDetails, onApplyBooking }) {
   const { token } = useContext(AuthContext);
   const [isFavorited, setIsFavorited] = useState(false);
 
   const handleFavoriteClick = async () => {
+    if (!token) return;
+
     try {
-      const res = await fetch('http://localhost:8000/api/favorites', {
+      const res = await fetch(`${API_BASE_URL}/api/favorites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -32,9 +35,12 @@ function PropertyCard({ property, onViewDetails, onApplyBooking }) {
   useEffect(() => {
     const checkFavorite = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/favorites/check/${property._id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(
+          `${API_BASE_URL}/api/favorites/check/${property._id}`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }
+        );
         const data = await res.json();
         if (res.ok && typeof data.isFavorited === 'boolean') {
           setIsFavorited(data.isFavorited);
@@ -46,16 +52,20 @@ function PropertyCard({ property, onViewDetails, onApplyBooking }) {
         setIsFavorited(false);
       }
     };
-    if (token) checkFavorite();
-  }, [property._id, token]);
+    if (property?._id) checkFavorite();
+  }, [property?._id, token]);
 
   return (
     <div className="property-card">
-      <img src={property.image || "/default-property.jpg"} alt={property.title} />
+      <img src={property.image || '/default-property.jpg'} alt={property.title} />
       <div className="property-info">
         <h3>{property.title}</h3>
         <p>{property.location}</p>
         <p>Rs. {property.price}/month</p>
+
+        {property.ownerId?.ownerVerificationStatus === 'verified' && (
+          <span className="verified-badge">Verified Owner</span>
+        )}
 
         <div className="property-rating">
           {[...Array(5)].map((_, i) => (
@@ -64,7 +74,7 @@ function PropertyCard({ property, onViewDetails, onApplyBooking }) {
               color={i < Math.round(property.rating) ? '#FFD700' : '#ccc'}
             />
           ))}
-          <span> ({property.numRatings})</span>
+          <span> ({property.numRatings || 0})</span>
         </div>
 
         <div className="property-actions">
@@ -76,7 +86,7 @@ function PropertyCard({ property, onViewDetails, onApplyBooking }) {
             className={`favorite-btn ${isFavorited ? 'favorited' : ''}`}
             onClick={handleFavoriteClick}
             role="button"
-            aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
+            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && handleFavoriteClick()}
           >

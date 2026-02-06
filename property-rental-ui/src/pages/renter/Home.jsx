@@ -1,9 +1,19 @@
 import React, { useEffect, useState, useContext } from 'react';
 import './Home.css';
 import { AuthContext } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../config/api';
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
 } from 'recharts';
 
 const COLORS = ['#2a9d8f', '#e9c46a', '#e76f51'];
@@ -20,9 +30,11 @@ export default function RenterDashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
+      if (!token) return;
+
       try {
-        const res = await fetch('http://localhost:8000/api/dashboard/renter', {
-          headers: { Authorization: `Bearer ${token}` }
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/renter`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
         setStats(data);
@@ -44,8 +56,14 @@ export default function RenterDashboard() {
       <h2>Renter Dashboard</h2>
 
       <div className="dashboard-cards">
-        <div className="card"><h3>{stats.bookings ?? 0}</h3><p>Total Bookings</p></div>
-        <div className="card"><h3>{stats.favorites ?? 0}</h3><p>Favorites</p></div>
+        <div className="card">
+          <h3>{stats.bookings ?? 0}</h3>
+          <p>Total Bookings</p>
+        </div>
+        <div className="card">
+          <h3>{stats.favorites ?? 0}</h3>
+          <p>Favorites</p>
+        </div>
       </div>
 
       <div className="chart-section">
@@ -92,7 +110,8 @@ export default function RenterDashboard() {
         <ul>
           {stats.recent?.map((b) => (
             <li key={b._id}>
-              {b.property?.title || 'Unknown Property'} - Rs. {b.property?.price || 'N/A'} - {b.status}
+              {b.property?.title || 'Unknown Property'} - Rs. {b.property?.price || 'N/A'} -{' '}
+              {b.status}
             </li>
           ))}
         </ul>

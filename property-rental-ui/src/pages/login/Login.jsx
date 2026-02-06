@@ -32,6 +32,8 @@ export default function Login() {
       } else {
         if (role === 'owner') {
           navigate('/owner');
+        } else if (role === 'admin') {
+          navigate('/admin');
         } else {
           navigate('/renter');
         }
@@ -75,6 +77,7 @@ export default function Login() {
             <select value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="owner">Owner</option>
               <option value="renter">Renter</option>
+              <option value="admin">Admin</option>
             </select>
 
             {error && <p className="error">{error}</p>}

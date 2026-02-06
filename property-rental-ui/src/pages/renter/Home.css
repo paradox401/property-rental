@@ -3,18 +3,17 @@
   max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
-    "Droid Sans", "Helvetica Neue", sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f8fafc;
+  background-color: transparent;
   min-height: 100vh;
 }
 
 .dashboard-container h2 {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text);
   text-align: center;
   margin: 0 0 2.5rem 0;
   padding: 0;
@@ -30,24 +29,24 @@
 }
 
 .dashboard-cards .card {
-  background-color: #ffffff;
+  background-color: var(--surface);
   border-radius: 1rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-soft);
   padding: 2rem;
   text-align: center;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .dashboard-cards .card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow);
 }
 
 .dashboard-cards .card h3 {
   font-size: 3rem;
   font-weight: 800;
-  color: #2a9d8f; /* Primary accent color */
+  color: var(--accent); /* Primary accent color */
   margin: 0 0 0.5rem 0;
   padding: 0;
   line-height: 1;
@@ -55,7 +54,7 @@
 
 .dashboard-cards .card p {
   font-size: 1.125rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
   padding: 0;
 }
@@ -69,11 +68,11 @@
 }
 
 .chart-card {
-  background-color: #ffffff;
+  background-color: var(--surface);
   border-radius: 1rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-soft);
   padding: 2rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -83,7 +82,7 @@
 .chart-card h3 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text);
   margin: 0 0 1.5rem 0;
   padding: 0;
   text-align: center;
@@ -92,7 +91,7 @@
 /* Recharts specific styling (adjust as needed, these are general) */
 .recharts-wrapper {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .recharts-tooltip-wrapper {
@@ -109,22 +108,22 @@
 
 .recharts-legend-wrapper {
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--text);
 }
 
 /* Recent properties section */
 .recent-properties {
-  background-color: #ffffff;
+  background-color: var(--surface);
   border-radius: 1rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-soft);
   padding: 2rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
 }
 
 .recent-properties h3 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text);
   margin: 0 0 1.5rem 0;
   padding: 0;
   text-align: center;
@@ -137,13 +136,13 @@
 }
 
 .recent-properties li {
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background-color: transparent;
+  border: 1px solid var(--border);
   border-radius: 0.75rem;
   padding: 1rem 1.5rem;
   margin-bottom: 0.75rem;
   font-size: 1rem;
-  color: #374151;
+  color: var(--text);
   display: flex;
   justify-content: space-between;
   align-items: center;

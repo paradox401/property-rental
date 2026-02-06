@@ -1,152 +1,155 @@
-"use client"
-
-import { useEffect, useState } from "react"
-import PropertyCard from "../../components/common/PropertyCard"
-import "./Listings.css" // Assuming you already have this CSS file
-import PropertyDetails from "../../components/common/PropertyDetails"
-import BookingPopup from "../../components/common/BookingPopup"
+import { useEffect, useState } from 'react';
+import PropertyCard from '../../components/common/PropertyCard';
+import './Listings.css';
+import PropertyDetails from '../../components/common/PropertyDetails';
+import BookingPopup from '../../components/common/BookingPopup';
+import { API_BASE_URL } from '../../config/api';
 
 export default function Listings() {
-  const [allProperties, setAllProperties] = useState([]) // Stores all fetched properties
-  const [filteredProperties, setFilteredProperties] = useState([]) // Stores properties after filtering
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [showDetailsId, setShowDetailsId] = useState(null)
-  const [selectedProperty, setSelectedProperty] = useState(null)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [allProperties, setAllProperties] = useState([]);
+  const [filteredProperties, setFilteredProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showDetailsId, setShowDetailsId] = useState(null);
+  const [selectedProperty, setSelectedProperty] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
+    minPrice: '',
+    maxPrice: '',
+    bedrooms: '',
+    type: '',
+    bathrooms: '',
+    sort: 'newest',
+  });
 
-  // Debounce function to limit how often the search term updates
-  const debounce = (func, delay) => {
-    let timeout
-    return function (...args) {
-      
-      clearTimeout(timeout)
-      timeout = setTimeout(() => func.apply(this, args), delay)
+  const fetchProperties = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchTerm) params.set('q', searchTerm);
+      if (filters.minPrice) params.set('minPrice', filters.minPrice);
+      if (filters.maxPrice) params.set('maxPrice', filters.maxPrice);
+      if (filters.bathrooms === '4+') params.set('bathroomsGte', '4');
+      else if (filters.bathrooms) params.set('bathrooms', filters.bathrooms);
+      if (filters.bedrooms === '4+') params.set('bedroomsGte', '4');
+      else if (filters.bedrooms) params.set('bedrooms', filters.bedrooms);
+      if (filters.type) params.set('type', filters.type);
+      if (filters.sort) params.set('sort', filters.sort);
+
+      const res = await fetch(`${API_BASE_URL}/api/properties?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch properties');
+      setAllProperties(data);
+      setFilteredProperties(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  // Effect to fetch all properties initially
   useEffect(() => {
-    const fetchAllProperties = async () => {
-      setLoading(true)
-      try {
-        const res = await fetch("http://localhost:8000/api/properties")
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || "Failed to fetch properties")
-        setAllProperties(data)
-        setFilteredProperties(data) // Initialize filtered properties with all properties
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchAllProperties()
-  }, []) // Empty dependency array means this runs only once on mount
+    fetchProperties();
+  }, []);
 
-  // Effect to filter properties based on searchTerm
   useEffect(() => {
-    const filterProperties = () => {
-      if (!searchTerm) {
-        setFilteredProperties(allProperties) // If search term is empty, show all properties
-        return
-      }
-      const lowerCaseSearchTerm = searchTerm.toLowerCase()
-      const filtered = allProperties.filter(
-        (property) =>
-          property.title.toLowerCase().includes(lowerCaseSearchTerm) ||
-          property.location.toLowerCase().includes(lowerCaseSearchTerm) ||
-          property.description.toLowerCase().includes(lowerCaseSearchTerm), // Added description to search
-      )
-      setFilteredProperties(filtered)
-    }
+    const timeout = setTimeout(() => {
+      fetchProperties();
+    }, 300);
 
-    // Debounce the filter function
-    const debouncedFilter = debounce(filterProperties, 300) // 300ms debounce
-    debouncedFilter()
+    return () => clearTimeout(timeout);
+  }, [searchTerm, filters]);
 
-    // Cleanup function for debounce
-    return () => clearTimeout(debouncedFilter)
-  }, [searchTerm, allProperties]) // Re-run when searchTerm or allProperties change
-
-  const closeDetailsModal = () => setShowDetailsId(null)
-  const openBookingPopup = (property) => setSelectedProperty(property)
-  const closeBookingPopup = () => setSelectedProperty(null)
+  const closeDetailsModal = () => setShowDetailsId(null);
+  const openBookingPopup = (property) => setSelectedProperty(property);
+  const closeBookingPopup = () => setSelectedProperty(null);
 
   const handleClearSearch = () => {
-    setSearchTerm("")
-  }
+    setSearchTerm('');
+  };
 
-  if (loading) return <p>Loading properties...</p>
-  if (error) return <p className="error">{error}</p>
+  if (loading) return <p>Loading properties...</p>;
+  if (error) return <p className="error">{error}</p>;
 
   return (
     <div className="listings-page">
       <h2>Available Properties</h2>
-      {/* Search Input Field with inline styles */}
-      <div
-        style={{
-          marginBottom: "2rem",
-          textAlign: "center",
-          position: "relative",
-          maxWidth: "500px",
-          margin: "0 auto 2rem auto",
-        }}
-      >
+
+      <div className="filters">
         <input
           type="text"
           placeholder="Search by title, location, or description..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "0.875rem 2.5rem 0.875rem 1.25rem" /* Added space for clear button */,
-            border: "2px solid #e2e8f0",
-            borderRadius: "0.75rem",
-            fontSize: "1rem",
-            color: "#374151",
-            backgroundColor: "#ffffff",
-            transition: "all 0.2s ease",
-            fontFamily: "inherit",
-            boxSizing: "border-box",
-            boxShadow: "0 1px 3px 0 rgba(0,0,0,0.05)",
-          }}
         />
         {searchTerm && (
-          <button
-            onClick={handleClearSearch}
-            style={{
-              position: "absolute",
-              right: "0.75rem",
-              top: "50%",
-              transform: "translateY(-50%)",
-              background: "none",
-              border: "none",
-              color: "#9ca3af",
-              fontSize: "1.2rem",
-              cursor: "pointer",
-              padding: "0.2rem",
-              lineHeight: "1",
-              transition: "color 0.2s ease",
-            }}
-          >
-            &times; {/* Times symbol for clear */}
+          <button className="clear-btn" onClick={handleClearSearch}>
+            Clear
           </button>
         )}
+        <input
+          type="number"
+          placeholder="Min price"
+          value={filters.minPrice}
+          onChange={(e) => setFilters((prev) => ({ ...prev, minPrice: e.target.value }))}
+        />
+        <input
+          type="number"
+          placeholder="Max price"
+          value={filters.maxPrice}
+          onChange={(e) => setFilters((prev) => ({ ...prev, maxPrice: e.target.value }))}
+        />
+        <select
+          value={filters.bedrooms}
+          onChange={(e) => setFilters((prev) => ({ ...prev, bedrooms: e.target.value }))}
+        >
+          <option value="">Bedrooms</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4+">4+</option>
+        </select>
+        <select
+          value={filters.bathrooms}
+          onChange={(e) => setFilters((prev) => ({ ...prev, bathrooms: e.target.value }))}
+        >
+          <option value="">Bathrooms</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4+">4+</option>
+        </select>
+        <select
+          value={filters.type}
+          onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value }))}
+        >
+          <option value="">Type</option>
+          <option value="Apartment">Apartment</option>
+          <option value="House">House</option>
+          <option value="Condo">Condo</option>
+        </select>
+        <select
+          value={filters.sort}
+          onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))}
+        >
+          <option value="newest">Newest</option>
+          <option value="priceLow">Price: Low to High</option>
+          <option value="priceHigh">Price: High to Low</option>
+        </select>
       </div>
 
       {filteredProperties.length === 0 && !loading && !error ? (
         <p
           style={{
-            textAlign: "center",
-            fontSize: "1.125rem",
-            color: "#64748b",
-            padding: "2rem",
-            border: "2px dashed #cbd5e1",
-            borderRadius: "0.75rem",
-            maxWidth: "500px",
-            margin: "2rem auto",
-            backgroundColor: "#ffffff",
+            textAlign: 'center',
+            fontSize: '1.125rem',
+            color: '#64748b',
+            padding: '2rem',
+            border: '2px dashed #cbd5e1',
+            borderRadius: '0.75rem',
+            maxWidth: '500px',
+            margin: '2rem auto',
+            backgroundColor: '#ffffff',
           }}
         >
           No properties found matching your search.
@@ -174,7 +177,9 @@ export default function Listings() {
           </div>
         </div>
       )}
-      {selectedProperty && <BookingPopup property={selectedProperty} onClose={closeBookingPopup} />}
+      {selectedProperty && (
+        <BookingPopup property={selectedProperty} onClose={closeBookingPopup} />
+      )}
     </div>
-  )
+  );
 }

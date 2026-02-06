@@ -1,21 +1,35 @@
 .message-page {
   display: flex;
-  height: 100vh;
-  background: #ffffff; /* solid white instead of green gradient */
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  height: calc(100vh - 80px);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  position: relative;
-  gap: 1px;
-  animation: fadeIn 0.4s ease-out;
+  box-shadow: var(--shadow-soft);
+  animation: pageFade 0.4s ease;
 }
 
-.message-page::before {
-  /* keep subtle radial highlights for depth */
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background:
-    radial-gradient(circle at 20% 80%, rgba(0,0,0,0.03) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(0,0,0,0.03) 0%, transparent 50%);
-  z-index: -1;
+@media (max-width: 900px) {
+  .message-page {
+    flex-direction: column;
+    height: auto;
+    min-height: 80vh;
+  }
+}
+
+@keyframes pageFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-page {
+    animation: none;
+  }
 }

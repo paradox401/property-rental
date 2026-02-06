@@ -1,64 +1,63 @@
-import React, { useEffect, useState, useContext } from "react";
-import { AuthContext } from "../../context/AuthContext";
-import "./OwnerComplaint.css";
+import React, { useEffect, useState, useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../config/api';
+import './OwnerComplaint.css';
 
 export default function OwnerComplaints() {
-  const { user } = useContext(AuthContext);
+  const { user, token } = useContext(AuthContext);
   const [complaints, setComplaints] = useState([]);
-  const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch all complaints
-        const complaintsRes = await fetch("http://localhost:8000/api/complaints", {
+        if (!token) {
+          setError('Please log in to view complaints.');
+          return;
+        }
+
+        const complaintsRes = await fetch(`${API_BASE_URL}/api/complaints`, {
           headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
         });
-        if (!complaintsRes.ok) throw new Error("Failed to fetch complaints");
+        if (!complaintsRes.ok) throw new Error('Failed to fetch complaints');
         const complaintsData = await complaintsRes.json();
 
-        // Fetch all properties of this owner
-        const propertiesRes = await fetch("http://localhost:8000/api/properties", {
+        const propertiesRes = await fetch(`${API_BASE_URL}/api/properties`, {
           headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
         });
-        if (!propertiesRes.ok) throw new Error("Failed to fetch properties");
+        if (!propertiesRes.ok) throw new Error('Failed to fetch properties');
         const propertiesData = await propertiesRes.json();
 
-        // Map property IDs to titles
         const propertyMap = {};
         propertiesData.forEach((p) => {
           if (p.ownerId === user._id) propertyMap[p._id] = p.title;
         });
 
-        // Filter complaints belonging to this owner
         const ownerComplaints = complaintsData.filter((c) => c.ownerId === user._id);
 
-        // Attach property titles to complaints
         const complaintsWithProperty = ownerComplaints.map((c) => ({
           ...c,
-          propertyTitle: propertyMap[c.propertyId] || "N/A",
+          propertyTitle: propertyMap[c.propertyId] || 'N/A',
         }));
 
         setComplaints(complaintsWithProperty);
-        setProperties(propertiesData);
       } catch (err) {
-        console.error("❌ Error fetching data:", err);
-        setError(err.message || "Something went wrong");
+        console.error('Error fetching data:', err);
+        setError(err.message || 'Something went wrong');
       } finally {
         setLoading(false);
       }
     };
 
     if (user) fetchData();
-  }, [user]);
+  }, [user, token]);
 
   return (
     <div className="owner-complaints-container">

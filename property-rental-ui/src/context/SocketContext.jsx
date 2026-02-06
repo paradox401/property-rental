@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { AuthContext } from './AuthContext';
+import { SOCKET_URL } from '../config/api';
 
 const SocketContext = createContext();
 
@@ -10,7 +11,7 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (user) {
-      socket.current = io('http://localhost:8000', {
+      socket.current = io(SOCKET_URL, {
         withCredentials: true,
         transports: ['websocket'],
       });
@@ -23,11 +24,7 @@ export const SocketProvider = ({ children }) => {
     };
   }, [user]);
 
-  return (
-    <SocketContext.Provider value={socket}>
-      {children}
-    </SocketContext.Provider>
-  );
+  return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>;
 };
 
 export const useSocket = () => useContext(SocketContext);

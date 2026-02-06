@@ -1,17 +1,24 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
+import { AuthContext } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../config/api';
 import './BookingPopup.css';
 
 export default function BookingPopup({ property, onClose }) {
+  const { token } = useContext(AuthContext);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [message, setMessage] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const token = localStorage.getItem('token');
 
   const handleBooking = async () => {
     setMessage('');
     setSuccess('');
+
+    if (!token) {
+      setMessage('Please log in to book a property.');
+      return;
+    }
 
     if (!fromDate || !toDate) {
       setMessage('Please select both from and to dates.');
@@ -26,11 +33,11 @@ export default function BookingPopup({ property, onClose }) {
     setLoading(true);
 
     try {
-      const res = await fetch(`http://localhost:8000/api/bookings`, {
+      const res = await fetch(`${API_BASE_URL}/api/bookings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           propertyId: property._id,
@@ -45,7 +52,6 @@ export default function BookingPopup({ property, onClose }) {
 
       setSuccess('Booking request sent successfully!');
 
-      // Optionally close popup after 2 seconds
       setTimeout(() => {
         onClose();
       }, 2000);
@@ -56,7 +62,6 @@ export default function BookingPopup({ property, onClose }) {
     }
   };
 
-  // Clear messages on close to reset popup state cleanly
   const handleClose = () => {
     setMessage('');
     setSuccess('');

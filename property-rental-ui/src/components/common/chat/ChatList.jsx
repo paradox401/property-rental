@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
 import './ChatList.css';
 
-export default function ChatList({ users, onSelectUser, fetchUsers }) {
+export default function ChatList({ users, onSelectUser, fetchUsers, selectedUser }) {
   useEffect(() => {
+    if (!fetchUsers) return;
+
     const interval = setInterval(() => {
-      if (fetchUsers) fetchUsers(); // call parent-provided fetch function
+      fetchUsers();
     }, 1000);
     return () => clearInterval(interval);
   }, [fetchUsers]);
@@ -16,7 +18,11 @@ export default function ChatList({ users, onSelectUser, fetchUsers }) {
         <p>No users available</p>
       ) : (
         users.map((u) => (
-          <div key={u._id || u.email} onClick={() => onSelectUser(u)}>
+          <div
+            key={u._id || u.email}
+            className={selectedUser?._id === u._id ? 'active' : ''}
+            onClick={() => onSelectUser(u)}
+          >
             {u.name || u.email}
           </div>
         ))

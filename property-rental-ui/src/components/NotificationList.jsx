@@ -1,16 +1,20 @@
 import React, { useContext, useState } from 'react';
 import { NotificationContext } from '../context/NotificationContext';
+import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import './NotificationList.css';
 
 export default function NotificationList() {
-  const { notifications, setNotifications } = useContext(NotificationContext);
+  const { notifications, setNotifications, unreadCount } =
+    useContext(NotificationContext);
+  const { token } = useContext(AuthContext);
   const [open, setOpen] = useState(false);
-  const token = localStorage.getItem('token');
-  const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const markAsRead = async (id) => {
+    if (!token) return;
+
     try {
-      const res = await fetch(`${BASE_URL}/api/notifications/${id}/read`, {
+      const res = await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -25,8 +29,6 @@ export default function NotificationList() {
       console.error('Error marking as read:', err.message);
     }
   };
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div className="notification-dropdown">

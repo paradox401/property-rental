@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import './MyProperties.css';
 import { AuthContext } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../config/api';
 
 const PROPERTY_TYPES = ['Apartment', 'House', 'Condo'];
 
@@ -29,7 +30,12 @@ export default function MyProperties() {
   useEffect(() => {
     const fetchProperties = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/properties/my', {
+        if (!token) {
+          setError('Please log in to view properties.');
+          return;
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/properties/my`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -81,7 +87,7 @@ export default function MyProperties() {
     }
 
     try {
-      const res = await fetch(`http://localhost:8000/api/properties/${currentProperty._id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/properties/${currentProperty._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -109,12 +115,32 @@ export default function MyProperties() {
     }
   };
 
+  const handleDelete = async (propertyId) => {
+    if (!token) return;
+
+    if (!window.confirm('Are you sure you want to delete this property?')) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/properties/${propertyId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete');
+
+      setProperties((prev) => prev.filter((p) => p._id !== propertyId));
+    } catch (err) {
+      alert(err.message || 'Failed to delete property');
+    }
+  };
 
   const handleCancel = () => {
     setIsEditing(false);
     setFormError('');
   };
-
 
   return (
     <div className="my-properties-container">
@@ -129,53 +155,36 @@ export default function MyProperties() {
         <div className="properties-grid">
           {properties.map((property) => (
             <div key={property._id} className="property-card">
-              <img src={property.image || '/default-image.jpg'} alt={property.title} className="property-image" />
+              <img
+                src={property.image || '/default-image.jpg'}
+                alt={property.title}
+                className="property-image"
+              />
               <div className="property-details">
                 <h3>{property.title}</h3>
                 <p>Location: {property.location}</p>
                 <p>
                   Rent: <span className="rent-amount">Rs. {property.price}</span>
                 </p>
-                <p className={`status ${property.status === 'Approved'
-                    ? 'approved'
-                    : 'available'
-                  }`}>
-                  Status: {property.status === 'Approved' ? 'booked' : 'Available'}
+                <p className="status available">Approval: {property.approvalStatus}</p>
+                <p
+                  className={`status ${
+                    property.bookingStatus === 'Approved' ? 'approved' : 'available'
+                  }`}
+                >
+                  Booking: {property.bookingStatus === 'Approved' ? 'booked' : 'Available'}
                 </p>
 
-
-
                 <div className="property-actions">
-                  <button className="btn-edit" onClick={() => handleEditClick(property)}>Edit</button>
-                  <button
-                    className="btn-delete"
-                    onClick={async () => {
-                      if (window.confirm('Are you sure you want to delete this property?')) {
-                        try {
-                          const res = await fetch(`http://localhost:8000/api/properties/${property._id}`, {
-                            method: 'DELETE',
-                            headers: {
-                              Authorization: `Bearer ${token}`,
-                            },
-                          });
-
-                          const data = await res.json();
-                          if (!res.ok) throw new Error(data.error || 'Failed to delete');
-
-                          setProperties((prev) => prev.filter((p) => p._id !== property._id));
-                        } catch (err) {
-                          alert(err.message || 'Failed to delete property');
-                        }
-                      }
-                    }}
-
-                  >
+                  <button className="btn-edit" onClick={() => handleEditClick(property)}>
+                    Edit
+                  </button>
+                  <button className="btn-delete" onClick={() => handleDelete(property._id)}>
                     Delete
                   </button>
                   <button className="btn-view" onClick={() => setViewProperty(property)}>
                     View Details
                   </button>
-
                 </div>
               </div>
             </div>
@@ -183,7 +192,6 @@ export default function MyProperties() {
         </div>
       )}
 
-      {/* Edit Modal */}
       {isEditing && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -198,19 +206,39 @@ export default function MyProperties() {
             </div>
             <div className="form-group">
               <label>Price (Rs)*</label>
-              <input name="price" type="number" value={formData.price} onChange={handleInputChange} />
+              <input
+                name="price"
+                type="number"
+                value={formData.price}
+                onChange={handleInputChange}
+              />
             </div>
             <div className="form-group">
               <label>Bedrooms*</label>
-              <input name="bedrooms" type="number" value={formData.bedrooms} onChange={handleInputChange} />
+              <input
+                name="bedrooms"
+                type="number"
+                value={formData.bedrooms}
+                onChange={handleInputChange}
+              />
             </div>
             <div className="form-group">
               <label>Bathrooms*</label>
-              <input name="bathrooms" type="number" value={formData.bathrooms} onChange={handleInputChange} />
+              <input
+                name="bathrooms"
+                type="number"
+                value={formData.bathrooms}
+                onChange={handleInputChange}
+              />
             </div>
             <div className="form-group">
               <label>Description</label>
-              <textarea name="description" value={formData.description} onChange={handleInputChange} rows="3" />
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                rows="3"
+              />
             </div>
             <div className="form-group">
               <label>Type*</label>
@@ -242,14 +270,32 @@ export default function MyProperties() {
         <div className="modal-overlay">
           <div className="modal-content">
             <h2>Property Details</h2>
-            <img src={viewProperty.image || '/default-image.jpg'} alt={viewProperty.title} className="modal-image" />
-            <p><strong>Title:</strong> {viewProperty.title}</p>
-            <p><strong>Location:</strong> {viewProperty.location}</p>
-            <p><strong>Rent:</strong> Rs. {viewProperty.price}</p>
-            <p><strong>Bedrooms:</strong> {viewProperty.bedrooms}</p>
-            <p><strong>Bathrooms:</strong> {viewProperty.bathrooms}</p>
-            <p><strong>Description:</strong> {viewProperty.description || 'N/A'}</p>
-            <p><strong>Type:</strong> {viewProperty.type}</p>
+            <img
+              src={viewProperty.image || '/default-image.jpg'}
+              alt={viewProperty.title}
+              className="modal-image"
+            />
+            <p>
+              <strong>Title:</strong> {viewProperty.title}
+            </p>
+            <p>
+              <strong>Location:</strong> {viewProperty.location}
+            </p>
+            <p>
+              <strong>Rent:</strong> Rs. {viewProperty.price}
+            </p>
+            <p>
+              <strong>Bedrooms:</strong> {viewProperty.bedrooms}
+            </p>
+            <p>
+              <strong>Bathrooms:</strong> {viewProperty.bathrooms}
+            </p>
+            <p>
+              <strong>Description:</strong> {viewProperty.description || 'N/A'}
+            </p>
+            <p>
+              <strong>Type:</strong> {viewProperty.type}
+            </p>
             <div className="modal-buttons">
               <button className="btn-cancel" onClick={() => setViewProperty(null)}>
                 Close
@@ -258,7 +304,6 @@ export default function MyProperties() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

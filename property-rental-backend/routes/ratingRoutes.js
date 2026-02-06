@@ -24,7 +24,7 @@ router.post('/:id/rate', protect, async (req, res) => {
     const booking = await Booking.findOne({
       renter: userId,
       property: propertyId,
-      status: 'Approved'
+      status: 'Approved',
     });
 
     if (!booking) {
@@ -34,13 +34,13 @@ router.post('/:id/rate', protect, async (req, res) => {
     const property = await Property.findById(propertyId);
     if (!property) return res.status(404).json({ message: 'Property not found' });
 
-    // Check if user has already rated
-    const existingRating = property.ratings?.find(r => r.user.equals(userId));
+    const existingRating = property.ratings?.find((r) => r.user.equals(userId));
     if (existingRating) {
       return res.status(400).json({ message: 'You have already rated this property' });
     }
 
     property.ratings.push({ user: userId, value: rating });
+    property.reviews.push({ user: userId, rating, comment: '' });
     property.numRatings += 1;
     property.rating = (property.rating * (property.numRatings - 1) + rating) / property.numRatings;
 

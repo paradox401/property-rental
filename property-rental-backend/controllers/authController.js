@@ -10,6 +10,10 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
+    if (role && !['owner', 'renter'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'Email already in use' });
@@ -22,7 +26,7 @@ export const register = async (req, res) => {
       citizenshipNumber,
       email,
       password: hashedPassword,
-      role
+      role: role || 'renter',
     });
 
     await newUser.save();
@@ -47,9 +51,17 @@ export const login = async (req, res) => {
       expiresIn: '1d',
     });
 
-    res.json({ token, user: { _id: user._id, email: user.email, role: user.role } });
+    res.json({
+      token,
+      user: {
+        _id: user._id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        ownerVerificationStatus: user.ownerVerificationStatus,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 };
-
