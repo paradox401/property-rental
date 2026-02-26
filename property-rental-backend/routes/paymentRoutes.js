@@ -9,12 +9,33 @@ import User from '../models/User.js';
 dotenv.config();
 const router = express.Router();
 
+const startOfMonth = (dateValue = new Date()) => {
+  const date = new Date(dateValue);
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+};
+
+const endOfMonth = (dateValue = new Date()) => {
+  const date = new Date(dateValue);
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+};
+
+const addMonths = (dateValue, months) => {
+  const date = new Date(dateValue);
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+};
+
+const monthDiffInclusive = (startDate, endDate) => {
+  const years = endDate.getFullYear() - startDate.getFullYear();
+  const months = endDate.getMonth() - startDate.getMonth();
+  return years * 12 + months + 1;
+};
+
 router.post('/create', protect, async (req, res) => {
   try {
-    const { bookingId, amount, paymentMethod = 'QR', pid, transactionRef } = req.body;
+    const { bookingId, paymentMethod = 'QR', pid, transactionRef } = req.body;
 
-    if (!bookingId || !amount) {
-      return res.status(400).json({ error: 'Booking and amount are required' });
+    if (!bookingId) {
+      return res.status(400).json({ error: 'Booking is required' });
     }
 
     const booking = await Booking.findById(bookingId).populate('property');
@@ -28,17 +49,41 @@ router.post('/create', protect, async (req, res) => {
       return res.status(400).json({ error: 'Booking not approved yet' });
     }
 
-    if (booking.paymentStatus === 'paid') {
-      return res.status(400).json({ error: 'Booking already paid' });
-    }
-
     const existingPayment = await Payment.findOne({
       booking: bookingId,
-      status: { $in: ['Pending', 'Paid'] },
+      status: 'Pending',
     });
     if (existingPayment) {
       return res.status(400).json({ error: 'Payment request already submitted for this booking' });
     }
+
+    const paidPayments = await Payment.find({
+      booking: bookingId,
+      status: 'Paid',
+    }).sort({ paymentPeriodEnd: -1, createdAt: -1 });
+
+    const now = new Date();
+    const currentMonthStart = startOfMonth(now);
+    const currentMonthEnd = endOfMonth(now);
+    const bookingStartMonth = startOfMonth(booking.fromDate || now);
+
+    const latestPaid = paidPayments[0];
+    const latestPaidEnd = latestPaid?.paymentPeriodEnd
+      ? startOfMonth(latestPaid.paymentPeriodEnd)
+      : latestPaid?.createdAt
+        ? startOfMonth(latestPaid.createdAt)
+        : null;
+
+    const dueStart = latestPaidEnd
+      ? addMonths(latestPaidEnd, 1)
+      : bookingStartMonth;
+
+    if (dueStart > currentMonthStart) {
+      return res.status(400).json({ error: 'No rent due for the current month' });
+    }
+
+    const monthsCount = monthDiffInclusive(dueStart, currentMonthStart);
+    const amount = Number(booking.property?.price || 0) * monthsCount;
 
     const payment = new Payment({
       booking: bookingId,
@@ -47,6 +92,9 @@ router.post('/create', protect, async (req, res) => {
       paymentMethod,
       pid,
       transactionRef,
+      monthsCount,
+      paymentPeriodStart: dueStart,
+      paymentPeriodEnd: currentMonthEnd,
       status: 'Pending',
     });
 
@@ -70,7 +118,16 @@ router.post('/create', protect, async (req, res) => {
       `/renter/payments`
     );
 
-    res.status(201).json({ message: 'Payment submitted for admin verification', payment });
+    res.status(201).json({
+      message: 'Payment submitted for admin verification',
+      payment,
+      due: {
+        from: dueStart,
+        to: currentMonthEnd,
+        monthsCount,
+        amount,
+      },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -128,6 +185,11 @@ router.get('/:paymentId/invoice', protect, async (req, res) => {
       bookingPeriod: {
         from: booking?.fromDate,
         to: booking?.toDate,
+      },
+      paymentPeriod: {
+        from: payment.paymentPeriodStart || payment.createdAt,
+        to: payment.paymentPeriodEnd || payment.createdAt,
+        monthsCount: payment.monthsCount || 1,
       },
       amount: payment.amount,
       paymentMethod: payment.paymentMethod,
