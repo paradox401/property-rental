@@ -131,7 +131,13 @@ export const forgotPassword = async (req, res) => {
       process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
     const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password/${resetToken}`;
 
-    const emailSent = await sendResetPasswordEmail(user.email, resetUrl);
+    let emailSent = false;
+    try {
+      emailSent = await sendResetPasswordEmail(user.email, resetUrl);
+    } catch (mailErr) {
+      // Do not fail forgot-password flow because of SMTP issues.
+      console.error('forgotPassword mail send error:', mailErr.message);
+    }
 
     return res.json({
       message: 'If an account with that email exists, a reset link has been sent.',
