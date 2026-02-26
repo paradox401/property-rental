@@ -35,6 +35,8 @@ const userSchema = new mongoose.Schema({
     type: notificationPreferencesSchema,
     default: () => ({}),
   },
+  resetPasswordTokenHash: { type: String, select: false },
+  resetPasswordExpiresAt: { type: Date, select: false },
 });
 
 export default mongoose.model('User', userSchema);
