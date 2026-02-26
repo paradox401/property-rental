@@ -13,6 +13,8 @@ import MyBookings from '../pages/renter/MyBookings';
 import Listings from '../pages/renter/Listings';
 import Favorites from '../pages/renter/Favorites';
 import Register from '../pages/login/Register';
+import ForgotPassword from '../pages/login/ForgotPassword';
+import ResetPassword from '../pages/login/ResetPassword';
 import Landing from '../pages/Landing';
 import { AuthContext } from '../context/AuthContext';
 import PropertyDetails from '../components/common/PropertyDetails';
@@ -49,6 +51,8 @@ export default function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
 
       <Route
         path="/owner/*"

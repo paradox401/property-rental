@@ -1,12 +1,13 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
 import './PropertyDetails.css';
 
 export default function PropertyDetails({ id }) {
   const { id: routeId } = useParams();
+  const navigate = useNavigate();
   const propertyId = id || routeId;
   const { token } = useContext(AuthContext);
   const [property, setProperty] = useState(null);
@@ -83,6 +84,11 @@ export default function PropertyDetails({ id }) {
 
   return (
     <div className="property-details-popup">
+      {routeId && (
+        <button className="details-close-btn" onClick={() => navigate(-1)}>
+          Close
+        </button>
+      )}
       <h2>{property.title}</h2>
       <img src={property.image || '/default-property.jpg'} alt={property.title} />
       <p>

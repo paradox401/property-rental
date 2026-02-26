@@ -7,6 +7,7 @@ export default function OwnerVerifications() {
   const { token } = useContext(AuthContext);
   const [owners, setOwners] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
 
   const fetchOwners = async () => {
     try {
@@ -14,9 +15,13 @@ export default function OwnerVerifications() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (res.ok) setOwners(data);
+      if (res.ok) {
+        setOwners(data);
+      } else {
+        setMessage(data.error || 'Failed to load requests');
+      }
     } catch {
-      // ignore
+      setMessage('Failed to load requests');
     } finally {
       setLoading(false);
     }
@@ -27,12 +32,19 @@ export default function OwnerVerifications() {
   }, [token]);
 
   const updateStatus = async (id, status) => {
-    await fetch(`${API_BASE_URL}/api/users/admin/owner-requests/${id}`, {
+    setMessage('');
+    const res = await fetch(`${API_BASE_URL}/api/users/admin/owner-requests/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ status }),
     });
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(data.error || 'Failed to update request');
+      return;
+    }
     setOwners((prev) => prev.filter((o) => o._id !== id));
+    setMessage(`Owner ${status} successfully.`);
   };
 
   if (loading) return <p>Loading owner verification requests...</p>;
@@ -40,6 +52,7 @@ export default function OwnerVerifications() {
   return (
     <div className="surface-card" style={{ padding: '2rem' }}>
       <h2>Owner Verification Requests</h2>
+      {message && <p style={{ marginBottom: '1rem' }}>{message}</p>}
       {owners.length === 0 ? (
         <p>No pending verification requests.</p>
       ) : (

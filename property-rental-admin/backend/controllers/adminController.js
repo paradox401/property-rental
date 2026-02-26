@@ -252,7 +252,10 @@ export const getAllBookings = async (req, res) => {
     const currentLimit = parseLimit(limit);
     const [bookings, total] = await Promise.all([
       Booking.find(filter)
-        .populate('property')
+        .populate({
+          path: 'property',
+          populate: { path: 'ownerId', select: 'name email' },
+        })
         .populate('renter', 'name email')
         .sort({ createdAt: -1 })
         .skip((currentPage - 1) * currentLimit)
@@ -307,13 +310,25 @@ export const getAllPayments = async (req, res) => {
 
 export const updatePaymentStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, adminRemark } = req.body;
     if (!['Pending', 'Paid', 'Failed', 'Refunded'].includes(status)) {
       return res.status(400).json({ error: 'Invalid payment status' });
     }
 
-    const payment = await Payment.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    const payment = await Payment.findByIdAndUpdate(
+      req.params.id,
+      { status, ...(adminRemark ? { adminRemark } : {}) },
+      { new: true }
+    );
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
+
+    if (payment.booking) {
+      if (status === 'Paid') {
+        await Booking.findByIdAndUpdate(payment.booking, { paymentStatus: 'paid' });
+      } else if (status === 'Failed' || status === 'Pending') {
+        await Booking.findByIdAndUpdate(payment.booking, { paymentStatus: 'pending' });
+      }
+    }
 
     await logAudit(req, 'payment_status_changed', 'Payment', payment._id, { status });
     res.json(payment);

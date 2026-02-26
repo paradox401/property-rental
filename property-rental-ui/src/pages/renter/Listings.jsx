@@ -67,8 +67,10 @@ export default function Listings() {
       // Fetch both listed states directly so UI works even if backend status aliases aren't deployed.
       const pendingParams = new URLSearchParams(params);
       pendingParams.set('status', 'Pending');
+      pendingParams.set('availableOnly', 'true');
       const approvedParams = new URLSearchParams(params);
       approvedParams.set('status', 'Approved');
+      approvedParams.set('availableOnly', 'true');
 
       const [pendingRes, approvedRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/properties?${pendingParams.toString()}`, { signal }),
@@ -142,8 +144,8 @@ export default function Listings() {
   return (
     <div className="listings-page">
       <div className="listings-header">
-        <h2>Listed Properties</h2>
-        <p>Showing all listed properties (pending and approved).</p>
+        <h2>Available Listed Properties</h2>
+        <p>Showing listed properties that are not already booked.</p>
       </div>
 
       <div className="filters">
@@ -232,8 +234,8 @@ export default function Listings() {
       {showDetailsId && (
         <div className="modal-overlay" onClick={closeDetailsModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeDetailsModal}>
-              X
+            <button className="modal-close" onClick={closeDetailsModal} aria-label="Close popup" title="Close">
+              ✕
             </button>
             <PropertyDetails id={showDetailsId} />
           </div>

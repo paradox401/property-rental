@@ -1,7 +1,23 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
 import './PaymentPage.css';
+
+const QR_IMAGE_URL =
+  import.meta.env.VITE_MANUAL_PAYMENT_QR_URL ||
+  'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg';
+
+const normalizeStatus = (status) => String(status || '').toLowerCase();
+const startOfMonth = (d) => new Date(new Date(d).getFullYear(), new Date(d).getMonth(), 1);
+const endOfMonth = (d) =>
+  new Date(new Date(d).getFullYear(), new Date(d).getMonth() + 1, 0, 23, 59, 59, 999);
+const addMonths = (date, months) => new Date(date.getFullYear(), date.getMonth() + months, 1);
+const monthDiffInclusive = (start, end) =>
+  (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+const formatDateOnly = (date) =>
+  new Date(date).toLocaleDateString(undefined, { timeZone: 'UTC' });
+const formatMonth = (date) =>
+  new Date(date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 
 export default function PaymentPage() {
   const { user, token } = useContext(AuthContext);
@@ -14,16 +30,81 @@ export default function PaymentPage() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [activeTab, setActiveTab] = useState('pay');
-  const [khaltiLoaded, setKhaltiLoaded] = useState(false);
   const [invoice, setInvoice] = useState(null);
+  const [transactionRefs, setTransactionRefs] = useState({});
+  const [nowTick, setNowTick] = useState(Date.now());
+
+  const latestPaymentByBooking = useMemo(() => {
+    const map = {};
+    history.forEach((item) => {
+      const bookingId = item.booking?._id || item.booking;
+      if (!bookingId) return;
+      if (!map[bookingId] || new Date(item.createdAt) > new Date(map[bookingId].createdAt)) {
+        map[bookingId] = item;
+      }
+    });
+    return map;
+  }, [history]);
+
+  const summary = useMemo(() => {
+    const total = history.length;
+    const paid = history.filter((h) => h.status === 'Paid').length;
+    const pending = history.filter((h) => h.status === 'Pending').length;
+    const failed = history.filter((h) => h.status === 'Failed').length;
+    return { total, paid, pending, failed };
+  }, [history]);
+
+  const dueByBooking = useMemo(() => {
+    const map = {};
+    const now = new Date(nowTick);
+    const currentMonthStart = startOfMonth(now);
+    const currentMonthEnd = endOfMonth(now);
+
+    bookings.forEach((booking) => {
+      const bookingId = booking._id;
+      const paymentsForBooking = history.filter((h) => (h.booking?._id || h.booking) === bookingId);
+      const latestPaid = paymentsForBooking
+        .filter((h) => h.status === 'Paid')
+        .sort(
+          (a, b) =>
+            new Date(b.paymentPeriodEnd || b.createdAt) - new Date(a.paymentPeriodEnd || a.createdAt)
+        )[0];
+
+      const hasPending = paymentsForBooking.some((h) => h.status === 'Pending');
+      const paidEnd = latestPaid
+        ? startOfMonth(latestPaid.paymentPeriodEnd || latestPaid.createdAt)
+        : null;
+      const dueStart = paidEnd ? addMonths(paidEnd, 1) : startOfMonth(booking.fromDate);
+
+      if (dueStart > currentMonthStart) {
+        map[bookingId] = {
+          hasDue: false,
+          hasPending,
+          dueStart,
+          dueEnd: currentMonthEnd,
+          monthsCount: 0,
+          amount: 0,
+        };
+        return;
+      }
+
+      const monthsCount = monthDiffInclusive(dueStart, currentMonthStart);
+      map[bookingId] = {
+        hasDue: true,
+        hasPending,
+        dueStart,
+        dueEnd: currentMonthEnd,
+        monthsCount,
+        amount: Number(booking.property?.price || 0) * monthsCount,
+      };
+    });
+
+    return map;
+  }, [bookings, history, nowTick]);
 
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://khalti.com/static/khalti-checkout.js';
-    script.async = true;
-    script.onload = () => setKhaltiLoaded(true);
-    document.body.appendChild(script);
-    return () => document.body.removeChild(script);
+    const interval = setInterval(() => setNowTick(Date.now()), 60 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -65,12 +146,20 @@ export default function PaymentPage() {
     fetchHistory();
   }, [renterId, token]);
 
-  const handlePayment = async (bookingId, amount, isPaid) => {
+  const refreshHistory = async () => {
+    const res = await fetch(`${API_BASE_URL}/api/payments/history`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (res.ok) setHistory(data);
+  };
+
+  const handleSubmitPaymentRequest = async (bookingId, amount, isPaid, hasPendingRequest) => {
     setError('');
     setSuccessMsg('');
 
     if (!user || !token) {
-      setError('You must be logged in to make a payment');
+      setError('You must be logged in to submit a payment request.');
       return;
     }
 
@@ -79,61 +168,35 @@ export default function PaymentPage() {
       return;
     }
 
-    if (!khaltiLoaded || !window.KhaltiCheckout) {
-      setError('Khalti checkout is not loaded yet. Please refresh the page.');
+    if (hasPendingRequest) {
+      setError('Payment request already submitted. Please wait for admin verification.');
       return;
     }
 
     try {
-      const pid = `BK${bookingId}-${Date.now()}`;
-
       const res = await fetch(`${API_BASE_URL}/api/payments/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ bookingId, amount, paymentMethod: 'Khalti', pid }),
+        body: JSON.stringify({
+          bookingId,
+          amount,
+          paymentMethod: 'QR',
+          transactionRef: transactionRefs[bookingId] || '',
+          pid: `QR-${bookingId}-${Date.now()}`,
+        }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Payment initiation failed');
+      if (!res.ok) throw new Error(data.error || 'Failed to submit payment request');
 
-      const checkout = new window.KhaltiCheckout({
-        publicKey: 'test_public_key_9c3d3b1a4f9347e29f8d45a8b5f7b1c0',
-        productIdentity: pid,
-        productName: `Booking ${bookingId}`,
-        productUrl: window.location.href,
-        eventHandler: {
-          onSuccess: async (payload) => {
-            try {
-              const verifyRes = await fetch(`${API_BASE_URL}/api/payments/verify`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ ...payload, bookingId, amount }),
-              });
-              const verifyData = await verifyRes.json();
-              if (verifyRes.ok) {
-                setSuccessMsg('Payment successful!');
-                setBookings((prev) =>
-                  prev.map((b) => (b._id === bookingId ? { ...b, paymentStatus: 'paid' } : b))
-                );
-                setHistory((prev) => [verifyData.payment, ...prev]);
-              } else setError(verifyData.error || 'Payment verification failed');
-            } catch {
-              setError('Server verification failed');
-            }
-          },
-          onError: () => setError('Payment failed or cancelled'),
-          onClose: () => {},
-        },
-        paymentPreference: ['KHALTI', 'EBANKING', 'MOBILE_BANKING', 'CONNECT_IPS', 'SCT'],
-      });
-
-      checkout.show({ amount: amount * 100 });
+      setSuccessMsg('Payment request submitted. Admin will verify and update status.');
+      setBookings((prev) =>
+        prev.map((b) => (b._id === bookingId ? { ...b, paymentStatus: 'pending_verification' } : b))
+      );
+      await refreshHistory();
     } catch (err) {
       setError(err.message);
     }
@@ -148,68 +211,125 @@ export default function PaymentPage() {
   };
 
   return (
-    <div className="payment-container">
-      <h1>Payments</h1>
+    <div className="payment-page">
+      <section className="payment-hero">
+        <h1>Payments</h1>
+        <p>Pay through QR and submit request for admin verification.</p>
+      </section>
+
+      <section className="payment-summary">
+        <article className="summary-card"><span>Total</span><strong>{summary.total}</strong></article>
+        <article className="summary-card paid"><span>Paid</span><strong>{summary.paid}</strong></article>
+        <article className="summary-card pending"><span>Pending</span><strong>{summary.pending}</strong></article>
+        <article className="summary-card failed"><span>Failed</span><strong>{summary.failed}</strong></article>
+      </section>
 
       <div className="tabs">
         <button className={activeTab === 'pay' ? 'active' : ''} onClick={() => setActiveTab('pay')}>
-          Pay Now
+          Pay Via QR
         </button>
-        <button
-          className={activeTab === 'history' ? 'active' : ''}
-          onClick={() => setActiveTab('history')}
-        >
+        <button className={activeTab === 'history' ? 'active' : ''} onClick={() => setActiveTab('history')}>
           Payment History
         </button>
       </div>
 
-      {successMsg && <p className="success-msg">{successMsg}</p>}
-      {error && <p className="error-msg">{error}</p>}
+      {successMsg && <p className="alert success">{successMsg}</p>}
+      {error && <p className="alert error">{error}</p>}
 
       {activeTab === 'pay' && (
-        <div className="booking-list">
+        <div className="cards-grid">
           {loadingBookings ? (
-            <p>Loading bookings...</p>
+            <p className="empty-state">Loading bookings...</p>
           ) : bookings.length === 0 ? (
-            <p>No approved bookings to pay for.</p>
+            <p className="empty-state">No approved bookings to pay for.</p>
           ) : (
-            bookings.map((b) => (
-              <div key={b._id} className="booking-card">
-                <h3>{b.property.title}</h3>
-                <p>From: {new Date(b.fromDate).toLocaleDateString()}</p>
-                <p>To: {new Date(b.toDate).toLocaleDateString()}</p>
-                <p>Status: {b.status}</p>
-                <p>Amount: {b.property.price} NPR</p>
-                <button
-                  className="btn-pay"
-                  disabled={b.paymentStatus === 'paid'}
-                  onClick={() => handlePayment(b._id, b.property.price, b.paymentStatus === 'paid')}
-                >
-                  {b.paymentStatus === 'paid' ? 'Paid' : 'Pay Now'}
-                </button>
-              </div>
-            ))
+            bookings.map((b) => {
+              const latestPayment = latestPaymentByBooking[b._id];
+              const due = dueByBooking[b._id];
+              const isPaid = !due?.hasDue;
+              const hasPendingRequest =
+                due?.hasPending ||
+                b.paymentStatus === 'pending_verification' ||
+                latestPayment?.status === 'Pending';
+
+              return (
+                <div key={b._id} className="payment-card">
+                  <div className="card-head">
+                    <h3>{b.property.title}</h3>
+                    <span className={`status-chip ${isPaid ? 'paid' : hasPendingRequest ? 'pending' : 'ready'}`}>
+                      {isPaid ? 'Paid' : hasPendingRequest ? 'Pending Verification' : 'Ready To Submit'}
+                    </span>
+                  </div>
+
+                  <div className="meta-row"><span>Monthly Rent</span><strong>Rs. {b.property.price}</strong></div>
+                  <div className="meta-row">
+                    <span>Due Period</span>
+                    <strong>
+                      {due?.hasDue
+                        ? `${formatMonth(due.dueStart)} - ${formatMonth(due.dueEnd)}`
+                        : 'No Due'}
+                    </strong>
+                  </div>
+                  <div className="meta-row"><span>Months Due</span><strong>{due?.monthsCount || 0}</strong></div>
+                  <div className="meta-row"><span>Total Due</span><strong>Rs. {due?.amount || 0}</strong></div>
+
+                  <div className="qr-box">
+                    <p>Scan this QR, complete payment, then submit request.</p>
+                    <img src={QR_IMAGE_URL} alt="Payment QR" className="qr-image" />
+                    <input
+                      type="text"
+                      placeholder="Transaction Reference (optional)"
+                      value={transactionRefs[b._id] || ''}
+                      onChange={(e) =>
+                        setTransactionRefs((prev) => ({ ...prev, [b._id]: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <button
+                    className="btn-primary"
+                    disabled={isPaid || hasPendingRequest}
+                    onClick={() =>
+                      handleSubmitPaymentRequest(b._id, due?.amount || b.property.price, isPaid, hasPendingRequest)
+                    }
+                  >
+                    {isPaid ? 'No Due' : hasPendingRequest ? 'Verification Pending' : 'I Have Paid - Submit'}
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
       )}
 
       {activeTab === 'history' && (
-        <div className="history-list">
+        <div className="cards-grid">
           {loadingHistory ? (
-            <p>Loading payment history...</p>
+            <p className="empty-state">Loading payment history...</p>
           ) : history.length === 0 ? (
-            <p>No payments made yet.</p>
+            <p className="empty-state">No payments made yet.</p>
           ) : (
             history.map((h) => (
               <div key={h._id} className="history-card">
-                <p>Booking: {h.booking?._id}</p>
-                <p>Property: {h.booking?.property?.title || 'N/A'}</p>
-                <p>Amount Paid: {h.amount} NPR</p>
-                <p>Date: {new Date(h.date || h.createdAt).toLocaleString()}</p>
-                <p>Status: {h.status}</p>
-                <button className="btn-pay" onClick={() => openInvoice(h._id)}>
-                  View Invoice
-                </button>
+                <div className="card-head">
+                  <h3>{h.booking?.property?.title || 'N/A'}</h3>
+                  <span className={`status-chip ${normalizeStatus(h.status)}`}>{h.status}</span>
+                </div>
+                <div className="meta-row"><span>Booking</span><strong>{h.booking?._id}</strong></div>
+                <div className="meta-row"><span>Amount</span><strong>Rs. {h.amount}</strong></div>
+                <div className="meta-row">
+                  <span>Period</span>
+                  <strong>
+                    {h.paymentPeriodStart && h.paymentPeriodEnd
+                      ? `${formatMonth(h.paymentPeriodStart)} - ${formatMonth(h.paymentPeriodEnd)}`
+                      : formatMonth(h.createdAt)}
+                  </strong>
+                </div>
+                <div className="meta-row"><span>Months</span><strong>{h.monthsCount || 1}</strong></div>
+                <div className="meta-row"><span>Method</span><strong>{h.paymentMethod}</strong></div>
+                <div className="meta-row"><span>Reference</span><strong>{h.transactionRef || 'N/A'}</strong></div>
+                <div className="meta-row"><span>Date</span><strong>{new Date(h.createdAt).toLocaleString()}</strong></div>
+                <button className="btn-secondary" onClick={() => openInvoice(h._id)}>View Invoice</button>
               </div>
             ))
           )}
@@ -219,18 +339,16 @@ export default function PaymentPage() {
       {invoice && (
         <div className="modal-overlay" onClick={() => setInvoice(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setInvoice(null)}>
-              X
-            </button>
+            <button className="modal-close" onClick={() => setInvoice(null)} aria-label="Close popup" title="Close">✕</button>
             <h3>Invoice {invoice.invoiceNumber}</h3>
             <p>Status: {invoice.status}</p>
-            <p>Issued: {new Date(invoice.issuedAt).toLocaleDateString()}</p>
+            <p>Issued: {formatDateOnly(invoice.issuedAt)}</p>
             <p>Property: {invoice.property?.title}</p>
             <p>Owner: {invoice.owner?.name}</p>
             <p>Amount: {invoice.amount} NPR</p>
             <p>
-              Booking: {new Date(invoice.bookingPeriod?.from).toLocaleDateString()} -{' '}
-              {new Date(invoice.bookingPeriod?.to).toLocaleDateString()}
+              Booking: {formatDateOnly(invoice.bookingPeriod?.from)} -{' '}
+              {formatDateOnly(invoice.bookingPeriod?.to)}
             </p>
           </div>
         </div>

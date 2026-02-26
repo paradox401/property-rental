@@ -36,11 +36,12 @@ export default function Bookings() {
       </div>
       <div className="table-wrap">
         <table className="table">
-          <thead><tr><th>Property</th><th>Renter</th><th>From</th><th>To</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Property</th><th>Owner</th><th>Renter</th><th>From</th><th>To</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {rows.map((b) => (
               <tr key={b._id}>
                 <td>{b.property?.title || '-'}</td>
+                <td>{b.property?.ownerId?.name || b.property?.ownerId?.email || '-'}</td>
                 <td>{b.renter?.name || '-'}</td>
                 <td>{formatDate(b.fromDate)}</td>
                 <td>{formatDate(b.toDate)}</td>
@@ -52,7 +53,7 @@ export default function Bookings() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan="6">No bookings found.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan="7">No bookings found.</td></tr>}
           </tbody>
         </table>
       </div>

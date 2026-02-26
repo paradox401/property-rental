@@ -5,8 +5,17 @@ export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser || storedUser === 'undefined' || storedUser === 'null') {
+        return null;
+      }
+      return JSON.parse(storedUser);
+    } catch (err) {
+      console.warn('Invalid user in localStorage. Clearing stored session.', err);
+      localStorage.removeItem('user');
+      return null;
+    }
   });
   const [token, setToken] = useState(() => localStorage.getItem('token') || null);
 

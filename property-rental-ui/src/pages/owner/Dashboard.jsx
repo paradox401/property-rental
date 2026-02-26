@@ -29,6 +29,7 @@ export default function Dashboard() {
     propertyStats: [],
   });
   const [requesting, setRequesting] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('');
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -50,6 +51,7 @@ export default function Dashboard() {
   const requestVerification = async () => {
     if (!token) return;
     setRequesting(true);
+    setVerificationMessage('');
     const res = await fetch(`${API_BASE_URL}/api/users/owner/verify-request`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
@@ -57,6 +59,9 @@ export default function Dashboard() {
     const data = await res.json();
     if (res.ok) {
       setUser((prev) => ({ ...prev, ownerVerificationStatus: data.status }));
+      setVerificationMessage('Verification request submitted. Please wait for admin approval.');
+    } else {
+      setVerificationMessage(data.error || 'Failed to submit verification request.');
     }
     setRequesting(false);
   };
@@ -89,10 +94,19 @@ export default function Dashboard() {
       <div className="surface-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
         <h3>Owner Verification</h3>
         <p>Status: {user?.ownerVerificationStatus || 'unverified'}</p>
-        {user?.ownerVerificationStatus !== 'verified' && (
+        {(user?.ownerVerificationStatus === 'unverified' ||
+          user?.ownerVerificationStatus === 'rejected') && (
           <button onClick={requestVerification} disabled={requesting}>
             {requesting ? 'Requesting...' : 'Request Verification'}
           </button>
+        )}
+        {user?.ownerVerificationStatus === 'pending' && (
+          <p style={{ color: '#92400e', marginTop: '0.5rem' }}>
+            Your verification request is pending admin review.
+          </p>
+        )}
+        {verificationMessage && (
+          <p style={{ marginTop: '0.5rem' }}>{verificationMessage}</p>
         )}
       </div>
 

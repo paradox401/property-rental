@@ -87,7 +87,7 @@ export default function Login() {
             </button>
           </form>
           <div className="login-footer">
-            <a href="#">Forgot Password?</a>
+            <Link to="/forgot-password">Forgot Password?</Link>
             <p>
               Don't have an account? <Link to="/register">Sign Up</Link>
             </p>

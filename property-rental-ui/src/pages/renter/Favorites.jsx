@@ -7,6 +7,7 @@ export default function Favorites() {
   const { token } = useContext(AuthContext);
   const [favorites, setFavorites] = useState([]);
   const [error, setError] = useState('');
+  const validFavorites = favorites.filter(Boolean);
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -38,7 +39,7 @@ export default function Favorites() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setFavorites((prev) => prev.filter((p) => p._id !== id));
+      setFavorites((prev) => prev.filter((p) => p && p._id !== id));
     } catch (err) {
       alert(err.message);
     }
@@ -48,13 +49,16 @@ export default function Favorites() {
     <div className="favorites-container">
       <h1>My Favorites</h1>
       {error && <p className="error">{error}</p>}
-      {favorites.length === 0 ? (
+      {validFavorites.length === 0 ? (
         <p>No favorite properties found.</p>
       ) : (
         <div className="favorites-grid">
-          {favorites.map((property) => (
+          {validFavorites.map((property) => (
             <div className="favorite-card" key={property._id}>
-              <img src={property.image || '/default-image.jpg'} alt={property.title} />
+              <img
+                src={property.image || '/default-image.jpg'}
+                alt={property.title || 'Property image'}
+              />
               <h3>{property.title}</h3>
               <p>Location: {property.location}</p>
               <p>Price: Rs. {property.price}</p>

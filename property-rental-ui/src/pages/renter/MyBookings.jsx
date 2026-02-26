@@ -74,7 +74,11 @@ export default function Bookings() {
                 <td>{new Date(fromDate).toLocaleDateString()}</td>
                 <td>{new Date(toDate).toLocaleDateString()}</td>
                 <td>{status || 'N/A'}</td>
-                <td>{paymentStatus || 'pending'}</td>
+                <td>
+                  {paymentStatus === 'pending_verification'
+                    ? 'pending verification'
+                    : paymentStatus || 'pending'}
+                </td>
                 <td>
                   <button onClick={() => onViewDetails(property)}>View Details</button>
                 </td>
@@ -87,8 +91,8 @@ export default function Bookings() {
       {selectedProperty && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeModal}>
-              X
+            <button className="modal-close" onClick={closeModal} aria-label="Close popup" title="Close">
+              ✕
             </button>
             <PropertyDetails id={selectedProperty._id} />
           </div>

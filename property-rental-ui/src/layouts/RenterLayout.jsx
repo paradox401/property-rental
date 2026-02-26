@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import NotificationList from '../components/NotificationList.jsx';
 import { AuthContext } from '../context/AuthContext';
@@ -6,21 +6,33 @@ import './RenterLayout.css';
 
 export default function RenterLayout() {
   const { user } = useContext(AuthContext);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="renter-layout">
+    <div className={`renter-layout ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <aside className="sidebar">
-        <h2 className="logo">🏠 ForRent</h2>
+        <div className="sidebar-head">
+          <h2 className="logo">🏠 {collapsed ? 'FR' : 'ForRent'}</h2>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={() => setCollapsed((prev) => !prev)}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? '»' : '«'}
+          </button>
+        </div>
         <nav>
-          <NavLink to="/renter" end>Home</NavLink>
-          <NavLink to="/renter/bookings">My Bookings</NavLink>
-          <NavLink to="/renter/listings">Listings</NavLink>
-          <NavLink to="/renter/favorites">Favourites</NavLink>
-          <NavLink to="/renter/message">Message</NavLink>
-          <NavLink to="/renter/complaint">Make Complaint</NavLink>
-          <NavLink to="/renter/payments">Payments</NavLink>
-          <NavLink to="/renter/settings">Settings</NavLink>
-          <NavLink to="/login">Logout</NavLink>
+          <NavLink to="/renter" end><span className="nav-short">H</span><span className="nav-label">Home</span></NavLink>
+          <NavLink to="/renter/bookings"><span className="nav-short">B</span><span className="nav-label">My Bookings</span></NavLink>
+          <NavLink to="/renter/listings"><span className="nav-short">L</span><span className="nav-label">Listings</span></NavLink>
+          <NavLink to="/renter/favorites"><span className="nav-short">F</span><span className="nav-label">Favourites</span></NavLink>
+          <NavLink to="/renter/message"><span className="nav-short">M</span><span className="nav-label">Message</span></NavLink>
+          <NavLink to="/renter/complaint"><span className="nav-short">C</span><span className="nav-label">Make Complaint</span></NavLink>
+          <NavLink to="/renter/payments"><span className="nav-short">P</span><span className="nav-label">Payments</span></NavLink>
+          <NavLink to="/renter/settings"><span className="nav-short">S</span><span className="nav-label">Settings</span></NavLink>
+          <NavLink to="/login"><span className="nav-short">O</span><span className="nav-label">Logout</span></NavLink>
         </nav>
       </aside>
 

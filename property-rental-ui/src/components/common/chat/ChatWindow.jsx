@@ -39,7 +39,8 @@ export default function ChatWindow({ selectedUser }) {
   }, [selectedUser, token]);
 
   useEffect(() => {
-    if (!socket?.current) return;
+    const currentSocket = socket?.current;
+    if (!currentSocket) return;
 
     const handleReceive = (payload) => {
       if (payload.sender === selectedUser?._id) {
@@ -63,16 +64,16 @@ export default function ChatWindow({ selectedUser }) {
       }
     };
 
-    socket.current.on('receiveMessage', handleReceive);
-    socket.current.on('typing', handleTyping);
-    socket.current.on('stopTyping', handleStopTyping);
-    socket.current.on('messageRead', handleRead);
+    currentSocket.on('receiveMessage', handleReceive);
+    currentSocket.on('typing', handleTyping);
+    currentSocket.on('stopTyping', handleStopTyping);
+    currentSocket.on('messageRead', handleRead);
 
     return () => {
-      socket.current.off('receiveMessage', handleReceive);
-      socket.current.off('typing', handleTyping);
-      socket.current.off('stopTyping', handleStopTyping);
-      socket.current.off('messageRead', handleRead);
+      currentSocket.off('receiveMessage', handleReceive);
+      currentSocket.off('typing', handleTyping);
+      currentSocket.off('stopTyping', handleStopTyping);
+      currentSocket.off('messageRead', handleRead);
     };
   }, [socket, selectedUser, user]);
 

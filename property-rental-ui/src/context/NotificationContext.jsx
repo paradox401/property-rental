@@ -33,7 +33,8 @@ export const NotificationProvider = ({ children }) => {
   }, [user, token]);
 
   useEffect(() => {
-    if (!socket?.current) return;
+    const currentSocket = socket?.current;
+    if (!currentSocket) return;
 
     const handleNewNotification = (notification) => {
       setNotifications((prev) => {
@@ -42,10 +43,10 @@ export const NotificationProvider = ({ children }) => {
       });
     };
 
-    socket.current.on('newNotification', handleNewNotification);
+    currentSocket.on('newNotification', handleNewNotification);
 
     return () => {
-      socket.current.off('newNotification', handleNewNotification);
+      currentSocket.off('newNotification', handleNewNotification);
     };
   }, [socket]);
 

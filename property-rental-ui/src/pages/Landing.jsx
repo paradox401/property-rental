@@ -136,7 +136,7 @@ function Featured({ listings, loading, error }) {
                   <p className="meta">Rating: {Number(item.rating || 0).toFixed(1)} ({item.numRatings || 0})</p>
                   <div className="card-actions">
                     <Link to={`/property/${item._id}`}>View Details</Link>
-                    <Link to="/renter/listings" className="secondary">See Similar</Link>
+                    <Link to="/login" className="secondary">Login To Rent</Link>
                   </div>
                 </div>
               </article>

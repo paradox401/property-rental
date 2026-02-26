@@ -10,19 +10,37 @@ export const SocketProvider = ({ children }) => {
   const socket = useRef(null);
 
   useEffect(() => {
-    if (user) {
-      socket.current = io(SOCKET_URL, {
-        withCredentials: true,
-        transports: ['websocket'],
-      });
-
-      socket.current.emit('addUser', user._id);
+    if (!user?._id) {
+      socket.current?.disconnect();
+      socket.current = null;
+      return undefined;
     }
 
-    return () => {
-      socket.current?.disconnect();
+    const currentSocket = io(SOCKET_URL, {
+      withCredentials: false,
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+    });
+
+    socket.current = currentSocket;
+
+    const onConnect = () => {
+      currentSocket.emit('addUser', user._id);
     };
-  }, [user]);
+
+    currentSocket.on('connect', onConnect);
+
+    return () => {
+      currentSocket.off('connect', onConnect);
+      currentSocket.disconnect();
+      if (socket.current === currentSocket) {
+        socket.current = null;
+      }
+    };
+  }, [user?._id]);
 
   return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>;
 };
