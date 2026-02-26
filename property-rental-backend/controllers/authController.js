@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import axios from 'axios';
 
 export const register = async (req, res) => {
   try {
@@ -85,6 +86,37 @@ const createMailerTransport = () => {
 };
 
 const sendResetPasswordEmail = async (toEmail, resetUrl) => {
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  if (brevoApiKey) {
+    const senderEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+    if (!senderEmail) {
+      throw new Error('Missing SMTP_FROM or SMTP_USER for Brevo sender email');
+    }
+    await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        sender: { email: senderEmail },
+        to: [{ email: toEmail }],
+        subject: 'Reset your Property Rental password',
+        textContent: `Reset your password using this link: ${resetUrl}\nThis link expires in 15 minutes.`,
+        htmlContent: `
+          <p>We received a request to reset your password.</p>
+          <p><a href="${resetUrl}">Click here to reset password</a></p>
+          <p>This link expires in 15 minutes.</p>
+          <p>If you did not request this, you can ignore this email.</p>
+        `,
+      },
+      {
+        headers: {
+          'api-key': brevoApiKey,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      }
+    );
+    return true;
+  }
+
   const transporter = createMailerTransport();
   if (!transporter) {
     console.log(`[Password Reset] SMTP not configured. Reset link for ${toEmail}: ${resetUrl}`);
