@@ -1,20 +1,20 @@
 import express from 'express';
-import axios from 'axios';
 import dotenv from 'dotenv';
 import Payment from '../models/Payment.js';
 import Booking from '../models/Booking.js';
 import protect from '../middleware/authMiddleware.js';
 import { sendNotification } from '../socket.js';
+import User from '../models/User.js';
 
 dotenv.config();
 const router = express.Router();
 
 router.post('/create', protect, async (req, res) => {
   try {
-    const { bookingId, amount, paymentMethod, pid } = req.body;
+    const { bookingId, amount, paymentMethod = 'QR', pid, transactionRef } = req.body;
 
-    if (!bookingId || !amount || !paymentMethod || !pid) {
-      return res.status(400).json({ error: 'Booking, amount, payment method, and pid are required' });
+    if (!bookingId || !amount) {
+      return res.status(400).json({ error: 'Booking and amount are required' });
     }
 
     const booking = await Booking.findById(bookingId).populate('property');
@@ -32,25 +32,45 @@ router.post('/create', protect, async (req, res) => {
       return res.status(400).json({ error: 'Booking already paid' });
     }
 
+    const existingPayment = await Payment.findOne({
+      booking: bookingId,
+      status: { $in: ['Pending', 'Paid'] },
+    });
+    if (existingPayment) {
+      return res.status(400).json({ error: 'Payment request already submitted for this booking' });
+    }
+
     const payment = new Payment({
       booking: bookingId,
       renter: req.user._id,
       amount,
       paymentMethod,
       pid,
+      transactionRef,
       status: 'Pending',
     });
 
     await payment.save();
+    await Booking.findByIdAndUpdate(bookingId, { paymentStatus: 'pending_verification' });
+
+    const admins = await User.find({ role: 'admin' }).select('_id');
+    for (const admin of admins) {
+      await sendNotification(
+        admin._id,
+        'payment',
+        `Payment verification requested for "${booking.property.title}"`,
+        '/admin/payments'
+      );
+    }
 
     await sendNotification(
       req.user._id,
       'payment',
-      `Payment initiated for "${booking.property.title}"`,
+      `Payment request submitted for "${booking.property.title}". Waiting for admin verification.`,
       `/renter/payments`
     );
 
-    res.status(201).json(payment);
+    res.status(201).json({ message: 'Payment submitted for admin verification', payment });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -58,35 +78,7 @@ router.post('/create', protect, async (req, res) => {
 });
 
 router.post('/verify', protect, async (req, res) => {
-  try {
-    const { token, amount, bookingId } = req.body;
-
-    const verifyRes = await axios.post(
-      'https://khalti.com/api/v2/payment/verify/',
-      { token, amount: amount * 100 },
-      { headers: { Authorization: `Key ${process.env.KHALTI_SECRET_KEY}` } }
-    );
-
-    const payment = await Payment.findOne({ booking: bookingId, status: 'Pending' });
-    if (!payment) return res.status(404).json({ error: 'Payment not found' });
-
-    payment.status = 'Paid';
-    await payment.save();
-
-    await Booking.findByIdAndUpdate(bookingId, { paymentStatus: 'paid' });
-
-    await sendNotification(
-      req.user._id,
-      'payment',
-      `Payment verified successfully.`,
-      `/renter/payments`
-    );
-
-    res.json({ message: 'Payment verified successfully', payment, verification: verifyRes.data });
-  } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(400).json({ error: 'Payment verification failed' });
-  }
+  return res.status(410).json({ error: 'Khalti verification disabled. Use admin manual verification flow.' });
 });
 
 router.get('/history', protect, async (req, res) => {
