@@ -6,10 +6,16 @@ import { sendNewBookingNotification, sendBookingStatusNotification } from '../cr
 // CREATE BOOKING
 // ==========================
 export const createBooking = async (req, res) => {
-  const { propertyId, fromDate, toDate } = req.body;
+  const { propertyId, fromDate, toDate, bookingDetails = {} } = req.body;
 
-  if (!propertyId || !fromDate || !toDate) {
-    return res.status(400).json({ error: 'Property ID, fromDate, and toDate are required' });
+  if (!propertyId || !fromDate) {
+    return res.status(400).json({ error: 'Property ID and fromDate are required' });
+  }
+
+  if (!bookingDetails.fullName || !bookingDetails.phone || !bookingDetails.occupants) {
+    return res.status(400).json({
+      error: 'Full name, phone number, and number of occupants are required',
+    });
   }
 
   try {
@@ -26,7 +32,19 @@ export const createBooking = async (req, res) => {
       property: propertyId,
       renter: req.user._id,
       fromDate,
-      toDate,
+      toDate: toDate || fromDate,
+      bookingDetails: {
+        fullName: bookingDetails.fullName,
+        phone: bookingDetails.phone,
+        email: bookingDetails.email,
+        occupants: Number(bookingDetails.occupants),
+        employmentStatus: bookingDetails.employmentStatus,
+        monthlyIncome: bookingDetails.monthlyIncome ? Number(bookingDetails.monthlyIncome) : undefined,
+        moveInReason: bookingDetails.moveInReason,
+        emergencyContactName: bookingDetails.emergencyContactName,
+        emergencyContactPhone: bookingDetails.emergencyContactPhone,
+        noteToOwner: bookingDetails.noteToOwner,
+      },
     });
 
     await booking.save();

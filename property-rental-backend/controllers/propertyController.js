@@ -71,7 +71,7 @@ export const addProperty = async (req, res) => {
         admin._id,
         'listingApproval',
         `New listing pending approval: "${title}"`,
-        `/admin/approvals`
+        `/property/${newProperty._id}`
       );
     }
 
@@ -143,6 +143,7 @@ export const getProperty = async (req, res) => {
       status,
       ownerId,
       sort,
+      availableOnly,
     } = req.query;
 
     const filter = {};
@@ -199,6 +200,11 @@ export const getProperty = async (req, res) => {
       priceLow: { price: 1 },
       priceHigh: { price: -1 },
     };
+
+    if (availableOnly === 'true' || availableOnly === '1') {
+      const bookedPropertyIds = await Booking.distinct('property', { status: 'Approved' });
+      filter._id = { $nin: bookedPropertyIds };
+    }
 
     const properties = await Property.find(filter)
       .populate('ownerId', 'name ownerVerificationStatus')
@@ -363,7 +369,7 @@ export const adminUpdatePropertyStatus = async (req, res) => {
       property.ownerId,
       'listingApproval',
       `Your listing "${property.title}" was ${status.toLowerCase()}.`,
-      `/owner/properties`
+      `/property/${property._id}`
     );
 
     res.json({ message: 'Property status updated', property });

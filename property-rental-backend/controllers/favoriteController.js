@@ -18,7 +18,15 @@ export const addFavorite = async (req, res) => {
 export const getFavorites = async (req, res) => {
   try {
     const favorites = await Favorite.find({ user: req.user._id }).populate('property');
-    res.json(favorites.map(f => f.property));
+    const validFavorites = favorites.filter((f) => f.property);
+    const staleFavoriteIds = favorites.filter((f) => !f.property).map((f) => f._id);
+
+    // Clean up favorites that reference deleted properties.
+    if (staleFavoriteIds.length > 0) {
+      await Favorite.deleteMany({ _id: { $in: staleFavoriteIds } });
+    }
+
+    res.json(validFavorites.map((f) => f.property));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch favorites' });
