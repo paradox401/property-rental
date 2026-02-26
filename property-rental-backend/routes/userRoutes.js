@@ -49,12 +49,11 @@ router.put('/me/preferences', protect, async (req, res) => {
 
 router.post('/owner/verify-request', protect, async (req, res) => {
   try {
-    if (req.user.role !== 'owner') {
+    const user = await User.findById(req.user._id).select('role ownerVerificationStatus name');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.role !== 'owner') {
       return res.status(403).json({ error: 'Only owners can request verification' });
     }
-
-    const user = await User.findById(req.user._id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (user.ownerVerificationStatus === 'verified') {
       return res.status(400).json({ error: 'Already verified' });
@@ -64,8 +63,7 @@ router.post('/owner/verify-request', protect, async (req, res) => {
       return res.status(400).json({ error: 'Verification request is already pending' });
     }
 
-    user.ownerVerificationStatus = 'pending';
-    await user.save();
+    await User.findByIdAndUpdate(req.user._id, { ownerVerificationStatus: 'pending' });
 
     const admins = await User.find({ role: 'admin' }).select('_id');
     for (const admin of admins) {
@@ -81,10 +79,10 @@ router.post('/owner/verify-request', protect, async (req, res) => {
       }
     }
 
-    res.json({ message: 'Verification request submitted', status: user.ownerVerificationStatus });
+    res.json({ message: 'Verification request submitted', status: 'pending' });
   } catch (err) {
     console.error('owner/verify-request error:', err);
-    res.status(500).json({ error: 'Failed to submit verification request' });
+    res.status(500).json({ error: err.message || 'Failed to submit verification request' });
   }
 });
 
@@ -106,13 +104,15 @@ router.put('/admin/owner-requests/:id', protect, adminOnly, async (req, res) => 
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    const owner = await User.findById(req.params.id);
+    const owner = await User.findOneAndUpdate(
+      { _id: req.params.id, role: 'owner' },
+      {
+        ownerVerificationStatus: status,
+        ownerVerifiedAt: status === 'verified' ? new Date() : null,
+      },
+      { new: true }
+    ).select('name email role ownerVerificationStatus ownerVerifiedAt');
     if (!owner) return res.status(404).json({ error: 'Owner not found' });
-    if (owner.role !== 'owner') return res.status(400).json({ error: 'User is not an owner' });
-
-    owner.ownerVerificationStatus = status;
-    owner.ownerVerifiedAt = status === 'verified' ? new Date() : undefined;
-    await owner.save();
 
     try {
       await sendNotification(
@@ -128,7 +128,7 @@ router.put('/admin/owner-requests/:id', protect, adminOnly, async (req, res) => 
     res.json({ message: 'Owner verification updated', owner });
   } catch (err) {
     console.error('admin/owner-requests update error:', err);
-    res.status(500).json({ error: 'Failed to update owner status' });
+    res.status(500).json({ error: err.message || 'Failed to update owner status' });
   }
 });
 
