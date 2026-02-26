@@ -69,16 +69,21 @@ router.post('/owner/verify-request', protect, async (req, res) => {
 
     const admins = await User.find({ role: 'admin' }).select('_id');
     for (const admin of admins) {
-      await sendNotification(
-        admin._id,
-        'ownerVerification',
-        `Owner verification requested by ${user.name}`,
-        `/admin/owners`
-      );
+      try {
+        await sendNotification(
+          admin._id,
+          'ownerVerification',
+          `Owner verification requested by ${user.name}`,
+          `/admin/owners`
+        );
+      } catch (notifyErr) {
+        console.error('Owner verification notify(admin) failed:', notifyErr.message);
+      }
     }
 
     res.json({ message: 'Verification request submitted', status: user.ownerVerificationStatus });
   } catch (err) {
+    console.error('owner/verify-request error:', err);
     res.status(500).json({ error: 'Failed to submit verification request' });
   }
 });
@@ -109,15 +114,20 @@ router.put('/admin/owner-requests/:id', protect, adminOnly, async (req, res) => 
     owner.ownerVerifiedAt = status === 'verified' ? new Date() : undefined;
     await owner.save();
 
-    await sendNotification(
-      owner._id,
-      'ownerVerification',
-      `Your verification was ${status}.`,
-      `/owner`
-    );
+    try {
+      await sendNotification(
+        owner._id,
+        'ownerVerification',
+        `Your verification was ${status}.`,
+        `/owner`
+      );
+    } catch (notifyErr) {
+      console.error('Owner verification notify(owner) failed:', notifyErr.message);
+    }
 
     res.json({ message: 'Owner verification updated', owner });
   } catch (err) {
+    console.error('admin/owner-requests update error:', err);
     res.status(500).json({ error: 'Failed to update owner status' });
   }
 });

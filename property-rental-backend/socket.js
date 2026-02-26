@@ -64,7 +64,10 @@ export const setupSocket = (server) => {
 };
 
 export const sendNotification = async (userId, type, message, link = '') => {
-  if (!io) throw new Error('Socket.io not initialized');
+  if (!io) {
+    // Keep business flows working even if socket server isn't available.
+    console.warn('Socket.io not initialized; storing notification only');
+  }
 
   try {
     const user = await User.findById(userId).select('notificationPreferences');
@@ -84,7 +87,7 @@ export const sendNotification = async (userId, type, message, link = '') => {
     });
 
     const socketId = onlineUsers.get(userId?.toString());
-    if (socketId) {
+    if (io && socketId) {
       io.to(socketId).emit('newNotification', {
         _id: notification._id,
         type: notification.type,
