@@ -26,6 +26,8 @@ export default function MyProperties() {
     image: '',
   });
   const [formError, setFormError] = useState('');
+  const [editImageFile, setEditImageFile] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     const fetchProperties = async () => {
@@ -65,7 +67,31 @@ export default function MyProperties() {
       image: property.image || '',
     });
     setFormError('');
+    setEditImageFile(null);
     setIsEditing(true);
+  };
+
+  const uploadImageToCloudinary = async () => {
+    if (!editImageFile) return formData.image;
+
+    const formPayload = new FormData();
+    formPayload.append('image', editImageFile);
+
+    setUploadingImage(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/properties/upload-image`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formPayload,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Image upload failed');
+      return data.imageUrl;
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -87,6 +113,7 @@ export default function MyProperties() {
     }
 
     try {
+      const imageUrl = await uploadImageToCloudinary();
       const res = await fetch(`${API_BASE_URL}/api/properties/${currentProperty._id}`, {
         method: 'PUT',
         headers: {
@@ -95,6 +122,7 @@ export default function MyProperties() {
         },
         body: JSON.stringify({
           ...formData,
+          image: imageUrl,
           price: Number(formData.price),
           bedrooms: Number(formData.bedrooms),
           bathrooms: Number(formData.bathrooms),
@@ -105,11 +133,12 @@ export default function MyProperties() {
       if (!res.ok) throw new Error(data.error || 'Failed to update property');
 
       setProperties((prev) =>
-        prev.map((p) => (p._id === currentProperty._id ? data : p))
+        prev.map((p) => (p._id === currentProperty._id ? data.property : p))
       );
 
       setIsEditing(false);
       setCurrentProperty(null);
+      setEditImageFile(null);
     } catch (err) {
       setFormError(err.message || 'Something went wrong');
     }
@@ -140,6 +169,7 @@ export default function MyProperties() {
   const handleCancel = () => {
     setIsEditing(false);
     setFormError('');
+    setEditImageFile(null);
   };
 
   return (
@@ -251,13 +281,21 @@ export default function MyProperties() {
               </select>
             </div>
             <div className="form-group">
-              <label>Image URL</label>
+              <label>Upload New Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setEditImageFile(e.target.files?.[0] || null)}
+              />
+            </div>
+            <div className="form-group">
+              <label>Image URL (Optional)</label>
               <input name="image" value={formData.image} onChange={handleInputChange} />
             </div>
             {formError && <p className="form-error">{formError}</p>}
             <div className="modal-buttons">
-              <button className="btn-save" onClick={handleSave}>
-                Save
+              <button className="btn-save" onClick={handleSave} disabled={uploadingImage}>
+                {uploadingImage ? 'Uploading...' : 'Save'}
               </button>
               <button className="btn-cancel" onClick={handleCancel}>
                 Cancel

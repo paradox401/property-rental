@@ -1,47 +1,52 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../api';
-import './Login.css';
 
 export default function Login() {
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
       const res = await API.post('/auth/login', { username, password });
       localStorage.setItem('adminToken', res.data.token);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
+    <div className="login-shell">
       <div className="login-card">
         <h2>Admin Login</h2>
-        <form onSubmit={handleSubmit}>
+        <p className="page-subtitle">Manage users, listings, bookings, disputes, and analytics.</p>
+        <form onSubmit={onSubmit}>
           <input
-            type="text"
             placeholder="Username"
             value={username}
-            onChange={e => setUsername(e.target.value)}
+            onChange={(e) => setUsername(e.target.value)}
             required
           />
           <input
             type="password"
             placeholder="Password"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
           />
           {error && <p className="error">{error}</p>}
-          <button type="submit">Login</button>
+          <button className="btn" type="submit" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign in'}
+          </button>
         </form>
       </div>
     </div>

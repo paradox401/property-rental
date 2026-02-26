@@ -1,96 +1,82 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import API from '../api';
-import './Dashboard.css';
+import { formatDate } from '../utils';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    users: 0,
-    properties: 0,
-    bookings: 0,
-    complaints: 0
-  });
-  const [complaints, setComplaints] = useState([]);
-  const token = localStorage.getItem('adminToken');
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchData = async () => {
+    const load = async () => {
       try {
-        const users = await API.get('/users', { headers: { Authorization: `Bearer ${token}` } });
-        const properties = await API.get('/properties', { headers: { Authorization: `Bearer ${token}` } });
-        const bookings = await API.get('/bookings', { headers: { Authorization: `Bearer ${token}` } });
-        const complaintsRes = await API.get('/complaints', { headers: { Authorization: `Bearer ${token}` } });
-
-        setStats({
-          users: users.data.length,
-          properties: properties.data.length,
-          bookings: bookings.data.length,
-          complaints: complaintsRes.data.length
-        });
-        setComplaints(complaintsRes.data);
+        const res = await API.get('/overview');
+        setData(res.data);
       } catch (err) {
-        console.error(err);
+        setError(err.response?.data?.error || 'Failed to fetch dashboard');
       }
     };
-    fetchData();
-  }, [token]);
+    load();
+  }, []);
 
-  const handleResolve = async (id) => {
-    try {
-      const res = await API.patch(`/complaints/${id}/resolve`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      setComplaints(prev => prev.map(c => c._id === id ? res.data : c));
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const totals = data?.totals || {};
+  const alerts = data?.alerts || {};
 
   return (
-    <div className="dashboard-container">
-      <h1>Admin Dashboard</h1>
-
-      <div className="cards">
-        <div className="card users">
-          <h2>{stats.users}</h2>
-          <p>Total Users</p>
-        </div>
-        <div className="card properties">
-          <h2>{stats.properties}</h2>
-          <p>Total Properties</p>
-        </div>
-        <div className="card bookings">
-          <h2>{stats.bookings}</h2>
-          <p>Total Bookings</p>
-        </div>
-        <div className="card complaints">
-          <h2>{stats.complaints}</h2>
-          <p>Total Complaints</p>
+    <div>
+      <div className="page-header">
+        <div>
+          <h1>Dashboard</h1>
+          <p className="page-subtitle">System health, workload alerts, and recent admin actions.</p>
         </div>
       </div>
 
-      <h2>Complaints</h2>
-      <table className="complaints-table">
-        <thead>
-          <tr>
-            <th>User</th>
-            <th>Subject</th>
-            <th>Message</th>
-            <th>Resolved</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {complaints.map(c => (
-            <tr key={c._id} className={c.resolved ? 'resolved' : ''}>
-              <td>{c.name}</td>
-              <td>{c.subject}</td>
-              <td>{c.complaint}</td>
-              <td>{c.resolved ? 'Yes' : 'No'}</td>
-              <td>
-                {!c.resolved && <button className="resolve-btn" onClick={() => handleResolve(c._id)}>Mark Resolved</button>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {error && <p className="error">{error}</p>}
+
+      <section className="kpi-grid">
+        <div className="kpi"><div className="kpi-label">Users</div><div className="kpi-value">{totals.users || 0}</div></div>
+        <div className="kpi"><div className="kpi-label">Listings</div><div className="kpi-value">{totals.properties || 0}</div></div>
+        <div className="kpi"><div className="kpi-label">Bookings</div><div className="kpi-value">{totals.bookings || 0}</div></div>
+        <div className="kpi"><div className="kpi-label">Revenue</div><div className="kpi-value">Rs. {totals.revenue || 0}</div></div>
+      </section>
+
+      <section className="card" style={{ marginTop: '1rem' }}>
+        <h3>Alerts</h3>
+        <div className="kpi-grid" style={{ marginTop: '0.8rem' }}>
+          <div className="kpi"><div className="kpi-label">Pending Listings</div><div className="kpi-value">{alerts.pendingListings || 0}</div></div>
+          <div className="kpi"><div className="kpi-label">Owner Requests</div><div className="kpi-value">{alerts.pendingOwnerVerifications || 0}</div></div>
+          <div className="kpi"><div className="kpi-label">Open Complaints</div><div className="kpi-value">{alerts.openComplaints || 0}</div></div>
+          <div className="kpi"><div className="kpi-label">Failed Payments</div><div className="kpi-value">{alerts.failedPayments || 0}</div></div>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: '1rem' }}>
+        <h3>Recent Activity</h3>
+        <div className="table-wrap" style={{ marginTop: '0.7rem' }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Action</th>
+                <th>Entity</th>
+                <th>Entity ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data?.recentActivity || []).map((item) => (
+                <tr key={item._id}>
+                  <td>{formatDate(item.createdAt)}</td>
+                  <td>{item.action}</td>
+                  <td>{item.entityType}</td>
+                  <td>{item.entityId}</td>
+                </tr>
+              ))}
+              {(data?.recentActivity || []).length === 0 && (
+                <tr><td colSpan="4">No activity yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

@@ -3,6 +3,43 @@ import Booking from '../models/Booking.js';
 import User from '../models/User.js';
 import { sendNotification } from '../socket.js';
 import mongoose from 'mongoose';
+import cloudinary from '../config/cloudinary.js';
+
+const uploadImageBufferToCloudinary = (buffer) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'property-rental/listings',
+        resource_type: 'image',
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        return resolve(result);
+      }
+    );
+    stream.end(buffer);
+  });
+
+export const uploadPropertyImage = async (req, res) => {
+  try {
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return res.status(500).json({ error: 'Cloudinary credentials are not configured on server' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Image file is required' });
+    }
+
+    const uploaded = await uploadImageBufferToCloudinary(req.file.buffer);
+    return res.status(201).json({
+      imageUrl: uploaded.secure_url,
+      publicId: uploaded.public_id,
+    });
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    return res.status(500).json({ error: 'Failed to upload image' });
+  }
+};
 
 export const addProperty = async (req, res) => {
   try {
@@ -20,9 +57,7 @@ export const addProperty = async (req, res) => {
       price,
       type,
       bedrooms,
-      bedroomsGte,
       bathrooms,
-      bathroomsGte,
       image,
       ownerId,
       status: 'Pending',
@@ -150,7 +185,10 @@ export const getProperty = async (req, res) => {
       filter.ownerId = ownerId;
     }
 
-    if (status) {
+    if (status === 'listed') {
+      // "Listed" means publicly listed records that are not rejected.
+      filter.status = { $in: ['Pending', 'Approved'] };
+    } else if (status) {
       filter.status = status;
     } else {
       filter.status = 'Approved';

@@ -2,6 +2,7 @@
   --primary: #0f766e;
   --primary-hover: #115e59;
   --danger: #dc2626;
+  --border: #e5e7eb;
   --text-primary: #1e1a16;
   --text-secondary: #5f584f;
   --bg-page: transparent;
@@ -10,45 +11,6 @@
   --shadow-light: 0 8px 20px rgba(25, 20, 12, 0.08);
   --shadow-medium: 0 20px 40px rgba(25, 20, 12, 0.18);
 }
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-.property-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  justify-content: flex-start; /* align buttons to the left */
-}
-
-.property-actions button {
-  flex: 1 1 auto; /* allow buttons to grow/shrink equally */
-  min-width: 120px; /* ensures they don't get too small */
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-family: inherit;
-}
-
-@media (max-width: 480px) {
-  .property-actions {
-    flex-direction: column; /* stack on very small screens */
-  }
-
-  .property-actions button {
-    width: 100%; /* take full width when stacked */
-  }
-}
-
 
 .listings-page {
   max-width: 1400px;
@@ -61,25 +23,22 @@
   min-height: 100vh;
 }
 
+.listings-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
 .listings-page h2 {
   font-size: clamp(1.5rem, 5vw, 2.25rem);
   font-weight: 700;
   color: var(--text-primary);
-  text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 0.5rem;
   line-height: 1.2;
 }
 
-.listings-page > p {
-  font-size: 1.125rem;
+.listings-header p {
+  font-size: 0.98rem;
   color: var(--text-secondary);
-  text-align: center;
-  margin: 3rem auto;
-  padding: 2rem;
-  background-color: var(--bg-card);
-  border-radius: 0.75rem;
-  box-shadow: var(--shadow-light);
-  max-width: 400px;
 }
 
 .listings-page .error {
@@ -117,19 +76,6 @@
 }
 
 /* Loading animation */
-.listings-page > p:first-of-type::after {
-  content: "";
-  display: inline-block;
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid var(--border);
-  border-top: 2px solid var(--primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-left: 0.5rem;
-  vertical-align: middle;
-}
-
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -262,8 +208,40 @@ body.modal-open { overflow: hidden; }
   padding: 0.6rem 1rem;
 }
 
+.clear-all-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.clear-all-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.listings-empty-state {
+  text-align: center;
+  font-size: 1.125rem;
+  color: #64748b;
+  padding: 2rem;
+  border: 2px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  max-width: 500px;
+  margin: 2rem auto;
+  background-color: #ffffff;
+}
+
 @media (max-width: 600px) {
   .filters {
     grid-template-columns: 1fr;
+  }
+
+  .clear-all-btn {
+    width: 100%;
   }
 }

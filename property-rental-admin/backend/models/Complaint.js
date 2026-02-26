@@ -9,6 +9,6 @@ const complaintSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   status: { type: String, enum: ["pending", "resolved"], default: "pending" },
   createdAt: { type: Date, default: Date.now }
-});
+}, { timestamps: true, strict: false });
 
 export default mongoose.model("Complaint", complaintSchema);

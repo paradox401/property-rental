@@ -12,11 +12,36 @@ export default function AddProperty() {
   const [description, setDescription] = useState('');
   const [type, setType] = useState('Apartment');
   const [image, setImage] = useState('');
+  const [imageFile, setImageFile] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const { token } = useContext(AuthContext);
+
+  const uploadImageToCloudinary = async () => {
+    if (!imageFile) return image;
+
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    setUploadingImage(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/properties/upload-image`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Image upload failed');
+      return data.imageUrl;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,6 +61,8 @@ export default function AddProperty() {
     setLoading(true);
 
     try {
+      const imageUrl = await uploadImageToCloudinary();
+
       const response = await fetch(`${API_BASE_URL}/api/properties`, {
         method: 'POST',
         headers: {
@@ -50,7 +77,7 @@ export default function AddProperty() {
           bathrooms: Number(bathrooms),
           description,
           type,
-          image,
+          image: imageUrl,
         }),
       });
 
@@ -68,9 +95,10 @@ export default function AddProperty() {
         setDescription('');
         setType('Apartment');
         setImage('');
+        setImageFile(null);
       }
     } catch (err) {
-      setError('Server error. Please try again later.');
+      setError(err.message || 'Server error. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -135,7 +163,14 @@ export default function AddProperty() {
           rows={4}
         ></textarea>
 
-        <label>Image URL</label>
+        <label>Property Image</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+        />
+
+        <label>Or Image URL</label>
         <input
           type="text"
           placeholder="http://example.com/image.jpg"
@@ -146,8 +181,8 @@ export default function AddProperty() {
         {error && <p className="error">{error}</p>}
         {success && <p className="success">{success}</p>}
 
-        <button type="submit" disabled={loading}>
-          {loading ? 'Adding...' : 'Add Property'}
+        <button type="submit" disabled={loading || uploadingImage}>
+          {uploadingImage ? 'Uploading Image...' : loading ? 'Adding...' : 'Add Property'}
         </button>
       </form>
     </div>

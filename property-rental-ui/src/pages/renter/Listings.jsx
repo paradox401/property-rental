@@ -1,71 +1,139 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import PropertyCard from '../../components/common/PropertyCard';
 import './Listings.css';
 import PropertyDetails from '../../components/common/PropertyDetails';
 import BookingPopup from '../../components/common/BookingPopup';
 import { API_BASE_URL } from '../../config/api';
 
+const DEFAULT_FILTERS = {
+  minPrice: '',
+  maxPrice: '',
+  bedrooms: '',
+  type: '',
+  bathrooms: '',
+  sort: 'newest',
+};
+
+const getStateFromParams = (params) => ({
+  searchTerm: params.get('q') || '',
+  filters: {
+    minPrice: params.get('minPrice') || '',
+    maxPrice: params.get('maxPrice') || '',
+    bedrooms: params.get('bedrooms') || (params.get('bedroomsGte') === '4' ? '4+' : ''),
+    type: params.get('type') || '',
+    bathrooms: params.get('bathrooms') || (params.get('bathroomsGte') === '4' ? '4+' : ''),
+    sort: params.get('sort') || DEFAULT_FILTERS.sort,
+  },
+});
+
+const buildListingParams = (searchTerm, filters) => {
+  const params = new URLSearchParams();
+  if (searchTerm.trim()) params.set('q', searchTerm.trim());
+  if (filters.minPrice) params.set('minPrice', filters.minPrice);
+  if (filters.maxPrice) params.set('maxPrice', filters.maxPrice);
+  if (filters.bathrooms === '4+') params.set('bathroomsGte', '4');
+  else if (filters.bathrooms) params.set('bathrooms', filters.bathrooms);
+  if (filters.bedrooms === '4+') params.set('bedroomsGte', '4');
+  else if (filters.bedrooms) params.set('bedrooms', filters.bedrooms);
+  if (filters.type) params.set('type', filters.type);
+  if (filters.sort) params.set('sort', filters.sort);
+  return params;
+};
+
+const sortListings = (items, sortBy) => {
+  const safeItems = [...items];
+  if (sortBy === 'priceLow') return safeItems.sort((a, b) => (a.price || 0) - (b.price || 0));
+  if (sortBy === 'priceHigh') return safeItems.sort((a, b) => (b.price || 0) - (a.price || 0));
+  return safeItems.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+};
+
 export default function Listings() {
-  const [allProperties, setAllProperties] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const [filteredProperties, setFilteredProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showDetailsId, setShowDetailsId] = useState(null);
   const [selectedProperty, setSelectedProperty] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    minPrice: '',
-    maxPrice: '',
-    bedrooms: '',
-    type: '',
-    bathrooms: '',
-    sort: 'newest',
-  });
+  const [searchTerm, setSearchTerm] = useState(() => getStateFromParams(searchParams).searchTerm);
+  const [filters, setFilters] = useState(() => getStateFromParams(searchParams).filters);
+  const prevSearchParamStringRef = useRef(searchParamsString);
 
-  const fetchProperties = async () => {
+  const fetchProperties = async (params, signal) => {
     setLoading(true);
+    setError('');
     try {
-      const params = new URLSearchParams();
-      if (searchTerm) params.set('q', searchTerm);
-      if (filters.minPrice) params.set('minPrice', filters.minPrice);
-      if (filters.maxPrice) params.set('maxPrice', filters.maxPrice);
-      if (filters.bathrooms === '4+') params.set('bathroomsGte', '4');
-      else if (filters.bathrooms) params.set('bathrooms', filters.bathrooms);
-      if (filters.bedrooms === '4+') params.set('bedroomsGte', '4');
-      else if (filters.bedrooms) params.set('bedrooms', filters.bedrooms);
-      if (filters.type) params.set('type', filters.type);
-      if (filters.sort) params.set('sort', filters.sort);
+      // Fetch both listed states directly so UI works even if backend status aliases aren't deployed.
+      const pendingParams = new URLSearchParams(params);
+      pendingParams.set('status', 'Pending');
+      const approvedParams = new URLSearchParams(params);
+      approvedParams.set('status', 'Approved');
 
-      const res = await fetch(`${API_BASE_URL}/api/properties?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch properties');
-      setAllProperties(data);
-      setFilteredProperties(data);
+      const [pendingRes, approvedRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/properties?${pendingParams.toString()}`, { signal }),
+        fetch(`${API_BASE_URL}/api/properties?${approvedParams.toString()}`, { signal }),
+      ]);
+
+      const [pendingData, approvedData] = await Promise.all([pendingRes.json(), approvedRes.json()]);
+      if (!pendingRes.ok) throw new Error(pendingData.error || 'Failed to fetch listed properties');
+      if (!approvedRes.ok) throw new Error(approvedData.error || 'Failed to fetch listed properties');
+
+      const merged = [...(Array.isArray(pendingData) ? pendingData : []), ...(Array.isArray(approvedData) ? approvedData : [])];
+      const dedupedById = Object.values(
+        merged.reduce((acc, item) => {
+          if (item?._id) acc[item._id] = item;
+          return acc;
+        }, {})
+      );
+      setFilteredProperties(sortListings(dedupedById, filters.sort));
     } catch (err) {
+      if (err.name === 'AbortError') return;
       setError(err.message);
+      setFilteredProperties([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProperties();
-  }, []);
+    const nextParamsString = searchParamsString;
+    if (nextParamsString === prevSearchParamStringRef.current) return;
+
+    prevSearchParamStringRef.current = nextParamsString;
+    const nextState = getStateFromParams(searchParams);
+    setSearchTerm(nextState.searchTerm);
+    setFilters(nextState.filters);
+  }, [searchParams, searchParamsString]);
 
   useEffect(() => {
+    const requestParams = buildListingParams(searchTerm, filters);
+    const requestParamsString = requestParams.toString();
+    const currentParamsString = searchParamsString;
+    const controller = new AbortController();
+
     const timeout = setTimeout(() => {
-      fetchProperties();
+      if (requestParamsString !== currentParamsString) {
+        prevSearchParamStringRef.current = requestParamsString;
+        setSearchParams(requestParams, { replace: true });
+      }
+      fetchProperties(requestParams, controller.signal);
     }, 300);
 
-    return () => clearTimeout(timeout);
-  }, [searchTerm, filters]);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [searchTerm, filters, searchParamsString, setSearchParams]);
 
   const closeDetailsModal = () => setShowDetailsId(null);
   const openBookingPopup = (property) => setSelectedProperty(property);
   const closeBookingPopup = () => setSelectedProperty(null);
 
-  const handleClearSearch = () => {
+  const handleClearSearch = () => setSearchTerm('');
+  const handleClearAll = () => {
     setSearchTerm('');
+    setFilters(DEFAULT_FILTERS);
   };
 
   if (loading) return <p>Loading properties...</p>;
@@ -73,7 +141,10 @@ export default function Listings() {
 
   return (
     <div className="listings-page">
-      <h2>Available Properties</h2>
+      <div className="listings-header">
+        <h2>Listed Properties</h2>
+        <p>Showing all listed properties (pending and approved).</p>
+      </div>
 
       <div className="filters">
         <input
@@ -136,22 +207,13 @@ export default function Listings() {
           <option value="priceLow">Price: Low to High</option>
           <option value="priceHigh">Price: High to Low</option>
         </select>
+        <button className="clear-all-btn" onClick={handleClearAll}>
+          Reset Filters
+        </button>
       </div>
 
       {filteredProperties.length === 0 && !loading && !error ? (
-        <p
-          style={{
-            textAlign: 'center',
-            fontSize: '1.125rem',
-            color: '#64748b',
-            padding: '2rem',
-            border: '2px dashed #cbd5e1',
-            borderRadius: '0.75rem',
-            maxWidth: '500px',
-            margin: '2rem auto',
-            backgroundColor: '#ffffff',
-          }}
-        >
+        <p className="listings-empty-state">
           No properties found matching your search.
         </p>
       ) : (
