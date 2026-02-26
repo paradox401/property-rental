@@ -107,7 +107,7 @@ router.post('/create', protect, async (req, res) => {
         admin._id,
         'payment',
         `Payment verification requested for "${booking.property.title}"`,
-        '/admin/payments'
+        '/admin'
       );
     }
 

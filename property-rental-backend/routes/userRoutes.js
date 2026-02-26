@@ -60,6 +60,10 @@ router.post('/owner/verify-request', protect, async (req, res) => {
       return res.status(400).json({ error: 'Already verified' });
     }
 
+    if (user.ownerVerificationStatus === 'pending') {
+      return res.status(400).json({ error: 'Verification request is already pending' });
+    }
+
     user.ownerVerificationStatus = 'pending';
     await user.save();
 
@@ -69,7 +73,7 @@ router.post('/owner/verify-request', protect, async (req, res) => {
         admin._id,
         'ownerVerification',
         `Owner verification requested by ${user.name}`,
-        `/admin/approvals`
+        `/admin/owners`
       );
     }
 
@@ -99,6 +103,7 @@ router.put('/admin/owner-requests/:id', protect, adminOnly, async (req, res) => 
 
     const owner = await User.findById(req.params.id);
     if (!owner) return res.status(404).json({ error: 'Owner not found' });
+    if (owner.role !== 'owner') return res.status(400).json({ error: 'User is not an owner' });
 
     owner.ownerVerificationStatus = status;
     owner.ownerVerifiedAt = status === 'verified' ? new Date() : undefined;
