@@ -179,18 +179,18 @@
   border-color: var(--border) !important;
 }
 
-:root[data-theme='dark'] .chat-sidebar > div {
+:root[data-theme='dark'] .chat-thread-item {
   background: var(--surface-muted) !important;
   border-color: var(--border) !important;
   color: var(--text) !important;
 }
 
-:root[data-theme='dark'] .chat-sidebar > div:hover {
+:root[data-theme='dark'] .chat-thread-item:hover {
   background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
   border-color: color-mix(in srgb, var(--accent) 32%, var(--border)) !important;
 }
 
-:root[data-theme='dark'] .chat-sidebar > div.active {
+:root[data-theme='dark'] .chat-thread-item.active {
   background: color-mix(in srgb, var(--accent) 22%, var(--surface)) !important;
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border)) !important;
   color: #ccfbf1 !important;
@@ -226,6 +226,34 @@
   background: var(--surface) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
+}
+
+:root[data-theme='dark'] .chat-attachment-link {
+  border-color: color-mix(in srgb, var(--border) 80%, transparent) !important;
+  background: color-mix(in srgb, var(--surface-muted) 88%, transparent) !important;
+}
+
+:root[data-theme='dark'] .chat-reaction-pill,
+:root[data-theme='dark'] .chat-reaction-btn {
+  border-color: color-mix(in srgb, var(--border) 82%, transparent) !important;
+  background: color-mix(in srgb, var(--surface-muted) 88%, transparent) !important;
+  color: var(--text) !important;
+}
+
+:root[data-theme='dark'] .chat-tick.read {
+  color: #7dd3fc !important;
+}
+
+:root[data-theme='dark'] .chat-attach-btn {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+:root[data-theme='dark'] .chat-selected-files {
+  background: var(--surface-muted) !important;
+  border-top-color: var(--border) !important;
+  color: var(--text-muted) !important;
 }
 
 :root[data-theme='dark'] .thread-item.active,

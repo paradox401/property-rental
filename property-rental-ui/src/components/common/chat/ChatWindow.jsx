@@ -280,7 +280,6 @@ export default function ChatWindow({ selectedUser }) {
           onChange={(e) => handleTypingChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a message"
-          rows={2}
         />
         <button onClick={handleSend}>Send</button>
       </div>

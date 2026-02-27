@@ -126,7 +126,7 @@ export const setupSocket = (server) => {
               deliveredAt: messagePayload.deliveredAt || new Date(),
             });
           });
-        });
+        }
       }
     });
 
