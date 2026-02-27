@@ -477,6 +477,7 @@ export const getAllMessages = async (req, res) => {
       Message.find()
         .populate('sender', 'name email')
         .populate('receiver', 'name email')
+        .populate('recipient', 'name email')
         .sort({ createdAt: -1 })
         .skip((currentPage - 1) * currentLimit)
         .limit(currentLimit),
