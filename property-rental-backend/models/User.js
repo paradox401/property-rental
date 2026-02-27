@@ -19,6 +19,24 @@ const notificationPreferencesSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const privacyPreferencesSchema = new mongoose.Schema(
+  {
+    showEmailToOwnerOrRenter: { type: Boolean, default: true },
+    showPhoneToOwnerOrRenter: { type: Boolean, default: false },
+    loginAlerts: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const appPreferencesSchema = new mongoose.Schema(
+  {
+    language: { type: String, default: 'en' },
+    theme: { type: String, enum: ['light', 'dark', 'system'], default: 'system' },
+    compactMode: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   citizenshipNumber: { type: String, required: true },
@@ -38,6 +56,14 @@ const userSchema = new mongoose.Schema({
   },
   notificationPreferences: {
     type: notificationPreferencesSchema,
+    default: () => ({}),
+  },
+  privacyPreferences: {
+    type: privacyPreferencesSchema,
+    default: () => ({}),
+  },
+  appPreferences: {
+    type: appPreferencesSchema,
     default: () => ({}),
   },
   resetPasswordTokenHash: { type: String, select: false },

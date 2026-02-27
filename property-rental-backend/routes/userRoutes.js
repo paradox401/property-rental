@@ -43,22 +43,45 @@ router.get('/me', protect, async (req, res) => {
 
 router.put('/me/preferences', protect, async (req, res) => {
   try {
-    const { notificationPreferences } = req.body;
+    const { notificationPreferences, privacyPreferences, appPreferences } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    user.notificationPreferences = {
-      ...user.notificationPreferences?.toObject?.(),
-      ...notificationPreferences,
-      types: {
-        ...user.notificationPreferences?.types?.toObject?.(),
-        ...(notificationPreferences?.types || {}),
-      },
-    };
+    if (notificationPreferences) {
+      user.notificationPreferences = {
+        ...user.notificationPreferences?.toObject?.(),
+        ...notificationPreferences,
+        types: {
+          ...user.notificationPreferences?.types?.toObject?.(),
+          ...(notificationPreferences?.types || {}),
+        },
+      };
+    }
+
+    if (privacyPreferences) {
+      user.privacyPreferences = {
+        ...user.privacyPreferences?.toObject?.(),
+        ...privacyPreferences,
+      };
+    }
+
+    if (appPreferences) {
+      user.appPreferences = {
+        ...user.appPreferences?.toObject?.(),
+        ...appPreferences,
+      };
+    }
 
     await user.save();
-    res.json({ message: 'Preferences updated', preferences: user.notificationPreferences });
+    res.json({
+      message: 'Preferences updated',
+      preferences: {
+        notificationPreferences: user.notificationPreferences,
+        privacyPreferences: user.privacyPreferences,
+        appPreferences: user.appPreferences,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update preferences' });
   }
