@@ -3,8 +3,25 @@ import User from '../models/User.js';
 import protect from '../middleware/authMiddleware.js';
 import adminOnly from '../middleware/adminMiddleware.js';
 import { sendNotification } from '../socket.js';
+import upload from '../middleware/uploadMiddleware.js';
+import cloudinary from '../config/cloudinary.js';
 
 const router = express.Router();
+
+const uploadImageBufferToCloudinary = (buffer) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'property-rental/owner-verification',
+        resource_type: 'image',
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        return resolve(result);
+      }
+    );
+    stream.end(buffer);
+  });
 
 router.get('/', protect, async (req, res) => {
   try {
@@ -47,7 +64,7 @@ router.put('/me/preferences', protect, async (req, res) => {
   }
 });
 
-router.post('/owner/verify-request', protect, async (req, res) => {
+router.post('/owner/verify-request', protect, upload.single('idImage'), async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('role ownerVerificationStatus name');
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -63,7 +80,24 @@ router.post('/owner/verify-request', protect, async (req, res) => {
       return res.status(400).json({ error: 'Verification request is already pending' });
     }
 
-    await User.findByIdAndUpdate(req.user._id, { ownerVerificationStatus: 'pending' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'Please upload a valid ID photo to request verification' });
+    }
+
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return res.status(500).json({ error: 'Cloudinary credentials are not configured on server' });
+    }
+
+    const uploaded = await uploadImageBufferToCloudinary(req.file.buffer);
+
+    await User.findByIdAndUpdate(req.user._id, {
+      ownerVerificationStatus: 'pending',
+      ownerVerificationDocument: {
+        imageUrl: uploaded.secure_url,
+        publicId: uploaded.public_id,
+        submittedAt: new Date(),
+      },
+    });
 
     const admins = await User.find({ role: 'admin' }).select('_id');
     for (const admin of admins) {
@@ -88,9 +122,7 @@ router.post('/owner/verify-request', protect, async (req, res) => {
 
 router.get('/admin/owner-requests', protect, adminOnly, async (req, res) => {
   try {
-    const owners = await User.find({ role: 'owner', ownerVerificationStatus: 'pending' }).select(
-      '-password'
-    );
+    const owners = await User.find({ role: 'owner', ownerVerificationStatus: 'pending' }).select('-password');
     res.json(owners);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch owner requests' });

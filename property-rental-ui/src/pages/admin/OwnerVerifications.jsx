@@ -62,6 +62,7 @@ export default function OwnerVerifications() {
               <th>Name</th>
               <th>Email</th>
               <th>Citizenship</th>
+              <th>ID Photo</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -71,6 +72,24 @@ export default function OwnerVerifications() {
                 <td>{o.name}</td>
                 <td>{o.email}</td>
                 <td>{o.citizenshipNumber}</td>
+                <td>
+                  {o.ownerVerificationDocument?.imageUrl ? (
+                    <a
+                      href={o.ownerVerificationDocument.imageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="View uploaded ID photo"
+                    >
+                      <img
+                        src={o.ownerVerificationDocument.imageUrl}
+                        alt={`${o.name} ID`}
+                        style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
+                      />
+                    </a>
+                  ) : (
+                    '-'
+                  )}
+                </td>
                 <td>
                   <button className="btn-approve" onClick={() => updateStatus(o._id, 'verified')}>
                     Verify

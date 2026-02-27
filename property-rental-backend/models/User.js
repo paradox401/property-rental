@@ -31,6 +31,11 @@ const userSchema = new mongoose.Schema({
     default: 'unverified',
   },
   ownerVerifiedAt: { type: Date },
+  ownerVerificationDocument: {
+    imageUrl: { type: String },
+    publicId: { type: String },
+    submittedAt: { type: Date },
+  },
   notificationPreferences: {
     type: notificationPreferencesSchema,
     default: () => ({}),

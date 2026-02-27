@@ -31,6 +31,7 @@ export default function Dashboard() {
   });
   const [requesting, setRequesting] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
+  const [verificationIdFile, setVerificationIdFile] = useState(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -51,16 +52,24 @@ export default function Dashboard() {
 
   const requestVerification = async () => {
     if (!token) return;
+    if (!verificationIdFile) {
+      setVerificationMessage('Please upload a valid ID photo before submitting verification request.');
+      return;
+    }
     setRequesting(true);
     setVerificationMessage('');
+    const formData = new FormData();
+    formData.append('idImage', verificationIdFile);
     const res = await fetch(`${API_BASE_URL}/api/users/owner/verify-request`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
+      body: formData,
     });
     const data = await res.json();
     if (res.ok) {
       setUser((prev) => ({ ...prev, ownerVerificationStatus: data.status }));
       setVerificationMessage('Verification request submitted. Please wait for admin approval.');
+      setVerificationIdFile(null);
     } else {
       setVerificationMessage(data.error || 'Failed to submit verification request.');
     }
@@ -97,9 +106,22 @@ export default function Dashboard() {
         <p>Status: {user?.ownerVerificationStatus || 'unverified'}</p>
         {(user?.ownerVerificationStatus === 'unverified' ||
           user?.ownerVerificationStatus === 'rejected') && (
-          <button onClick={requestVerification} disabled={requesting}>
-            {requesting ? 'Requesting...' : 'Request Verification'}
-          </button>
+          <>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label htmlFor="owner-id-image" style={{ display: 'block', marginBottom: '0.4rem' }}>
+                Upload Valid ID Photo
+              </label>
+              <input
+                id="owner-id-image"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setVerificationIdFile(e.target.files?.[0] || null)}
+              />
+            </div>
+            <button onClick={requestVerification} disabled={requesting}>
+              {requesting ? 'Requesting...' : 'Request Verification'}
+            </button>
+          </>
         )}
         {user?.ownerVerificationStatus === 'pending' && (
           <p style={{ color: '#92400e', marginTop: '0.5rem' }}>
