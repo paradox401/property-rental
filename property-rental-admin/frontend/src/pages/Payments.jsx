@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import API from '../api';
 import Pagination from '../components/Pagination';
 import { formatDate, parsePaged, statusClass } from '../utils';
+import './Payments.css';
 
 export default function Payments() {
   const [rows, setRows] = useState([]);
@@ -50,9 +51,9 @@ export default function Payments() {
   };
 
   return (
-    <div>
+    <div className="payments-page">
       <div className="page-header"><div><h1>Payments</h1><p className="page-subtitle">Monitor transactions, failures, and refunds.</p></div></div>
-      <div className="toolbar">
+      <div className="toolbar payments-toolbar">
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All status</option>
           <option value="Pending">Pending</option>
@@ -66,9 +67,9 @@ export default function Payments() {
           <option value="Allocated">Allocated</option>
           <option value="Transferred">Transferred</option>
         </select>
-        <button className="btn" onClick={() => load(1)}>Apply</button>
+        <button className="btn payments-apply-btn" onClick={() => load(1)}>Apply Filters</button>
       </div>
-      <div className="table-wrap">
+      <div className="table-wrap payments-table-wrap">
         <table className="table">
           <thead><tr><th>PID</th><th>Reference</th><th>Renter</th><th>Property</th><th>Owner</th><th>Period</th><th>Months</th><th>Amount</th><th>Method</th><th>Status</th><th>Payout</th><th>Commission%</th><th>Commission</th><th>Owner Receives</th><th>Date</th><th>Remark</th><th>Actions</th></tr></thead>
           <tbody>
@@ -97,7 +98,7 @@ export default function Payments() {
                     value={commissionInputs[p._id] ?? p.commissionPercent ?? 10}
                     onChange={(e) => setCommissionInputs((prev) => ({ ...prev, [p._id]: e.target.value }))}
                     placeholder="10"
-                    style={{ width: 90 }}
+                    className="commission-input"
                   />
                 </td>
                 <td>Rs. {p.commissionAmount ?? 0}</td>
@@ -108,15 +109,34 @@ export default function Payments() {
                     value={remarks[p._id] || ''}
                     onChange={(e) => setRemarks((prev) => ({ ...prev, [p._id]: e.target.value }))}
                     placeholder="Optional remark"
+                    className="remark-input"
                   />
                 </td>
-                <td>
-                  <button className="btn" onClick={() => updateStatus(p._id, 'Paid')}>Paid</button>{' '}
-                  <button className="btn warn" onClick={() => updateStatus(p._id, 'Pending')}>Pending</button>{' '}
-                  <button className="btn danger" onClick={() => updateStatus(p._id, 'Failed')}>Failed</button>{' '}
-                  <button className="btn secondary" onClick={() => updateStatus(p._id, 'Refunded')}>Refunded</button>{' '}
-                  <button className="btn" onClick={() => allocateOwner(p._id)}>Allocate</button>{' '}
-                  <button className="btn secondary" onClick={() => markTransferred(p._id)}>Transferred</button>
+                <td className="payment-actions-cell">
+                  <div className="payment-action-row">
+                    <button className="btn action-btn paid-btn" onClick={() => updateStatus(p._id, 'Paid')}>Mark Paid</button>
+                    <button className="btn action-btn warn" onClick={() => updateStatus(p._id, 'Pending')}>Mark Pending</button>
+                    <button className="btn action-btn danger" onClick={() => updateStatus(p._id, 'Failed')}>Mark Failed</button>
+                    <button className="btn action-btn secondary" onClick={() => updateStatus(p._id, 'Refunded')}>Refunded</button>
+                  </div>
+                  <div className="payment-action-row">
+                    <button
+                      className="btn action-btn allocate-btn"
+                      onClick={() => allocateOwner(p._id)}
+                      disabled={p.status !== 'Paid'}
+                      title={p.status !== 'Paid' ? 'Payment must be Paid first' : 'Allocate net payout to owner'}
+                    >
+                      Allocate Owner
+                    </button>
+                    <button
+                      className="btn action-btn secondary"
+                      onClick={() => markTransferred(p._id)}
+                      disabled={p.payoutStatus !== 'Allocated'}
+                      title={p.payoutStatus !== 'Allocated' ? 'Allocate payout first' : 'Mark payout transferred to owner'}
+                    >
+                      Mark Transferred
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

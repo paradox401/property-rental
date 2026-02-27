@@ -22,6 +22,7 @@ import Messages from '../pages/owner/Messages';
 import Message from '../pages/renter/Message';
 import ComplaintPage from '../pages/renter/ComplaintPage';
 import OwnerComplaint from '../pages/owner/OwnerComplaint';
+import PaymentStatus from '../pages/owner/PaymentStatus';
 import ComplaintHistory from '../pages/renter/ComplaintHistory';
 import PaymentPage from '../pages/renter/PaymentPage';
 import PaymentSuccess from '../pages/renter/PaymentSuccess';
@@ -68,6 +69,7 @@ export default function AppRoutes() {
         <Route path="requests" element={<Bookings />} />
         <Route path="messages" element={<Messages />} />
         <Route path="ocomplaint" element={<OwnerComplaint />} />
+        <Route path="payment-status" element={<PaymentStatus />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

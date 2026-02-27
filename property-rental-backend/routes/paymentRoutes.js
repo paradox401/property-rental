@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import Payment from '../models/Payment.js';
 import Booking from '../models/Booking.js';
+import Property from '../models/Property.js';
 import protect from '../middleware/authMiddleware.js';
 import { sendNotification } from '../socket.js';
 import User from '../models/User.js';
@@ -150,6 +151,86 @@ router.get('/history', protect, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/owner/status', protect, async (req, res) => {
+  try {
+    if (req.user.role !== 'owner') {
+      return res.status(403).json({ error: 'Only owners can access payment status summary' });
+    }
+
+    const ownerProperties = await Property.find({ ownerId: req.user._id }).select('_id title price');
+    const propertyIds = ownerProperties.map((p) => p._id);
+    if (propertyIds.length === 0) {
+      return res.json({
+        summary: { totalApprovedBookings: 0, paidByRenter: 0, pendingFromRenter: 0, transferredToOwner: 0 },
+        rows: [],
+      });
+    }
+
+    const approvedBookings = await Booking.find({ property: { $in: propertyIds }, status: 'Approved' })
+      .populate('property', 'title price')
+      .populate('renter', 'name email')
+      .sort({ createdAt: -1 });
+
+    const bookingIds = approvedBookings.map((b) => b._id);
+    const payments = await Payment.find({ booking: { $in: bookingIds } }).sort({ createdAt: -1 });
+
+    const latestPaymentByBooking = {};
+    payments.forEach((payment) => {
+      const bookingId = payment.booking?.toString();
+      if (bookingId && !latestPaymentByBooking[bookingId]) {
+        latestPaymentByBooking[bookingId] = payment;
+      }
+    });
+
+    const rows = approvedBookings.map((booking) => {
+      const latestPayment = latestPaymentByBooking[booking._id.toString()];
+      const renterPaymentStatus =
+        latestPayment?.status === 'Paid'
+          ? 'Paid'
+          : latestPayment?.status === 'Pending'
+            ? 'Pending Verification'
+            : 'Unpaid';
+
+      const ownerPayoutStatus =
+        latestPayment?.status === 'Paid'
+          ? latestPayment?.payoutStatus || 'Unallocated'
+          : 'Not Eligible';
+
+      return {
+        bookingId: booking._id,
+        propertyId: booking.property?._id,
+        propertyTitle: booking.property?.title || 'Unknown property',
+        renterName: booking.renter?.name || booking.renter?.email || 'Unknown renter',
+        renterEmail: booking.renter?.email || '',
+        monthlyRent: booking.property?.price || 0,
+        bookingFrom: booking.fromDate,
+        renterPaymentStatus,
+        latestPaymentAmount: latestPayment?.amount || 0,
+        latestPaymentAt: latestPayment?.createdAt || null,
+        ownerPayoutStatus,
+        ownerAmount: latestPayment?.ownerAmount || 0,
+        commissionAmount: latestPayment?.commissionAmount || 0,
+      };
+    });
+
+    const summary = rows.reduce(
+      (acc, row) => {
+        acc.totalApprovedBookings += 1;
+        if (row.renterPaymentStatus === 'Paid') acc.paidByRenter += 1;
+        if (row.renterPaymentStatus !== 'Paid') acc.pendingFromRenter += 1;
+        if (row.ownerPayoutStatus === 'Transferred') acc.transferredToOwner += 1;
+        return acc;
+      },
+      { totalApprovedBookings: 0, paidByRenter: 0, pendingFromRenter: 0, transferredToOwner: 0 }
+    );
+
+    return res.json({ summary, rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to fetch owner payment status' });
   }
 });
 
