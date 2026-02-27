@@ -28,7 +28,7 @@ const DEFAULT_APP = {
 };
 
 export default function Settings() {
-  const { token } = useContext(AuthContext);
+  const { token, user, setUser } = useContext(AuthContext);
   const [prefs, setPrefs] = useState({ inApp: true, email: false, types: DEFAULT_TYPES });
   const [privacyPrefs, setPrivacyPrefs] = useState(DEFAULT_PRIVACY);
   const [appPrefs, setAppPrefs] = useState(DEFAULT_APP);
@@ -83,6 +83,12 @@ export default function Settings() {
 
     if (res.ok) {
       setMessage('Preferences updated.');
+      setUser({
+        ...(user || {}),
+        notificationPreferences: prefs,
+        privacyPreferences: privacyPrefs,
+        appPreferences: appPrefs,
+      });
     } else {
       setMessage('Failed to update preferences.');
     }

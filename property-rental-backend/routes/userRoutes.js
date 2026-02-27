@@ -67,9 +67,19 @@ router.put('/me/preferences', protect, async (req, res) => {
     }
 
     if (appPreferences) {
+      const allowedThemes = ['light', 'dark', 'system'];
+      const nextTheme = allowedThemes.includes(appPreferences.theme)
+        ? appPreferences.theme
+        : user.appPreferences?.theme || 'system';
+      const nextLanguage = ['en', 'ne'].includes(appPreferences.language)
+        ? appPreferences.language
+        : user.appPreferences?.language || 'en';
+
       user.appPreferences = {
         ...user.appPreferences?.toObject?.(),
         ...appPreferences,
+        theme: nextTheme,
+        language: nextLanguage,
       };
     }
 
@@ -83,6 +93,10 @@ router.put('/me/preferences', protect, async (req, res) => {
       },
     });
   } catch (err) {
+    console.error('Failed to update user preferences:', err);
+    if (err?.name === 'ValidationError') {
+      return res.status(400).json({ error: 'Invalid preference value provided' });
+    }
     res.status(500).json({ error: 'Failed to update preferences' });
   }
 });
