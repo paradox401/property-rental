@@ -11,7 +11,13 @@ const formatTime = (value) => {
     : date.toLocaleDateString();
 };
 
-export default function ChatList({ users, onSelectUser, selectedUser, conversationMap = {} }) {
+export default function ChatList({
+  users,
+  onSelectUser,
+  selectedUser,
+  conversationMap = {},
+  onTogglePin,
+}) {
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -21,6 +27,12 @@ export default function ChatList({ users, onSelectUser, selectedUser, conversati
       return label.includes(normalizedQuery);
     });
   }, [users, normalizedQuery]);
+
+  const handlePinClick = (event, user) => {
+    event.stopPropagation();
+    if (!onTogglePin) return;
+    onTogglePin(user);
+  };
 
   return (
     <div className="chat-sidebar">
@@ -45,6 +57,7 @@ export default function ChatList({ users, onSelectUser, selectedUser, conversati
           const meta = conversationMap[u._id] || {};
           const preview = meta.lastMessage || 'Start a new conversation';
           const unreadCount = Number(meta.unreadCount || 0);
+          const isPinned = Boolean(meta.pinned);
 
           return (
           <div
@@ -53,8 +66,20 @@ export default function ChatList({ users, onSelectUser, selectedUser, conversati
             onClick={() => onSelectUser(u)}
           >
             <div className="chat-thread-top">
-              <span className="chat-thread-name">{u.name || u.email}</span>
-              <span className="chat-thread-time">{formatTime(meta.lastMessageAt)}</span>
+              <span className="chat-thread-name">
+                {isPinned ? '📌 ' : ''}{u.name || u.email}
+              </span>
+              <div className="chat-thread-actions">
+                <button
+                  type="button"
+                  className={`chat-thread-pin ${isPinned ? 'pinned' : ''}`}
+                  onClick={(event) => handlePinClick(event, u)}
+                  title={isPinned ? 'Unpin chat' : 'Pin chat'}
+                >
+                  📌
+                </button>
+                <span className="chat-thread-time">{formatTime(meta.lastMessageAt)}</span>
+              </div>
             </div>
             <div className="chat-thread-bottom">
               <p className="chat-thread-preview">{preview}</p>

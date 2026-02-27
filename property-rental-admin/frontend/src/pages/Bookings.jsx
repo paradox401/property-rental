@@ -46,10 +46,12 @@ export default function Bookings() {
                 <td>{formatDate(b.fromDate)}</td>
                 <td>{formatDate(b.toDate)}</td>
                 <td><span className={`badge ${statusClass(b.status)}`}>{b.status}</span></td>
-                <td>
-                  <button className="btn" onClick={() => setBookingStatus(b._id, 'Approved')}>Approve</button>{' '}
-                  <button className="btn danger" onClick={() => setBookingStatus(b._id, 'Rejected')}>Reject</button>{' '}
-                  <button className="btn warn" onClick={() => setBookingStatus(b._id, 'Pending')}>Pending</button>
+                <td className="admin-actions-cell">
+                  <div className="admin-action-row">
+                    <button className="btn admin-action-btn" onClick={() => setBookingStatus(b._id, 'Approved')}>Approve</button>
+                    <button className="btn admin-action-btn danger" onClick={() => setBookingStatus(b._id, 'Rejected')}>Reject</button>
+                    <button className="btn admin-action-btn warn" onClick={() => setBookingStatus(b._id, 'Pending')}>Pending</button>
+                  </div>
                 </td>
               </tr>
             ))}

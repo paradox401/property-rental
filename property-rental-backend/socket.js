@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import Notification from './models/Notification.js';
 import User from './models/User.js';
+import Message from './models/Message.js';
 import { canUsersChat } from './utils/chatAccess.js';
 
 let io;
@@ -87,17 +88,44 @@ export const setupSocket = (server) => {
       console.log('👤 User online:', currentUserId);
     });
 
-    socket.on('sendMessage', async ({ receiver, text }) => {
+    socket.on('sendMessage', async ({ receiver, text, messageId, message }) => {
       const receiverId = receiver?.toString();
-      if (!receiverId || !text?.trim()) return;
+      if (!receiverId) return;
 
       const allowed = await canUsersChat(currentUserId, receiverId);
       if (!allowed) return;
 
       const receiverSockets = onlineUsers.get(receiverId);
       if (receiverSockets?.size) {
+        let deliveredMessage = null;
+        if (messageId) {
+          deliveredMessage = await Message.findByIdAndUpdate(
+            messageId,
+            { $set: { delivered: true, deliveredAt: new Date() } },
+            { new: true }
+          );
+        }
+
+        const messagePayload = deliveredMessage || message || {
+          sender: currentUserId,
+          content: text || '',
+          delivered: true,
+          deliveredAt: new Date(),
+        };
+
         receiverSockets.forEach((socketId) => {
-          io.to(socketId).emit('receiveMessage', { sender: currentUserId, text });
+          io.to(socketId).emit('receiveMessage', { message: messagePayload, sender: currentUserId, text });
+        });
+
+        const senderSockets = onlineUsers.get(currentUserId);
+        if (senderSockets?.size && messageId) {
+          senderSockets.forEach((socketId) => {
+            io.to(socketId).emit('messageStatus', {
+              messageId,
+              delivered: true,
+              deliveredAt: messagePayload.deliveredAt || new Date(),
+            });
+          });
         });
       }
     });
@@ -196,4 +224,10 @@ export const broadcastNotification = async (userIds, type, message, link = '') =
   for (const id of userIds) {
     await sendNotification(id, type, message, link);
   }
+};
+
+export const isUserOnline = (userId) => {
+  if (!userId) return false;
+  const sockets = onlineUsers.get(userId.toString());
+  return Boolean(sockets?.size);
 };

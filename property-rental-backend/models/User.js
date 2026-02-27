@@ -111,6 +111,12 @@ const userSchema = new mongoose.Schema({
     type: appPreferencesSchema,
     default: () => ({}),
   },
+  pinnedChats: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+  ],
   resetPasswordTokenHash: { type: String, select: false },
   resetPasswordExpiresAt: { type: Date, select: false },
 });

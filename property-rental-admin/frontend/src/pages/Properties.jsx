@@ -54,11 +54,13 @@ export default function Properties() {
                 <td>Rs. {p.price}</td>
                 <td><span className={`badge ${statusClass(p.status)}`}>{p.status}</span></td>
                 <td>{formatDate(p.createdAt)}</td>
-                <td>
-                  <button className="btn" onClick={() => changeStatus(p._id, 'Approved')}>Approve</button>{' '}
-                  <button className="btn warn" onClick={() => changeStatus(p._id, 'Pending')}>Pending</button>{' '}
-                  <button className="btn danger" onClick={() => changeStatus(p._id, 'Rejected')}>Reject</button>{' '}
-                  <button className="btn secondary" onClick={() => remove(p._id)}>Delete</button>
+                <td className="admin-actions-cell">
+                  <div className="admin-action-row">
+                    <button className="btn admin-action-btn" onClick={() => changeStatus(p._id, 'Approved')}>Approve</button>
+                    <button className="btn admin-action-btn warn" onClick={() => changeStatus(p._id, 'Pending')}>Pending</button>
+                    <button className="btn admin-action-btn danger" onClick={() => changeStatus(p._id, 'Rejected')}>Reject</button>
+                    <button className="btn admin-action-btn secondary" onClick={() => remove(p._id)}>Delete</button>
+                  </div>
                 </td>
               </tr>
             ))}
