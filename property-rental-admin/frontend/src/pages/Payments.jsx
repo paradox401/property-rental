@@ -6,11 +6,20 @@ import { formatDate, parsePaged, statusClass } from '../utils';
 export default function Payments() {
   const [rows, setRows] = useState([]);
   const [status, setStatus] = useState('');
+  const [payoutStatus, setPayoutStatus] = useState('');
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 20, totalPages: 1 });
   const [remarks, setRemarks] = useState({});
+  const [commissionInputs, setCommissionInputs] = useState({});
 
   const load = async (nextPage = 1) => {
-    const res = await API.get('/payments', { params: { status: status || undefined, page: nextPage, limit: 20 } });
+    const res = await API.get('/payments', {
+      params: {
+        status: status || undefined,
+        payoutStatus: payoutStatus || undefined,
+        page: nextPage,
+        limit: 20,
+      },
+    });
     const parsed = parsePaged(res.data);
     setRows(parsed.items);
     setMeta(parsed.meta);
@@ -20,6 +29,23 @@ export default function Payments() {
 
   const updateStatus = async (id, nextStatus) => {
     await API.patch(`/payments/${id}/status`, { status: nextStatus, adminRemark: remarks[id] || '' });
+    load(meta.page);
+  };
+
+  const allocateOwner = async (id) => {
+    const value = commissionInputs[id];
+    const commissionPercent = value === '' || value == null ? undefined : Number(value);
+    await API.post(`/payments/${id}/allocate-owner`, {
+      commissionPercent,
+      payoutNote: remarks[id] || '',
+    });
+    load(meta.page);
+  };
+
+  const markTransferred = async (id) => {
+    await API.patch(`/payments/${id}/transfer-owner`, {
+      payoutNote: remarks[id] || '',
+    });
     load(meta.page);
   };
 
@@ -34,11 +60,17 @@ export default function Payments() {
           <option value="Failed">Failed</option>
           <option value="Refunded">Refunded</option>
         </select>
+        <select value={payoutStatus} onChange={(e) => setPayoutStatus(e.target.value)}>
+          <option value="">All payout states</option>
+          <option value="Unallocated">Unallocated</option>
+          <option value="Allocated">Allocated</option>
+          <option value="Transferred">Transferred</option>
+        </select>
         <button className="btn" onClick={() => load(1)}>Apply</button>
       </div>
       <div className="table-wrap">
         <table className="table">
-          <thead><tr><th>PID</th><th>Reference</th><th>Renter</th><th>Booking</th><th>Period</th><th>Months</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Remark</th><th>Actions</th></tr></thead>
+          <thead><tr><th>PID</th><th>Reference</th><th>Renter</th><th>Property</th><th>Owner</th><th>Period</th><th>Months</th><th>Amount</th><th>Method</th><th>Status</th><th>Payout</th><th>Commission%</th><th>Commission</th><th>Owner Receives</th><th>Date</th><th>Remark</th><th>Actions</th></tr></thead>
           <tbody>
             {rows.map((p) => (
               <tr key={p._id}>
@@ -46,6 +78,7 @@ export default function Payments() {
                 <td>{p.transactionRef || '-'}</td>
                 <td>{p.renter?.email || '-'}</td>
                 <td>{p.booking?.property?.title || '-'}</td>
+                <td>{p.ownerId?.name || p.booking?.property?.ownerId?.name || '-'}</td>
                 <td>
                   {p.paymentPeriodStart && p.paymentPeriodEnd
                     ? `${new Date(p.paymentPeriodStart).toLocaleDateString()} - ${new Date(p.paymentPeriodEnd).toLocaleDateString()}`
@@ -55,6 +88,20 @@ export default function Payments() {
                 <td>Rs. {p.amount}</td>
                 <td>{p.paymentMethod || '-'}</td>
                 <td><span className={`badge ${statusClass(p.status)}`}>{p.status}</span></td>
+                <td><span className={`badge ${statusClass(p.payoutStatus || 'Unallocated')}`}>{p.payoutStatus || 'Unallocated'}</span></td>
+                <td>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={commissionInputs[p._id] ?? p.commissionPercent ?? 10}
+                    onChange={(e) => setCommissionInputs((prev) => ({ ...prev, [p._id]: e.target.value }))}
+                    placeholder="10"
+                    style={{ width: 90 }}
+                  />
+                </td>
+                <td>Rs. {p.commissionAmount ?? 0}</td>
+                <td>Rs. {p.ownerAmount ?? 0}</td>
                 <td>{formatDate(p.createdAt)}</td>
                 <td>
                   <input
@@ -67,11 +114,13 @@ export default function Payments() {
                   <button className="btn" onClick={() => updateStatus(p._id, 'Paid')}>Paid</button>{' '}
                   <button className="btn warn" onClick={() => updateStatus(p._id, 'Pending')}>Pending</button>{' '}
                   <button className="btn danger" onClick={() => updateStatus(p._id, 'Failed')}>Failed</button>{' '}
-                  <button className="btn secondary" onClick={() => updateStatus(p._id, 'Refunded')}>Refunded</button>
+                  <button className="btn secondary" onClick={() => updateStatus(p._id, 'Refunded')}>Refunded</button>{' '}
+                  <button className="btn" onClick={() => allocateOwner(p._id)}>Allocate</button>{' '}
+                  <button className="btn secondary" onClick={() => markTransferred(p._id)}>Transferred</button>
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan="12">No payments found.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan="17">No payments found.</td></tr>}
           </tbody>
         </table>
       </div>

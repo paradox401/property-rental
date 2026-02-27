@@ -120,6 +120,70 @@
   border: 1px solid var(--border);
 }
 
+.owner-payment-status {
+  margin-top: 2rem;
+  background-color: var(--surface);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-soft);
+  padding: 2rem;
+  border: 1px solid var(--border);
+}
+
+.owner-payment-status h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 1rem 0;
+}
+
+.payment-status-table-wrap {
+  overflow-x: auto;
+}
+
+.payment-status-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.payment-status-table th,
+.payment-status-table td {
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  padding: 0.75rem 0.5rem;
+  color: var(--text);
+}
+
+.payment-status-table th {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.payment-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.payment-chip.paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.payment-chip.unpaid {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.payment-chip.pending-verification {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .recent-properties h3 {
   font-size: 1.5rem;
   font-weight: 600;

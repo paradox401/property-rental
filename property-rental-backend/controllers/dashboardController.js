@@ -1,6 +1,7 @@
 import Property from '../models/Property.js';
 import Booking from '../models/Booking.js';
 import Favorite from '../models/Favorite.js';
+import Payment from '../models/Payment.js';
 
 export const getOwnerDashboardStats = async (req, res) => {
     try {
@@ -12,6 +13,54 @@ export const getOwnerDashboardStats = async (req, res) => {
       const bookings = await Booking.find({ property: { $in: propertyIds } });
   
       const favorites = await Favorite.find({ property: { $in: propertyIds } });
+
+      const approvedBookings = await Booking.find({
+        property: { $in: propertyIds },
+        status: 'Approved',
+      })
+        .populate('property', 'title price')
+        .populate('renter', 'name email');
+
+      const approvedBookingIds = approvedBookings.map((booking) => booking._id);
+      const paymentDocs = await Payment.find({ booking: { $in: approvedBookingIds } }).sort({
+        createdAt: -1,
+      });
+
+      const latestPaymentByBooking = {};
+      paymentDocs.forEach((payment) => {
+        const bookingId = payment.booking?.toString();
+        if (bookingId && !latestPaymentByBooking[bookingId]) {
+          latestPaymentByBooking[bookingId] = payment;
+        }
+      });
+
+      const ownerPaymentRows = approvedBookings
+        .map((booking) => {
+          const latestPayment = latestPaymentByBooking[booking._id.toString()];
+          const paymentState =
+            latestPayment?.status === 'Paid'
+              ? 'Paid'
+              : latestPayment?.status === 'Pending'
+                ? 'Pending Verification'
+                : 'Unpaid';
+
+          return {
+            bookingId: booking._id,
+            propertyId: booking.property?._id,
+            propertyTitle: booking.property?.title || 'Unknown property',
+            monthlyRent: booking.property?.price || 0,
+            renterName: booking.renter?.name || booking.renter?.email || 'Unknown renter',
+            renterEmail: booking.renter?.email || '',
+            fromDate: booking.fromDate,
+            paymentStatus: paymentState,
+            latestPaymentAmount: latestPayment?.amount || 0,
+            latestPaymentAt: latestPayment?.createdAt || null,
+          };
+        })
+        .sort((a, b) => {
+          const weight = { Unpaid: 0, 'Pending Verification': 1, Paid: 2 };
+          return (weight[a.paymentStatus] ?? 99) - (weight[b.paymentStatus] ?? 99);
+        });
   
       // Count bookings by their status: Approved, Pending, Rejected
       const bookingStatusCount = bookings.reduce((acc, booking) => {
@@ -59,6 +108,7 @@ export const getOwnerDashboardStats = async (req, res) => {
         totalFavorites: favorites.length,
         bookingStatusCount,
         recentProperties,
+        ownerPaymentRows,
         propertyStats: propertyStats.map(p => ({
           month: p._id,
           count: p.count

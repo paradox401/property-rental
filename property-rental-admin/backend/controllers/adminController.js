@@ -288,14 +288,19 @@ export const updateBookingStatus = async (req, res) => {
 
 export const getAllPayments = async (req, res) => {
   try {
-    const { status, page, limit } = req.query;
+    const { status, payoutStatus, page, limit } = req.query;
     const filter = status ? { status } : {};
+    if (payoutStatus) filter.payoutStatus = payoutStatus;
     const currentPage = parsePage(page);
     const currentLimit = parseLimit(limit);
     const [payments, total] = await Promise.all([
       Payment.find(filter)
         .populate('renter', 'name email')
-        .populate({ path: 'booking', populate: { path: 'property', select: 'title location' } })
+        .populate({
+          path: 'booking',
+          populate: { path: 'property', select: 'title location ownerId', populate: { path: 'ownerId', select: 'name email' } },
+        })
+        .populate('ownerId', 'name email')
         .sort({ createdAt: -1 })
         .skip((currentPage - 1) * currentLimit)
         .limit(currentLimit),
@@ -327,6 +332,14 @@ export const updatePaymentStatus = async (req, res) => {
         await Booking.findByIdAndUpdate(payment.booking, { paymentStatus: 'paid' });
       } else if (status === 'Failed' || status === 'Pending') {
         await Booking.findByIdAndUpdate(payment.booking, { paymentStatus: 'pending' });
+        await Payment.findByIdAndUpdate(payment._id, {
+          payoutStatus: 'Unallocated',
+          commissionPercent: 0,
+          commissionAmount: 0,
+          ownerAmount: 0,
+          payoutAllocatedAt: null,
+          payoutTransferredAt: null,
+        });
       }
     }
 
@@ -334,6 +347,89 @@ export const updatePaymentStatus = async (req, res) => {
     res.json(payment);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update payment status' });
+  }
+};
+
+export const allocateOwnerPayout = async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id).populate({
+      path: 'booking',
+      populate: { path: 'property', select: 'title ownerId' },
+    });
+
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    if (payment.status !== 'Paid') {
+      return res.status(400).json({ error: 'Only paid payments can be allocated to owner' });
+    }
+
+    const ownerId = payment.booking?.property?.ownerId;
+    if (!ownerId) {
+      return res.status(400).json({ error: 'Owner not found for booking property' });
+    }
+
+    const commissionSetting = await AdminSetting.findOne({ key: 'platformCommissionPct' });
+    const defaultCommission = Number(commissionSetting?.value);
+    const incomingCommission = Number(req.body?.commissionPercent);
+    const commissionPercent = Number.isFinite(incomingCommission)
+      ? incomingCommission
+      : Number.isFinite(defaultCommission)
+        ? defaultCommission
+        : 10;
+
+    if (commissionPercent < 0 || commissionPercent > 100) {
+      return res.status(400).json({ error: 'Commission percent must be between 0 and 100' });
+    }
+
+    const commissionAmount = Number(((payment.amount * commissionPercent) / 100).toFixed(2));
+    const ownerAmount = Number((payment.amount - commissionAmount).toFixed(2));
+
+    payment.ownerId = ownerId;
+    payment.commissionPercent = commissionPercent;
+    payment.commissionAmount = commissionAmount;
+    payment.ownerAmount = ownerAmount;
+    payment.payoutStatus = 'Allocated';
+    payment.payoutAllocatedAt = new Date();
+    payment.payoutTransferredAt = null;
+    payment.payoutNote = req.body?.payoutNote || payment.payoutNote;
+    await payment.save();
+
+    await logAudit(req, 'owner_payout_allocated', 'Payment', payment._id, {
+      ownerId,
+      commissionPercent,
+      commissionAmount,
+      ownerAmount,
+    });
+
+    res.json(payment);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to allocate owner payout' });
+  }
+};
+
+export const markOwnerPayoutTransferred = async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id);
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    if (payment.status !== 'Paid') {
+      return res.status(400).json({ error: 'Only paid payments can be transferred' });
+    }
+    if (payment.payoutStatus !== 'Allocated' && payment.payoutStatus !== 'Transferred') {
+      return res.status(400).json({ error: 'Allocate payout before marking as transferred' });
+    }
+
+    payment.payoutStatus = 'Transferred';
+    payment.payoutTransferredAt = new Date();
+    payment.payoutNote = req.body?.payoutNote || payment.payoutNote;
+    await payment.save();
+
+    await logAudit(req, 'owner_payout_transferred', 'Payment', payment._id, {
+      ownerId: payment.ownerId,
+      ownerAmount: payment.ownerAmount,
+    });
+
+    res.json(payment);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to mark owner payout transferred' });
   }
 };
 

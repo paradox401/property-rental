@@ -27,6 +27,7 @@ export default function Dashboard() {
     bookingStatusCount: { Approved: 0, Pending: 0, Rejected: 0 },
     recentProperties: [],
     propertyStats: [],
+    ownerPaymentRows: [],
   });
   const [requesting, setRequesting] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
@@ -161,6 +162,51 @@ export default function Dashboard() {
           </ul>
         ) : (
           <p>No recent properties</p>
+        )}
+      </div>
+
+      <div className="owner-payment-status">
+        <h3>Renter Payment Status</h3>
+        {Array.isArray(stats.ownerPaymentRows) && stats.ownerPaymentRows.length > 0 ? (
+          <div className="payment-status-table-wrap">
+            <table className="payment-status-table">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Renter</th>
+                  <th>Monthly Rent</th>
+                  <th>Booking From</th>
+                  <th>Status</th>
+                  <th>Last Payment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.ownerPaymentRows.map((row) => (
+                  <tr key={row.bookingId}>
+                    <td>{row.propertyTitle}</td>
+                    <td>
+                      <div>{row.renterName}</div>
+                      <small>{row.renterEmail}</small>
+                    </td>
+                    <td>Rs. {row.monthlyRent}</td>
+                    <td>{row.fromDate ? new Date(row.fromDate).toLocaleDateString() : '-'}</td>
+                    <td>
+                      <span className={`payment-chip ${row.paymentStatus.toLowerCase().replace(/\s+/g, '-')}`}>
+                        {row.paymentStatus}
+                      </span>
+                    </td>
+                    <td>
+                      {row.latestPaymentAmount
+                        ? `Rs. ${row.latestPaymentAmount} (${new Date(row.latestPaymentAt).toLocaleDateString()})`
+                        : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p>No approved bookings with payment records yet.</p>
         )}
       </div>
     </div>

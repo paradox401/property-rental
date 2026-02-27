@@ -13,6 +13,8 @@ import {
   updateBookingStatus,
   getAllPayments,
   updatePaymentStatus,
+  allocateOwnerPayout,
+  markOwnerPayoutTransferred,
   getAllComplaints,
   updateComplaintStatus,
   getAllMessages,
@@ -46,6 +48,8 @@ router.patch('/bookings/:id/status', updateBookingStatus);
 
 router.get('/payments', getAllPayments);
 router.patch('/payments/:id/status', updatePaymentStatus);
+router.post('/payments/:id/allocate-owner', allocateOwnerPayout);
+router.patch('/payments/:id/transfer-owner', markOwnerPayoutTransferred);
 
 router.get('/complaints', getAllComplaints);
 router.patch('/complaints/:id/status', updateComplaintStatus);
