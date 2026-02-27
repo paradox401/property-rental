@@ -53,6 +53,21 @@ const toCsvValue = (value) => {
   return `"${normalized.replace(/"/g, '""')}"`;
 };
 
+const startOfMonth = (value = new Date()) => {
+  const date = new Date(value);
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+};
+
+const endOfMonth = (value = new Date()) => {
+  const date = new Date(value);
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+};
+
+const addMonths = (value, months) => {
+  const date = new Date(value);
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+};
+
 const buildActionableReminders = async () => {
   const reminders = [];
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
@@ -124,6 +139,9 @@ export const getOverview = async (_req, res) => {
   try {
     const activityDays = Math.max(1, Math.min(Number(_req.query?.activityDays || 30), 365));
     const activitySince = new Date(Date.now() - activityDays * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
 
     const [users, properties, bookings, complaints, payments, messages] = await Promise.all([
       User.countDocuments(),
@@ -163,6 +181,71 @@ export const getOverview = async (_req, res) => {
     const totalRevenue = paymentAgg[0]?.totalRevenue || 0;
     const ownerDistributed = paymentAgg[0]?.totalOwnerDistributed || 0;
     const profit = Number((totalRevenue - ownerDistributed).toFixed(2));
+
+    const [
+      activeBookingRentRows,
+      approvedPropertyCount,
+      occupiedPropertyRows,
+      paidCurrentMonthAgg,
+      transferredOwnerCurrentMonthAgg,
+    ] = await Promise.all([
+      Booking.aggregate([
+        {
+          $match: {
+            status: 'Approved',
+            fromDate: { $lte: now },
+            toDate: { $gte: now },
+          },
+        },
+        {
+          $lookup: {
+            from: 'properties',
+            localField: 'property',
+            foreignField: '_id',
+            as: 'property',
+          },
+        },
+        { $unwind: { path: '$property', preserveNullAndEmptyArrays: true } },
+        { $project: { monthlyRent: { $ifNull: ['$property.price', 0] }, propertyId: '$property._id' } },
+      ]),
+      Property.countDocuments({ status: 'Approved' }),
+      Booking.aggregate([
+        {
+          $match: {
+            status: 'Approved',
+            fromDate: { $lte: now },
+            toDate: { $gte: now },
+          },
+        },
+        { $group: { _id: '$property' } },
+      ]),
+      Payment.aggregate([
+        { $match: { status: 'Paid', createdAt: { $gte: monthStart, $lte: monthEnd } } },
+        { $group: { _id: null, amount: { $sum: '$amount' } } },
+      ]),
+      Payment.aggregate([
+        {
+          $match: {
+            status: 'Paid',
+            payoutStatus: 'Transferred',
+            createdAt: { $gte: monthStart, $lte: monthEnd },
+          },
+        },
+        { $group: { _id: null, ownerAmount: { $sum: { $ifNull: ['$ownerAmount', 0] } } } },
+      ]),
+    ]);
+
+    const liveMRR = activeBookingRentRows.reduce(
+      (sum, row) => sum + Number(row.monthlyRent || 0),
+      0
+    );
+    const realizedMRR = Number(paidCurrentMonthAgg[0]?.amount || 0);
+    const ownerDistributedCurrentMonth = Number(transferredOwnerCurrentMonthAgg[0]?.ownerAmount || 0);
+    const platformProfitCurrentMonth = Number((realizedMRR - ownerDistributedCurrentMonth).toFixed(2));
+    const occupiedProperties = occupiedPropertyRows.length;
+    const occupancyRate = approvedPropertyCount
+      ? Number(((occupiedProperties / approvedPropertyCount) * 100).toFixed(2))
+      : 0;
 
     const payoutSummary = await Payment.aggregate([
       {
@@ -246,6 +329,27 @@ export const getOverview = async (_req, res) => {
         revenue: totalRevenue,
         ownerDistributed,
         profit,
+      },
+      kpis: {
+        formulas: {
+          liveMRR:
+            'Sum of monthly rent (property.price) for active approved bookings where fromDate <= today <= toDate.',
+          realizedMRR:
+            'Sum of paid payment amount for current month (Payment.status = Paid within current month).',
+          occupancyRate:
+            'Occupied approved properties / total approved properties * 100, where occupied means at least one active approved booking.',
+          platformProfit:
+            'Realized MRR for current month - owner amount transferred in current month.',
+        },
+        values: {
+          liveMRR: Number(liveMRR.toFixed(2)),
+          realizedMRR: Number(realizedMRR.toFixed(2)),
+          occupancyRate,
+          approvedProperties: approvedPropertyCount,
+          occupiedProperties,
+          platformProfit: platformProfitCurrentMonth,
+          ownerDistributedCurrentMonth: Number(ownerDistributedCurrentMonth.toFixed(2)),
+        },
       },
       alerts: {
         pendingListings,
@@ -941,6 +1045,259 @@ export const getReports = async (_req, res) => {
     res.json({ propertyByStatus, bookingByStatus, paymentByStatus, complaintByStatus });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch reports' });
+  }
+};
+
+export const getRevenueCommandCenter = async (_req, res) => {
+  try {
+    const now = new Date();
+    const currentMonthStart = startOfMonth(now);
+    const currentMonthEnd = endOfMonth(now);
+    const previousMonthStart = addMonths(currentMonthStart, -1);
+    const previousThreeMonthStart = addMonths(currentMonthStart, -3);
+    const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    const [
+      activeBookingRows,
+      paidThisMonthAgg,
+      paidPreviousMonthAgg,
+      pendingPayoutRows,
+      paymentStatuses7d,
+      monthlyRevenueRows,
+      churnRiskRows,
+      unsignedAgreements,
+    ] = await Promise.all([
+      Booking.aggregate([
+        {
+          $match: {
+            status: 'Approved',
+            fromDate: { $lte: now },
+            toDate: { $gte: now },
+          },
+        },
+        {
+          $lookup: {
+            from: 'properties',
+            localField: 'property',
+            foreignField: '_id',
+            as: 'property',
+          },
+        },
+        { $unwind: { path: '$property', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            monthlyRent: { $ifNull: ['$property.price', 0] },
+          },
+        },
+      ]),
+      Payment.aggregate([
+        { $match: { status: 'Paid', createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd } } },
+        { $group: { _id: null, amount: { $sum: '$amount' }, count: { $sum: 1 } } },
+      ]),
+      Payment.aggregate([
+        { $match: { status: 'Paid', createdAt: { $gte: previousMonthStart, $lt: currentMonthStart } } },
+        { $group: { _id: null, amount: { $sum: '$amount' } } },
+      ]),
+      Payment.find({
+        status: 'Paid',
+        payoutStatus: { $ne: 'Transferred' },
+      })
+        .select('ownerAmount payoutAllocatedAt createdAt payoutStatus booking')
+        .populate({
+          path: 'booking',
+          populate: { path: 'property', select: 'title' },
+        })
+        .lean(),
+      Payment.aggregate([
+        { $match: { createdAt: { $gte: sevenDaysAgo } } },
+        { $group: { _id: '$status', count: { $sum: 1 }, amount: { $sum: '$amount' } } },
+      ]),
+      Payment.aggregate([
+        { $match: { status: 'Paid', createdAt: { $gte: previousThreeMonthStart, $lte: currentMonthEnd } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+            amount: { $sum: '$amount' },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Booking.find({
+        status: 'Approved',
+        toDate: { $gte: now, $lte: next30Days },
+      })
+        .select('_id toDate paymentStatus createdAt property renter')
+        .populate('property', 'title')
+        .populate('renter', 'name email')
+        .lean(),
+      Agreement.find().select('booking currentVersion versions').lean(),
+    ]);
+
+    const liveMRR = activeBookingRows.reduce((sum, row) => sum + Number(row.monthlyRent || 0), 0);
+    const realizedMRR = Number(paidThisMonthAgg[0]?.amount || 0);
+    const paidTxnThisMonth = Number(paidThisMonthAgg[0]?.count || 0);
+    const previousMonthRevenue = Number(paidPreviousMonthAgg[0]?.amount || 0);
+    const momChangePct = previousMonthRevenue
+      ? Number((((realizedMRR - previousMonthRevenue) / previousMonthRevenue) * 100).toFixed(2))
+      : 0;
+
+    const payoutAgingBuckets = {
+      '0-3d': { count: 0, amount: 0 },
+      '4-7d': { count: 0, amount: 0 },
+      '8-14d': { count: 0, amount: 0 },
+      '15+d': { count: 0, amount: 0 },
+    };
+    let totalPendingPayout = 0;
+    let oldestPendingPayoutDays = 0;
+
+    pendingPayoutRows.forEach((row) => {
+      const amount = Number(row.ownerAmount || 0);
+      const anchor = row.payoutAllocatedAt || row.createdAt;
+      const ageDays = Math.max(0, Math.floor((now - new Date(anchor)) / oneDayMs));
+      oldestPendingPayoutDays = Math.max(oldestPendingPayoutDays, ageDays);
+      totalPendingPayout += amount;
+
+      if (ageDays <= 3) {
+        payoutAgingBuckets['0-3d'].count += 1;
+        payoutAgingBuckets['0-3d'].amount += amount;
+      } else if (ageDays <= 7) {
+        payoutAgingBuckets['4-7d'].count += 1;
+        payoutAgingBuckets['4-7d'].amount += amount;
+      } else if (ageDays <= 14) {
+        payoutAgingBuckets['8-14d'].count += 1;
+        payoutAgingBuckets['8-14d'].amount += amount;
+      } else {
+        payoutAgingBuckets['15+d'].count += 1;
+        payoutAgingBuckets['15+d'].amount += amount;
+      }
+    });
+
+    const statusCountMap = new Map(paymentStatuses7d.map((row) => [row._id, row.count]));
+    const paidCount7d = Number(statusCountMap.get('Paid') || 0);
+    const failedCount7d = Number(statusCountMap.get('Failed') || 0);
+    const pendingCount7d = Number(statusCountMap.get('Pending') || 0);
+    const totalCount7d = paidCount7d + failedCount7d + pendingCount7d;
+    const failedRate7d = totalCount7d ? Number(((failedCount7d / totalCount7d) * 100).toFixed(2)) : 0;
+
+    const recentUnsignedAgreementCount = (() => {
+      const signedBookingIds = new Set(
+        unsignedAgreements
+          .filter((agreement) => {
+            const versions = Array.isArray(agreement.versions) ? agreement.versions : [];
+            const active =
+              versions.find((item) => Number(item.version) === Number(agreement.currentVersion)) ||
+              versions[versions.length - 1];
+            return active?.status === 'fully_signed';
+          })
+          .map((agreement) => String(agreement.booking))
+      );
+
+      return churnRiskRows.filter(
+        (booking) =>
+          new Date(booking.createdAt) <= threeDaysAgo &&
+          !signedBookingIds.has(String(booking._id))
+      ).length;
+    })();
+
+    const churnRisk = churnRiskRows
+      .map((booking) => {
+        const daysToEnd = Math.max(0, Math.ceil((new Date(booking.toDate) - now) / oneDayMs));
+        const paymentPending = String(booking.paymentStatus || 'pending').toLowerCase() !== 'paid';
+        const score = Math.min(
+          100,
+          (daysToEnd <= 7 ? 45 : daysToEnd <= 14 ? 30 : 20) +
+            (paymentPending ? 35 : 0) +
+            (new Date(booking.createdAt) <= fourteenDaysAgo ? 20 : 8)
+        );
+        return {
+          bookingId: booking._id,
+          property: booking.property?.title || 'Unknown property',
+          renter: booking.renter?.name || booking.renter?.email || 'Unknown renter',
+          toDate: booking.toDate,
+          paymentStatus: booking.paymentStatus || 'pending',
+          daysToEnd,
+          score,
+          tier: score >= 70 ? 'high' : score >= 45 ? 'medium' : 'low',
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12);
+
+    const anomalies = [];
+    if (failedRate7d >= 20 && totalCount7d >= 8) {
+      anomalies.push({
+        code: 'payment_fail_rate_spike',
+        severity: 'high',
+        title: 'Payment failure spike in last 7 days',
+        detail: `${failedRate7d}% failure rate (${failedCount7d}/${totalCount7d} transactions)`,
+      });
+    }
+    if (oldestPendingPayoutDays > 7) {
+      anomalies.push({
+        code: 'payout_delay',
+        severity: oldestPendingPayoutDays > 14 ? 'high' : 'medium',
+        title: 'Owner payout delays detected',
+        detail: `Oldest pending payout is ${oldestPendingPayoutDays} day(s) old`,
+      });
+    }
+    if (momChangePct <= -25 && previousMonthRevenue > 0) {
+      anomalies.push({
+        code: 'revenue_drop',
+        severity: 'medium',
+        title: 'Month-over-month revenue drop',
+        detail: `Revenue is down ${Math.abs(momChangePct)}% versus last month`,
+      });
+    }
+    if (recentUnsignedAgreementCount > 0) {
+      anomalies.push({
+        code: 'unsigned_agreements',
+        severity: 'medium',
+        title: 'Approved bookings with unsigned agreements',
+        detail: `${recentUnsignedAgreementCount} booking(s) need agreement completion`,
+      });
+    }
+
+    res.json({
+      headline: {
+        liveMRR: Number(liveMRR.toFixed(2)),
+        realizedMRR: Number(realizedMRR.toFixed(2)),
+        paidTransactionsThisMonth: paidTxnThisMonth,
+        pendingPayoutTotal: Number(totalPendingPayout.toFixed(2)),
+        monthOverMonthChangePct: momChangePct,
+      },
+      payoutAging: {
+        buckets: Object.entries(payoutAgingBuckets).map(([bucket, value]) => ({
+          bucket,
+          count: value.count,
+          amount: Number(value.amount.toFixed(2)),
+        })),
+        oldestPendingDays: oldestPendingPayoutDays,
+      },
+      churnRisk: {
+        atRiskCount: churnRisk.length,
+        highRiskCount: churnRisk.filter((item) => item.tier === 'high').length,
+        items: churnRisk,
+      },
+      anomalies,
+      trend: monthlyRevenueRows.map((row) => ({
+        month: row._id,
+        revenue: Number(row.amount || 0),
+        paidTransactions: Number(row.count || 0),
+      })),
+      paymentHealth7d: {
+        paid: paidCount7d,
+        failed: failedCount7d,
+        pending: pendingCount7d,
+        failedRatePct: failedRate7d,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch revenue command center' });
   }
 };
 

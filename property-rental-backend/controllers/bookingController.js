@@ -170,20 +170,34 @@ export const createBooking = async (req, res) => {
   }
 
   try {
-    const exists = await Booking.findOne({
+    const startDate = new Date(fromDate);
+    const endDate = new Date(toDate || fromDate);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid booking dates' });
+    }
+    if (endDate < startDate) {
+      return res.status(400).json({ error: 'toDate cannot be earlier than fromDate' });
+    }
+
+    // Prevent overlapping reservations for the same property.
+    const overlappingBooking = await Booking.findOne({
       property: propertyId,
-      renter: req.user._id,
+      status: { $in: ['Pending', 'Approved'] },
+      fromDate: { $lte: endDate },
+      toDate: { $gte: startDate },
     });
 
-    if (exists) {
-      return res.status(400).json({ error: 'You have already booked this property' });
+    if (overlappingBooking) {
+      return res.status(409).json({
+        error: 'This property is already booked for the selected date range',
+      });
     }
 
     const booking = new Booking({
       property: propertyId,
       renter: req.user._id,
-      fromDate,
-      toDate: toDate || fromDate,
+      fromDate: startDate,
+      toDate: endDate,
       bookingDetails: {
         fullName: bookingDetails.fullName,
         phone: bookingDetails.phone,

@@ -7,6 +7,8 @@ const paymentSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   pid: { type: String, sparse: true, unique: true },
   transactionRef: { type: String },
+  idempotencyKey: { type: String, index: true, sparse: true },
+  billingPeriodKey: { type: String, index: true },
   monthsCount: { type: Number, default: 1 },
   paymentPeriodStart: { type: Date },
   paymentPeriodEnd: { type: Date },

@@ -16,6 +16,7 @@ import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
+import RevenueCommand from './pages/RevenueCommand';
 
 function isTokenValid(token) {
   if (!token) return false;
@@ -62,6 +63,7 @@ function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/revenue-command" element={<RevenueCommand />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

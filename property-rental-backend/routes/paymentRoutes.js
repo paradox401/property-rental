@@ -31,9 +31,18 @@ const monthDiffInclusive = (startDate, endDate) => {
   return years * 12 + months + 1;
 };
 
+const toMonthKey = (dateValue) => {
+  const date = new Date(dateValue);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${date.getFullYear()}-${month}`;
+};
+
 router.post('/create', protect, async (req, res) => {
   try {
     const { bookingId, paymentMethod = 'QR', pid, transactionRef } = req.body;
+    const idempotencyKey = String(
+      req.get('Idempotency-Key') || req.body?.idempotencyKey || ''
+    ).trim();
 
     if (!bookingId) {
       return res.status(400).json({ error: 'Booking is required' });
@@ -85,6 +94,39 @@ router.post('/create', protect, async (req, res) => {
 
     const monthsCount = monthDiffInclusive(dueStart, currentMonthStart);
     const amount = Number(booking.property?.price || 0) * monthsCount;
+    const billingPeriodKey = `${toMonthKey(dueStart)}__${toMonthKey(currentMonthEnd)}`;
+
+    if (idempotencyKey) {
+      const alreadyCreated = await Payment.findOne({
+        booking: bookingId,
+        renter: req.user._id,
+        idempotencyKey,
+      });
+      if (alreadyCreated) {
+        return res.status(200).json({
+          message: 'Payment request already created for this idempotency key',
+          payment: alreadyCreated,
+          deduplicated: true,
+        });
+      }
+    }
+
+    const existingPeriodPayment = await Payment.findOne({
+      booking: bookingId,
+      status: { $in: ['Pending', 'Paid'] },
+      $or: [
+        { billingPeriodKey },
+        { paymentPeriodStart: dueStart, paymentPeriodEnd: currentMonthEnd },
+      ],
+    }).sort({ createdAt: -1 });
+
+    if (existingPeriodPayment) {
+      return res.status(200).json({
+        message: 'Payment request already exists for this billing period',
+        payment: existingPeriodPayment,
+        deduplicated: true,
+      });
+    }
 
     const payment = new Payment({
       booking: bookingId,
@@ -93,13 +135,34 @@ router.post('/create', protect, async (req, res) => {
       paymentMethod,
       pid,
       transactionRef,
+      idempotencyKey: idempotencyKey || undefined,
+      billingPeriodKey,
       monthsCount,
       paymentPeriodStart: dueStart,
       paymentPeriodEnd: currentMonthEnd,
       status: 'Pending',
     });
 
-    await payment.save();
+    try {
+      await payment.save();
+    } catch (saveError) {
+      // Handle duplicate retries gracefully if save raced.
+      if (saveError?.code === 11000 && idempotencyKey) {
+        const existing = await Payment.findOne({
+          booking: bookingId,
+          renter: req.user._id,
+          idempotencyKey,
+        });
+        if (existing) {
+          return res.status(200).json({
+            message: 'Payment request already created for this idempotency key',
+            payment: existing,
+            deduplicated: true,
+          });
+        }
+      }
+      throw saveError;
+    }
     await Booking.findByIdAndUpdate(bookingId, { paymentStatus: 'pending_verification' });
 
     const admins = await User.find({ role: 'admin' }).select('_id');

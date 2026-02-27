@@ -29,6 +29,7 @@ import {
   updateFeaturedListings,
   sendBroadcast,
   getReports,
+  getRevenueCommandCenter,
   getAuditLogs,
   getDashboardViews,
   saveDashboardView,
@@ -75,6 +76,7 @@ router.put('/featured-listings', updateFeaturedListings);
 
 router.post('/broadcast', sendBroadcast);
 router.get('/reports', getReports);
+router.get('/revenue-command', getRevenueCommandCenter);
 router.get('/audit-logs', getAuditLogs);
 router.get('/dashboard-views', getDashboardViews);
 router.post('/dashboard-views', saveDashboardView);

@@ -66,6 +66,7 @@ export default function Dashboard() {
   };
 
   const totals = data?.totals || {};
+  const kpiValues = data?.kpis?.values || {};
   const alerts = data?.alerts || {};
   const payoutSummary = data?.payoutSummary || { allocated: 0, transferred: 0, pendingTransfer: 0, trend: [] };
 
@@ -115,6 +116,10 @@ export default function Dashboard() {
         <div className="kpi"><div className="kpi-label">Users</div><div className="kpi-value">{totals.users || 0}</div></div>
         <div className="kpi"><div className="kpi-label">Listings</div><div className="kpi-value">{totals.properties || 0}</div></div>
         <div className="kpi"><div className="kpi-label">Bookings</div><div className="kpi-value">{totals.bookings || 0}</div></div>
+        <div className="kpi"><div className="kpi-label">Live MRR</div><div className="kpi-value">Rs. {kpiValues.liveMRR || 0}</div></div>
+        <div className="kpi"><div className="kpi-label">Realized MRR</div><div className="kpi-value">Rs. {kpiValues.realizedMRR || 0}</div></div>
+        <div className="kpi"><div className="kpi-label">Occupancy Rate</div><div className="kpi-value">{kpiValues.occupancyRate || 0}%</div></div>
+        <div className="kpi"><div className="kpi-label">Platform Profit (Month)</div><div className="kpi-value">Rs. {kpiValues.platformProfit || 0}</div></div>
         <div className="kpi"><div className="kpi-label">Revenue</div><div className="kpi-value">Rs. {totals.revenue || 0}</div></div>
         <div className="kpi"><div className="kpi-label">Owner Distributed</div><div className="kpi-value">Rs. {totals.ownerDistributed || 0}</div></div>
         <div className="kpi"><div className="kpi-label">Profit</div><div className="kpi-value">Rs. {totals.profit || 0}</div></div>

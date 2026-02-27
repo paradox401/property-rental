@@ -29,6 +29,14 @@ export default function Dashboard() {
     recentProperties: [],
     propertyStats: [],
     ownerPaymentRows: [],
+    kpis: {
+      values: {
+        liveMRR: 0,
+        realizedMRR: 0,
+        occupancyRate: 0,
+        ownerProfit: 0,
+      },
+    },
   });
   const [requesting, setRequesting] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
@@ -111,6 +119,7 @@ export default function Dashboard() {
   const bookingToPropertyRatio = stats.totalProperties
     ? (Number(stats.totalBookings || 0) / Number(stats.totalProperties || 1)).toFixed(1)
     : '0.0';
+  const kpiValues = stats.kpis?.values || {};
 
   const statusData = [
     { name: 'Approved', value: stats.bookingStatusCount?.Approved || 0 },
@@ -176,6 +185,22 @@ export default function Dashboard() {
             <div className="insight-card">
               <p className="insight-label">Bookings / Property</p>
               <p className="insight-value">{bookingToPropertyRatio}</p>
+            </div>
+            <div className="insight-card">
+              <p className="insight-label">Live MRR</p>
+              <p className="insight-value">{formatCurrency(kpiValues.liveMRR)}</p>
+            </div>
+            <div className="insight-card">
+              <p className="insight-label">Realized MRR</p>
+              <p className="insight-value">{formatCurrency(kpiValues.realizedMRR)}</p>
+            </div>
+            <div className="insight-card">
+              <p className="insight-label">Occupancy</p>
+              <p className="insight-value">{kpiValues.occupancyRate || 0}%</p>
+            </div>
+            <div className="insight-card">
+              <p className="insight-label">Owner Profit (Month)</p>
+              <p className="insight-value">{formatCurrency(kpiValues.ownerProfit)}</p>
             </div>
           </div>
         </section>

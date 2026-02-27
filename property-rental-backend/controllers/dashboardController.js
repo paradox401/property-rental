@@ -6,6 +6,9 @@ import Payment from '../models/Payment.js';
 export const getOwnerDashboardStats = async (req, res) => {
     try {
       const ownerId = req.user._id;
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   
       const properties = await Property.find({ ownerId }).sort({ createdAt: -1 });
       const propertyIds = properties.map(p => p._id);
@@ -24,6 +27,12 @@ export const getOwnerDashboardStats = async (req, res) => {
       const approvedBookingIds = approvedBookings.map((booking) => booking._id);
       const paymentDocs = await Payment.find({ booking: { $in: approvedBookingIds } }).sort({
         createdAt: -1,
+      });
+
+      const activeApprovedBookings = approvedBookings.filter((booking) => {
+        const start = booking.fromDate ? new Date(booking.fromDate) : null;
+        const end = booking.toDate ? new Date(booking.toDate) : null;
+        return start && end && start <= now && end >= now;
       });
 
       const latestPaymentByBooking = {};
@@ -61,6 +70,39 @@ export const getOwnerDashboardStats = async (req, res) => {
           const weight = { Unpaid: 0, 'Pending Verification': 1, Paid: 2 };
           return (weight[a.paymentStatus] ?? 99) - (weight[b.paymentStatus] ?? 99);
         });
+
+      const liveMRR = activeApprovedBookings.reduce(
+        (sum, booking) => sum + Number(booking.property?.price || 0),
+        0
+      );
+
+      const paidPaymentsCurrentMonth = paymentDocs.filter(
+        (payment) =>
+          payment.status === 'Paid' &&
+          payment.createdAt >= monthStart &&
+          payment.createdAt <= monthEnd
+      );
+
+      const realizedMRR = paidPaymentsCurrentMonth.reduce(
+        (sum, payment) => sum + Number(payment.amount || 0),
+        0
+      );
+      const ownerProfitCurrentMonth = paidPaymentsCurrentMonth.reduce(
+        (sum, payment) =>
+          sum +
+          Number(
+            payment.ownerAmount || Number(payment.amount || 0) - Number(payment.commissionAmount || 0)
+          ),
+        0
+      );
+
+      const approvedPropertyCount = properties.filter((property) => property.status === 'Approved').length;
+      const occupiedPropertyIds = new Set(
+        activeApprovedBookings.map((booking) => String(booking.property?._id || booking.property))
+      );
+      const occupancyRate = approvedPropertyCount
+        ? Number(((occupiedPropertyIds.size / approvedPropertyCount) * 100).toFixed(2))
+        : 0;
   
       // Count bookings by their status: Approved, Pending, Rejected
       const bookingStatusCount = bookings.reduce((acc, booking) => {
@@ -106,6 +148,26 @@ export const getOwnerDashboardStats = async (req, res) => {
         totalProperties: properties.length,
         totalBookings: bookings.length,
         totalFavorites: favorites.length,
+        kpis: {
+          formulas: {
+            liveMRR:
+              'Sum of monthly rent for active approved bookings where fromDate <= today <= toDate.',
+            realizedMRR:
+              'Sum of paid payment amount in current month for owner bookings.',
+            occupancyRate:
+              'Occupied approved owner properties / total approved owner properties * 100.',
+            ownerProfit:
+              'Sum of owner net amount (ownerAmount) from paid payments in current month.',
+          },
+          values: {
+            liveMRR: Number(liveMRR.toFixed(2)),
+            realizedMRR: Number(realizedMRR.toFixed(2)),
+            occupancyRate,
+            ownerProfit: Number(ownerProfitCurrentMonth.toFixed(2)),
+            approvedProperties: approvedPropertyCount,
+            occupiedProperties: occupiedPropertyIds.size,
+          },
+        },
         bookingStatusCount,
         recentProperties,
         ownerPaymentRows,
