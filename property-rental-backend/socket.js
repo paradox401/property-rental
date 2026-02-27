@@ -8,12 +8,28 @@ let io;
 const onlineUsers = new Map();
 const DEFAULT_FRONTEND_ORIGIN = 'http://localhost:5173';
 
-const getAllowedOrigins = () => {
-  const configured = process.env.CORS_ORIGINS || process.env.FRONTEND_URL || DEFAULT_FRONTEND_ORIGIN;
-  return configured
+const createCorsOriginChecker = () => {
+  const configured = process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '';
+  const allowedOrigins = (configured || DEFAULT_FRONTEND_ORIGIN)
     .split(',')
     .map((origin) => origin.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((origin) => origin.replace(/\/+$/, ''));
+
+  const allowAllOrigins = !configured || allowedOrigins.includes('*');
+
+  return (origin, callback) => {
+    if (!origin || allowAllOrigins) {
+      return callback(null, true);
+    }
+
+    const normalizedOrigin = origin.replace(/\/+$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  };
 };
 
 const addOnlineUserSocket = (userId, socketId) => {
@@ -35,10 +51,10 @@ const removeOnlineUserSocket = (userId, socketId) => {
 };
 
 export const setupSocket = (server) => {
-  const allowedOrigins = getAllowedOrigins();
+  const corsOriginChecker = createCorsOriginChecker();
   io = new Server(server, {
     cors: {
-      origin: allowedOrigins,
+      origin: corsOriginChecker,
       methods: ['GET', 'POST'],
       credentials: true,
     },

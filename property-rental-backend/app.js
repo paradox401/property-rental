@@ -23,17 +23,27 @@ connectDB();
 
 const app = express();
 const DEFAULT_FRONTEND_ORIGIN = 'http://localhost:5173';
-const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || DEFAULT_FRONTEND_ORIGIN)
+const configuredOrigins = process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '';
+const allowedOrigins = (configuredOrigins || DEFAULT_FRONTEND_ORIGIN)
   .split(',')
   .map((origin) => origin.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .map((origin) => origin.replace(/\/+$/, ''));
+const allowAllOrigins = !configuredOrigins || allowedOrigins.includes('*');
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowAllOrigins) {
       return callback(null, true);
     }
-    return callback(new Error('Not allowed by CORS'));
+
+    const normalizedOrigin = origin.replace(/\/+$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    // Deny without throwing noisy stack traces.
+    return callback(null, false);
   },
   credentials: true,
 }));
