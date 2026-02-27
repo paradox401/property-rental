@@ -140,6 +140,8 @@
     width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--border);
+    max-height: 36vh;
+    padding: 10px;
   }
 }
 
@@ -150,4 +152,23 @@
 
 .chat-thread-item.active .chat-thread-name {
   color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .chat-sidebar h1 {
+    font-size: 1rem;
+  }
+
+  .chat-thread-item {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+
+  .chat-thread-name {
+    font-size: 0.85rem;
+  }
+
+  .chat-thread-preview {
+    font-size: 0.75rem;
+  }
 }

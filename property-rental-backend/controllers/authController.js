@@ -24,9 +24,14 @@ const issueSessionTokens = async (user) => {
   const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
   const refreshTokenExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 
-  user.refreshTokenHash = refreshTokenHash;
-  user.refreshTokenExpiresAt = refreshTokenExpiresAt;
-  await user.save();
+  // Persist session token material without re-validating the full user document.
+  // This avoids login failures for legacy records that may not satisfy newer validators.
+  await User.updateOne(
+    { _id: user._id },
+    {
+      $set: { refreshTokenHash, refreshTokenExpiresAt },
+    }
+  );
 
   return { accessToken, refreshToken };
 };
@@ -84,6 +89,7 @@ export const login = async (req, res) => {
       user: toPublicUser(user),
     });
   } catch (err) {
+    console.error('login error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
@@ -114,6 +120,7 @@ export const refreshToken = async (req, res) => {
       user: toPublicUser(user),
     });
   } catch (err) {
+    console.error('refreshToken error:', err);
     return res.status(500).json({ error: 'Failed to refresh session' });
   }
 };
@@ -133,6 +140,7 @@ export const logout = async (req, res) => {
     );
     return res.json({ success: true });
   } catch (err) {
+    console.error('logout error:', err);
     return res.status(500).json({ error: 'Failed to logout' });
   }
 };

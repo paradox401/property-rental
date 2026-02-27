@@ -359,6 +359,57 @@
   overflow: hidden;
 }
 
+@media (max-width: 760px) {
+  .chat-header {
+    padding: 12px 14px;
+  }
+
+  .chat-messages {
+    padding: 14px 12px;
+  }
+
+  .chat-message-row {
+    max-width: 88%;
+  }
+
+  .chat-message {
+    padding: 9px 12px;
+    font-size: 0.86rem;
+  }
+
+  .chat-message-meta {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .chat-input {
+    padding: 10px 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .chat-attach-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .chat-input input {
+    min-width: 0;
+    flex: 1 1 190px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .chat-input button {
+    padding: 9px 14px;
+    font-size: 0.82rem;
+  }
+
+  .chat-selected-files {
+    padding: 8px 10px;
+  }
+}
+
 @keyframes bubbleIn {
   from {
     opacity: 0;

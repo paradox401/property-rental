@@ -286,6 +286,17 @@ export default function Landing() {
   const [searched, setSearched] = useState(false);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const previousTheme = root.getAttribute('data-theme');
+    root.setAttribute('data-theme', 'light');
+
+    return () => {
+      if (previousTheme) root.setAttribute('data-theme', previousTheme);
+      else root.removeAttribute('data-theme');
+    };
+  }, []);
+
+  useEffect(() => {
     let active = true;
 
     const loadFeatured = async () => {

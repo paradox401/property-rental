@@ -193,3 +193,30 @@ p {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
 }
+
+@media (max-width: 760px) {
+  .bookings-table,
+  .owner-payment-table,
+  .payment-status-table,
+  .table {
+    min-width: 680px;
+  }
+
+  .bookings-container,
+  .owner-payment-page,
+  .dashboard-container,
+  .listings-page,
+  .payment-page,
+  .favorites-page,
+  .settings-page {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .dashboard-cards,
+  .owner-payment-cards,
+  .chart-section,
+  .dashboard-grid-two {
+    grid-template-columns: 1fr !important;
+  }
+}
