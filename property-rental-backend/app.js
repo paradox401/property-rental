@@ -17,6 +17,10 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import ratingRoutes from './routes/ratingRoutes.js'
 import notificationRoutes from './routes/notificationRoutes.js';
 import agreementRoutes from './routes/agreementRoutes.js';
+import securityHeaders from './middleware/securityHeaders.js';
+import requestLogger from './middleware/requestLogger.js';
+import { createRateLimiter } from './middleware/rateLimit.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandlers.js';
 
 dotenv.config();
 connectDB();
@@ -47,7 +51,24 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(securityHeaders);
+app.use(requestLogger);
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: process.env.JSON_BODY_LIMIT || '1mb' }));
+
+const globalRateLimit = createRateLimiter({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000),
+  max: Number(process.env.RATE_LIMIT_MAX || 300),
+  keyPrefix: 'global',
+});
+const authRateLimit = createRateLimiter({
+  windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 60_000),
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX || 20),
+  keyPrefix: 'auth',
+});
+app.use(globalRateLimit);
+app.use('/api/auth', authRateLimit);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -66,5 +87,17 @@ app.use('/api/agreements', agreementRoutes);
 app.get('/', (req, res) => {
   res.send('Property Rental API is running');
 });
+
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, service: 'property-rental-backend', at: new Date().toISOString() });
+});
+
+app.get('/ready', (_req, res) => {
+  // DB connectivity is established during startup (connectDB), so process readiness is enough here.
+  res.json({ ok: true, ready: true });
+});
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;

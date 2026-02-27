@@ -5,6 +5,32 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import axios from 'axios';
 
+const ACCESS_TOKEN_TTL = process.env.JWT_EXPIRES_IN || '1d';
+const REFRESH_TOKEN_TTL_DAYS = Math.max(1, Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14));
+
+const toPublicUser = (user) => ({
+  _id: user._id,
+  email: user.email,
+  role: user.role,
+  name: user.name,
+  ownerVerificationStatus: user.ownerVerificationStatus,
+});
+
+const issueSessionTokens = async (user) => {
+  const accessToken = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+    expiresIn: ACCESS_TOKEN_TTL,
+  });
+  const refreshToken = crypto.randomBytes(48).toString('hex');
+  const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  const refreshTokenExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+  user.refreshTokenHash = refreshTokenHash;
+  user.refreshTokenExpiresAt = refreshTokenExpiresAt;
+  await user.save();
+
+  return { accessToken, refreshToken };
+};
+
 export const register = async (req, res) => {
   try {
     const { name, citizenshipNumber, email, password, role } = req.body;
@@ -50,22 +76,64 @@ export const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: '1d',
-    });
+    const { accessToken, refreshToken } = await issueSessionTokens(user);
 
     res.json({
-      token,
-      user: {
-        _id: user._id,
-        email: user.email,
-        role: user.role,
-        name: user.name,
-        ownerVerificationStatus: user.ownerVerificationStatus,
-      },
+      token: accessToken,
+      refreshToken,
+      user: toPublicUser(user),
     });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const refreshToken = async (req, res) => {
+  try {
+    const rawRefreshToken = String(req.body?.refreshToken || '').trim();
+    if (!rawRefreshToken) {
+      return res.status(400).json({ error: 'refreshToken is required' });
+    }
+
+    const refreshTokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+    const user = await User.findOne({
+      refreshTokenHash,
+      refreshTokenExpiresAt: { $gt: new Date() },
+    }).select('-password +refreshTokenHash +refreshTokenExpiresAt');
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+    if (user.isActive === false) {
+      return res.status(403).json({ error: 'Account is disabled. Contact support.' });
+    }
+
+    const session = await issueSessionTokens(user);
+    return res.json({
+      token: session.accessToken,
+      refreshToken: session.refreshToken,
+      user: toPublicUser(user),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to refresh session' });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    const rawRefreshToken = String(req.body?.refreshToken || '').trim();
+    if (!rawRefreshToken) {
+      return res.json({ success: true });
+    }
+    const refreshTokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+    await User.findOneAndUpdate(
+      { refreshTokenHash },
+      {
+        $unset: { refreshTokenHash: 1, refreshTokenExpiresAt: 1 },
+      }
+    );
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to logout' });
   }
 };
 

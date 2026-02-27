@@ -8,9 +8,26 @@ const router = express.Router();
 // Get all notifications for logged-in user
 router.get('/', protect, async (req, res) => {
   try {
-    const notifications = await Notification.find({ userId: req.user._id })
-      .sort({ createdAt: -1 });
-    res.json(notifications);
+    const page = Math.max(1, Number(req.query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit || 30)));
+    const filter = { userId: req.user._id };
+
+    const [items, total] = await Promise.all([
+      Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Notification.countDocuments(filter),
+    ]);
+    res.json({
+      items,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -34,6 +51,9 @@ router.put('/:id/read', protect, async (req, res) => {
 
 // Test route to send notifications to all users with pending bookings
 router.get('/test-send', protect, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ message: 'Not found' });
+  }
   if (req.user.role !== 'admin') {
     return res.status(403).json({ message: 'Not authorized' });
   }

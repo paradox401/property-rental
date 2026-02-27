@@ -8,6 +8,7 @@ import Notification from '../models/Notification.js';
 import AdminSetting from '../models/AdminSetting.js';
 import AuditLog from '../models/AuditLog.js';
 import Agreement from '../models/Agreement.js';
+import { calcMoMChangePct, calcOccupancyRate, calcProfit } from '../utils/kpiMath.js';
 
 const safeRegex = (value) => new RegExp(String(value || '').trim(), 'i');
 const parsePage = (value, fallback = 1) => {
@@ -180,7 +181,7 @@ export const getOverview = async (_req, res) => {
 
     const totalRevenue = paymentAgg[0]?.totalRevenue || 0;
     const ownerDistributed = paymentAgg[0]?.totalOwnerDistributed || 0;
-    const profit = Number((totalRevenue - ownerDistributed).toFixed(2));
+    const profit = calcProfit(totalRevenue, ownerDistributed);
 
     const [
       activeBookingRentRows,
@@ -241,11 +242,9 @@ export const getOverview = async (_req, res) => {
     );
     const realizedMRR = Number(paidCurrentMonthAgg[0]?.amount || 0);
     const ownerDistributedCurrentMonth = Number(transferredOwnerCurrentMonthAgg[0]?.ownerAmount || 0);
-    const platformProfitCurrentMonth = Number((realizedMRR - ownerDistributedCurrentMonth).toFixed(2));
+    const platformProfitCurrentMonth = calcProfit(realizedMRR, ownerDistributedCurrentMonth);
     const occupiedProperties = occupiedPropertyRows.length;
-    const occupancyRate = approvedPropertyCount
-      ? Number(((occupiedProperties / approvedPropertyCount) * 100).toFixed(2))
-      : 0;
+    const occupancyRate = calcOccupancyRate(occupiedProperties, approvedPropertyCount);
 
     const payoutSummary = await Payment.aggregate([
       {
@@ -1142,9 +1141,7 @@ export const getRevenueCommandCenter = async (_req, res) => {
     const realizedMRR = Number(paidThisMonthAgg[0]?.amount || 0);
     const paidTxnThisMonth = Number(paidThisMonthAgg[0]?.count || 0);
     const previousMonthRevenue = Number(paidPreviousMonthAgg[0]?.amount || 0);
-    const momChangePct = previousMonthRevenue
-      ? Number((((realizedMRR - previousMonthRevenue) / previousMonthRevenue) * 100).toFixed(2))
-      : 0;
+    const momChangePct = calcMoMChangePct(realizedMRR, previousMonthRevenue);
 
     const payoutAgingBuckets = {
       '0-3d': { count: 0, amount: 0 },

@@ -23,8 +23,9 @@ export const NotificationProvider = ({ children }) => {
         });
         if (res.ok) {
           const data = await res.json();
+          const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
           setNotifications(
-            data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
           );
         }
       } catch (err) {

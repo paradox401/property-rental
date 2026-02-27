@@ -2,6 +2,7 @@ import Property from '../models/Property.js';
 import Booking from '../models/Booking.js';
 import Favorite from '../models/Favorite.js';
 import Payment from '../models/Payment.js';
+import { calcOccupancyRate, calcProfit } from '../utils/kpiMath.js';
 
 export const getOwnerDashboardStats = async (req, res) => {
     try {
@@ -100,9 +101,7 @@ export const getOwnerDashboardStats = async (req, res) => {
       const occupiedPropertyIds = new Set(
         activeApprovedBookings.map((booking) => String(booking.property?._id || booking.property))
       );
-      const occupancyRate = approvedPropertyCount
-        ? Number(((occupiedPropertyIds.size / approvedPropertyCount) * 100).toFixed(2))
-        : 0;
+      const occupancyRate = calcOccupancyRate(occupiedPropertyIds.size, approvedPropertyCount);
   
       // Count bookings by their status: Approved, Pending, Rejected
       const bookingStatusCount = bookings.reduce((acc, booking) => {
@@ -163,7 +162,7 @@ export const getOwnerDashboardStats = async (req, res) => {
             liveMRR: Number(liveMRR.toFixed(2)),
             realizedMRR: Number(realizedMRR.toFixed(2)),
             occupancyRate,
-            ownerProfit: Number(ownerProfitCurrentMonth.toFixed(2)),
+            ownerProfit: calcProfit(ownerProfitCurrentMonth, 0),
             approvedProperties: approvedPropertyCount,
             occupiedProperties: occupiedPropertyIds.size,
           },

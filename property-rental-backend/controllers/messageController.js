@@ -87,19 +87,36 @@ export const getConversationSummaries = async (req, res) => {
 export const getMessages = async (req, res) => {
   try {
     const { recipientId } = req.params;
+    const page = Math.max(1, Number(req.query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
     const allowed = await canUsersChat(req.user._id, recipientId);
     if (!allowed) {
       return res.status(403).json({ error: 'Not authorized to access this conversation' });
     }
 
-    const messages = await Message.find({
+    const filter = {
       $or: [
         { sender: req.user._id, recipient: recipientId },
         { sender: recipientId, recipient: req.user._id },
       ],
-    }).sort({ createdAt: 1 });
+    };
+    const [messages, total] = await Promise.all([
+      Message.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Message.countDocuments(filter),
+    ]);
 
-    res.json(messages);
+    res.json({
+      items: messages.reverse(),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
   } catch (error) {
     console.error('Error fetching messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages' });

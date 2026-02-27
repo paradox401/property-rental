@@ -120,6 +120,8 @@ const userSchema = new mongoose.Schema({
       ref: 'User',
     },
   ],
+  refreshTokenHash: { type: String, select: false },
+  refreshTokenExpiresAt: { type: Date, select: false },
   resetPasswordTokenHash: { type: String, select: false },
   resetPasswordExpiresAt: { type: Date, select: false },
 });

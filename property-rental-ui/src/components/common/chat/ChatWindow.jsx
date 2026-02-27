@@ -41,7 +41,12 @@ export default function ChatWindow({ selectedUser }) {
       const res = await axios.get(`${API_BASE_URL}/api/messages/${selectedUser._id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const normalized = Array.isArray(res.data) ? res.data.map(toMessageObject) : [];
+      const rawItems = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.items)
+          ? res.data.items
+          : [];
+      const normalized = rawItems.map(toMessageObject);
       setMessages(normalized);
 
       await axios.patch(

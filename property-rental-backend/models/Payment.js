@@ -28,4 +28,16 @@ const paymentSchema = new mongoose.Schema({
   paymentMethod: { type: String, enum: ['Khalti', 'eSewa', 'QR'], required: true },
 }, { timestamps: true });
 
+paymentSchema.index({ booking: 1, createdAt: -1 });
+paymentSchema.index(
+  { booking: 1, billingPeriodKey: 1, status: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      billingPeriodKey: { $exists: true, $type: 'string' },
+      status: { $in: ['Pending', 'Paid'] },
+    },
+  }
+);
+
 export default mongoose.model('Payment', paymentSchema);

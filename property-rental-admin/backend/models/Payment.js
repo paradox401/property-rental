@@ -33,4 +33,8 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true, strict: false }
 );
 
+paymentSchema.index({ booking: 1, createdAt: -1 });
+paymentSchema.index({ status: 1, createdAt: -1 });
+paymentSchema.index({ payoutStatus: 1, createdAt: -1 });
+
 export default mongoose.model('Payment', paymentSchema);
