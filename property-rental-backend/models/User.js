@@ -54,6 +54,23 @@ const ownerVerificationDocumentSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const kycDocumentSchema = new mongoose.Schema(
+  {
+    imageUrl: { type: String, required: true },
+    publicId: { type: String },
+    docType: { type: String, default: 'Government ID' },
+    status: {
+      type: String,
+      enum: ['pending', 'verified', 'rejected'],
+      default: 'pending',
+    },
+    rejectReason: { type: String, default: '' },
+    uploadedAt: { type: Date, default: Date.now },
+    reviewedAt: { type: Date },
+  },
+  { _id: true }
+);
+
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   citizenshipNumber: { type: String, required: true },
@@ -71,6 +88,17 @@ const userSchema = new mongoose.Schema({
     default: [],
   },
   ownerVerificationRejectReason: { type: String, default: '' },
+  kycStatus: {
+    type: String,
+    enum: ['unsubmitted', 'pending', 'verified', 'rejected'],
+    default: 'unsubmitted',
+  },
+  kycVerifiedAt: { type: Date },
+  kycRejectReason: { type: String, default: '' },
+  kycDocuments: {
+    type: [kycDocumentSchema],
+    default: [],
+  },
   notificationPreferences: {
     type: notificationPreferencesSchema,
     default: () => ({}),

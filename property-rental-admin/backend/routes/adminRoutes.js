@@ -6,6 +6,8 @@ import {
   updateUserStatus,
   getOwnerRequests,
   updateOwnerRequest,
+  getKycRequests,
+  reviewKycDocument,
   getAllProperties,
   updatePropertyStatus,
   deleteProperty,
@@ -38,6 +40,8 @@ router.get('/users', getAllUsers);
 router.patch('/users/:id/status', updateUserStatus);
 router.get('/owner-requests', getOwnerRequests);
 router.patch('/owner-requests/:id', updateOwnerRequest);
+router.get('/kyc-requests', getKycRequests);
+router.patch('/kyc-requests/:id/documents/:docId', reviewKycDocument);
 
 router.get('/properties', getAllProperties);
 router.patch('/properties/:id/status', updatePropertyStatus);

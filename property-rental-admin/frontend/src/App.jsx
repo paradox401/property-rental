@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import OwnerRequests from './pages/OwnerRequests';
+import KycRequests from './pages/KycRequests';
 import Properties from './pages/Properties';
 import Bookings from './pages/Bookings';
 import Payments from './pages/Payments';
@@ -36,6 +37,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/users" element={<Users />} />
           <Route path="/owner-requests" element={<OwnerRequests />} />
+          <Route path="/kyc-requests" element={<KycRequests />} />
           <Route path="/properties" element={<Properties />} />
           <Route path="/bookings" element={<Bookings />} />
           <Route path="/payments" element={<Payments />} />

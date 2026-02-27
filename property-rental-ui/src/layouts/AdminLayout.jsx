@@ -27,6 +27,8 @@ export default function AdminLayout() {
           <NavLink to="/admin" end><span className="nav-short">O</span><span className="nav-label">Overview</span></NavLink>
           <NavLink to="/admin/approvals"><span className="nav-short">A</span><span className="nav-label">Approvals</span></NavLink>
           <NavLink to="/admin/owners"><span className="nav-short">V</span><span className="nav-label">Owner Verification</span></NavLink>
+          <NavLink to="/admin/kyc"><span className="nav-short">K</span><span className="nav-label">KYC Queue</span></NavLink>
+          <NavLink to="/admin/profile"><span className="nav-short">U</span><span className="nav-label">Profile</span></NavLink>
           <NavLink to="/login"><span className="nav-short">L</span><span className="nav-label">Logout</span></NavLink>
         </nav>
       </aside>

@@ -1,0 +1,73 @@
+.profile-page {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.kyc-form {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.5rem;
+}
+
+.kyc-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.kyc-doc-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.kyc-doc-item img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.kyc-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.kyc-chip.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.kyc-chip.verified {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.kyc-chip.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.profile-error {
+  color: #b91c1c;
+}
+
+.profile-message {
+  color: #0f766e;
+}

@@ -184,6 +184,80 @@ export const updateOwnerRequest = async (req, res) => {
   }
 };
 
+export const getKycRequests = async (_req, res) => {
+  try {
+    const users = await User.find({ 'kycDocuments.0': { $exists: true } })
+      .select('name email role kycStatus kycRejectReason kycDocuments')
+      .sort({ updatedAt: -1 });
+
+    const queue = users.flatMap((user) =>
+      (user.kycDocuments || [])
+        .filter((doc) => doc.status === 'pending')
+        .map((doc) => ({
+          userId: user._id,
+          userName: user.name,
+          userEmail: user.email,
+          userRole: user.role,
+          kycStatus: user.kycStatus || 'pending',
+          kycRejectReason: user.kycRejectReason || '',
+          documentId: doc._id,
+          docType: doc.docType || 'Government ID',
+          imageUrl: doc.imageUrl,
+          uploadedAt: doc.uploadedAt || doc.createdAt,
+        }))
+    );
+
+    res.json(queue);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch KYC requests' });
+  }
+};
+
+export const reviewKycDocument = async (req, res) => {
+  try {
+    const { status, rejectReason = '' } = req.body;
+    if (!['verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const docs = Array.isArray(user.kycDocuments) ? user.kycDocuments : [];
+    const doc = docs.id ? docs.id(req.params.docId) : docs.find((d) => String(d._id) === String(req.params.docId));
+    if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+    doc.status = status;
+    doc.rejectReason = status === 'rejected' ? String(rejectReason || 'Document rejected') : '';
+    doc.reviewedAt = new Date();
+
+    const pendingCount = docs.filter((d) => d.status === 'pending').length;
+    const rejectedCount = docs.filter((d) => d.status === 'rejected').length;
+
+    if (pendingCount === 0 && rejectedCount === 0) {
+      user.kycStatus = 'verified';
+      user.kycVerifiedAt = new Date();
+      user.kycRejectReason = '';
+    } else if (status === 'rejected') {
+      user.kycStatus = 'rejected';
+      user.kycRejectReason = doc.rejectReason;
+    } else if (user.kycStatus !== 'verified') {
+      user.kycStatus = 'pending';
+    }
+
+    await user.save();
+    await logAudit(req, 'kyc_document_reviewed', 'User', user._id, {
+      documentId: req.params.docId,
+      status,
+      rejectReason: doc.rejectReason || '',
+    });
+
+    res.json({ message: 'KYC document reviewed', user });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to review KYC document' });
+  }
+};
+
 export const getAllProperties = async (req, res) => {
   try {
     const { q, status, page, limit } = req.query;

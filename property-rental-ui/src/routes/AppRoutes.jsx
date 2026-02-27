@@ -29,9 +29,11 @@ import PaymentSuccess from '../pages/renter/PaymentSuccess';
 import PaymentFailure from '../pages/renter/PaymentFailure';
 import Settings from '../pages/common/Settings';
 import Agreements from '../pages/common/Agreements';
+import Profile from '../pages/common/Profile';
 import AdminOverview from '../pages/admin/AdminOverview';
 import Approvals from '../pages/admin/Approvals';
 import OwnerVerifications from '../pages/admin/OwnerVerifications';
+import KycRequests from '../pages/admin/KycRequests';
 
 function PrivateRoute({ children, role }) {
   const { user } = useContext(AuthContext);
@@ -72,6 +74,7 @@ export default function AppRoutes() {
         <Route path="ocomplaint" element={<OwnerComplaint />} />
         <Route path="payment-status" element={<PaymentStatus />} />
         <Route path="agreements" element={<Agreements />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 
@@ -89,6 +92,7 @@ export default function AppRoutes() {
         <Route path="favorites" element={<Favorites />} />
         <Route path="message" element={<Message />} />
         <Route path="agreements" element={<Agreements />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="complaint" element={<ComplaintPage />} />
         <Route path="complaint-history" element={<ComplaintHistory />} />
         <Route path="payments" element={<PaymentPage />} />
@@ -108,6 +112,8 @@ export default function AppRoutes() {
         <Route index element={<AdminOverview />} />
         <Route path="approvals" element={<Approvals />} />
         <Route path="owners" element={<OwnerVerifications />} />
+        <Route path="kyc" element={<KycRequests />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       <Route path="/property/:id" element={<PropertyDetails />} />

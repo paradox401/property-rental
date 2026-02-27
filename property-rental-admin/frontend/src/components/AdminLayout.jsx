@@ -5,6 +5,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/users', label: 'Users' },
   { to: '/owner-requests', label: 'Owner Requests' },
+  { to: '/kyc-requests', label: 'KYC Requests' },
   { to: '/properties', label: 'Properties' },
   { to: '/bookings', label: 'Bookings' },
   { to: '/payments', label: 'Payments' },
