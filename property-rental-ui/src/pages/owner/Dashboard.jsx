@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
+import { Link } from 'react-router-dom';
 import './Dashboard.css';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
@@ -56,27 +57,60 @@ export default function Dashboard() {
       setVerificationMessage('Please upload at least one valid ID photo before submitting verification request.');
       return;
     }
-    setRequesting(true);
-    setVerificationMessage('');
-    const formData = new FormData();
-    verificationIdFiles.forEach((file) => {
-      formData.append('idImages', file);
-    });
-    const res = await fetch(`${API_BASE_URL}/api/users/owner/verify-request`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setUser((prev) => ({ ...prev, ownerVerificationStatus: data.status }));
-      setVerificationMessage('Verification request submitted. Please wait for admin approval.');
-      setVerificationIdFiles([]);
-    } else {
-      setVerificationMessage(data.error || 'Failed to submit verification request.');
+    try {
+      setRequesting(true);
+      setVerificationMessage('');
+      const formData = new FormData();
+      verificationIdFiles.forEach((file) => {
+        formData.append('idImages', file);
+      });
+      const res = await fetch(`${API_BASE_URL}/api/users/owner/verify-request`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser((prev) => ({ ...prev, ownerVerificationStatus: data.status }));
+        setVerificationMessage('Verification request submitted. Please wait for admin approval.');
+        setVerificationIdFiles([]);
+      } else {
+        setVerificationMessage(data.error || 'Failed to submit verification request.');
+      }
+    } catch (error) {
+      setVerificationMessage(error.message || 'Failed to submit verification request.');
+    } finally {
+      setRequesting(false);
     }
-    setRequesting(false);
   };
+
+  const formatCurrency = (amount) => {
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount)) return 'N/A';
+    return new Intl.NumberFormat('en-NP', {
+      style: 'currency',
+      currency: 'NPR',
+      maximumFractionDigits: 0,
+    }).format(numericAmount);
+  };
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return '-';
+    return new Date(dateValue).toLocaleDateString();
+  };
+
+  const toSlug = (value) => String(value || '').toLowerCase().replace(/\s+/g, '-');
+  const verificationStatus = user?.ownerVerificationStatus || 'unverified';
+  const verificationNoteTone = /failed|please upload/i.test(verificationMessage) ? 'error' : 'success';
+  const paidPayments = Array.isArray(stats.ownerPaymentRows)
+    ? stats.ownerPaymentRows.filter((row) => toSlug(row.paymentStatus) === 'paid').length
+    : 0;
+  const pendingPayments = Array.isArray(stats.ownerPaymentRows)
+    ? stats.ownerPaymentRows.filter((row) => toSlug(row.paymentStatus) !== 'paid').length
+    : 0;
+  const bookingToPropertyRatio = stats.totalProperties
+    ? (Number(stats.totalBookings || 0) / Number(stats.totalProperties || 1)).toFixed(1)
+    : '0.0';
 
   const statusData = [
     { name: 'Approved', value: stats.bookingStatusCount?.Approved || 0 },
@@ -85,39 +119,89 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="dashboard-container">
-      <h2>Owner Dashboard</h2>
+    <div className="dashboard-container owner-dashboard">
+      <header className="dashboard-hero">
+        <div>
+          <p className="dashboard-eyebrow">Portfolio</p>
+          <h2>Owner Dashboard</h2>
+          <p className="dashboard-subtitle">
+            Manage property performance, booking outcomes, and renter payment visibility.
+          </p>
+        </div>
+      </header>
 
-      <div className="dashboard-cards">
-        <div className="card">
+        <div className="dashboard-cards">
+        <div className="dashboard-stat-card">
+          <p className="stat-label">Total Properties</p>
           <h3>{stats.totalProperties ?? 0}</h3>
-          <p>Total Properties</p>
         </div>
-        <div className="card">
+        <div className="dashboard-stat-card">
+          <p className="stat-label">Total Bookings</p>
           <h3>{stats.totalBookings ?? 0}</h3>
-          <p>Total Bookings</p>
         </div>
-        <div className="card">
+        <div className="dashboard-stat-card">
+          <p className="stat-label">Favorites</p>
           <h3>{stats.totalFavorites ?? 0}</h3>
-          <p>Favorites</p>
         </div>
       </div>
 
-      <div className="surface-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-        <h3>Owner Verification</h3>
-        <p>Status: {user?.ownerVerificationStatus || 'unverified'}</p>
+      <div className="dashboard-grid-two">
+        <section className="action-panel">
+          <div className="section-head">
+            <h3>Quick Actions</h3>
+            <p>Jump to high-frequency management tasks.</p>
+          </div>
+          <div className="action-grid">
+            <Link to="/owner/add" className="action-link">Add Property</Link>
+            <Link to="/owner/requests" className="action-link">Review Bookings</Link>
+            <Link to="/owner/messages" className="action-link">Open Messages</Link>
+            <Link to="/owner/payment-status" className="action-link">Check Rent Status</Link>
+          </div>
+        </section>
+
+        <section className="action-panel">
+          <div className="section-head">
+            <h3>Insights</h3>
+            <p>Operational indicators from your current portfolio data.</p>
+          </div>
+          <div className="insight-grid">
+            <div className="insight-card">
+              <p className="insight-label">Paid Accounts</p>
+              <p className="insight-value">{paidPayments}</p>
+            </div>
+            <div className="insight-card">
+              <p className="insight-label">Pending Accounts</p>
+              <p className="insight-value">{pendingPayments}</p>
+            </div>
+            <div className="insight-card">
+              <p className="insight-label">Bookings / Property</p>
+              <p className="insight-value">{bookingToPropertyRatio}</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section className="owner-verification-card">
+        <div className="section-head">
+          <h3>Owner Verification</h3>
+          <p>Maintain an active verified account status to build renter trust.</p>
+        </div>
+        <div className="verification-status-row">
+          <span className="verification-label">Current Status</span>
+          <span className={`status-pill verification-status ${toSlug(verificationStatus)}`}>
+            {verificationStatus}
+          </span>
+        </div>
         {user?.ownerVerificationStatus === 'rejected' && user?.ownerVerificationRejectReason && (
-          <p style={{ color: '#b91c1c', marginTop: '0.5rem' }}>
+          <p className="verification-note error">
             Last rejection reason: {user.ownerVerificationRejectReason}
           </p>
         )}
         {(user?.ownerVerificationStatus === 'unverified' ||
           user?.ownerVerificationStatus === 'rejected') && (
-          <>
-            <div style={{ marginBottom: '0.75rem' }}>
-              <label htmlFor="owner-id-image" style={{ display: 'block', marginBottom: '0.4rem' }}>
-                Upload Valid ID Photo(s)
-              </label>
+          <div className="verification-form">
+            <div className="verification-input-group">
+              <label htmlFor="owner-id-image">Upload Valid ID Photo(s)</label>
               <input
                 id="owner-id-image"
                 type="file"
@@ -126,27 +210,30 @@ export default function Dashboard() {
                 onChange={(e) => setVerificationIdFiles(Array.from(e.target.files || []))}
               />
               {verificationIdFiles.length > 0 && (
-                <p style={{ marginTop: '0.4rem' }}>{verificationIdFiles.length} file(s) selected</p>
+                <p className="verification-files-selected">{verificationIdFiles.length} file(s) selected</p>
               )}
             </div>
-            <button onClick={requestVerification} disabled={requesting}>
+            <button className="verification-btn" onClick={requestVerification} disabled={requesting}>
               {requesting ? 'Requesting...' : 'Request Verification'}
             </button>
-          </>
+          </div>
         )}
         {user?.ownerVerificationStatus === 'pending' && (
-          <p style={{ color: '#92400e', marginTop: '0.5rem' }}>
+          <p className="verification-note warning">
             Your verification request is pending admin review.
           </p>
         )}
         {verificationMessage && (
-          <p style={{ marginTop: '0.5rem' }}>{verificationMessage}</p>
+          <p className={`verification-note ${verificationNoteTone}`}>{verificationMessage}</p>
         )}
-      </div>
+      </section>
 
       <div className="chart-section">
         <div className="chart-card">
-          <h3>Booking Status Distribution</h3>
+          <div className="section-head">
+            <h3>Booking Status Distribution</h3>
+            <p>A snapshot of accepted, pending, and rejected bookings.</p>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -169,7 +256,10 @@ export default function Dashboard() {
         </div>
 
         <div className="chart-card">
-          <h3>Properties Added Per Month</h3>
+          <div className="section-head">
+            <h3>Properties Added Per Month</h3>
+            <p>Monthly trend of portfolio growth.</p>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={stats.propertyStats || []}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -184,22 +274,34 @@ export default function Dashboard() {
       </div>
 
       <div className="recent-properties">
-        <h3>Recent Properties</h3>
+        <div className="section-head">
+          <h3>Recent Properties</h3>
+          <p>Latest properties added to your portfolio.</p>
+        </div>
         {Array.isArray(stats.recentProperties) && stats.recentProperties.length > 0 ? (
-          <ul>
+          <ul className="dashboard-list">
             {stats.recentProperties.map((p) => (
               <li key={p._id}>
-                {p.title} - Rs. {p.price} - {p.status || 'Available'}
+                <div>
+                  <p className="item-title">{p.title}</p>
+                  <p className="item-subtitle">{formatCurrency(p.price)}</p>
+                </div>
+                <span className={`status-pill ${toSlug(p.status || 'available')}`}>
+                  {p.status || 'Available'}
+                </span>
               </li>
             ))}
           </ul>
         ) : (
-          <p>No recent properties</p>
+          <p className="empty-state">No recent properties.</p>
         )}
       </div>
 
       <div className="owner-payment-status">
-        <h3>Renter Payment Status</h3>
+        <div className="section-head">
+          <h3>Renter Payment Status</h3>
+          <p>Payment and booking data for approved renter agreements.</p>
+        </div>
         {Array.isArray(stats.ownerPaymentRows) && stats.ownerPaymentRows.length > 0 ? (
           <div className="payment-status-table-wrap">
             <table className="payment-status-table">
@@ -218,19 +320,19 @@ export default function Dashboard() {
                   <tr key={row.bookingId}>
                     <td>{row.propertyTitle}</td>
                     <td>
-                      <div>{row.renterName}</div>
-                      <small>{row.renterEmail}</small>
+                      <p className="item-title">{row.renterName}</p>
+                      <p className="item-subtitle">{row.renterEmail}</p>
                     </td>
-                    <td>Rs. {row.monthlyRent}</td>
-                    <td>{row.fromDate ? new Date(row.fromDate).toLocaleDateString() : '-'}</td>
+                    <td>{formatCurrency(row.monthlyRent)}</td>
+                    <td>{formatDate(row.fromDate)}</td>
                     <td>
-                      <span className={`payment-chip ${row.paymentStatus.toLowerCase().replace(/\s+/g, '-')}`}>
+                      <span className={`payment-chip ${toSlug(row.paymentStatus)}`}>
                         {row.paymentStatus}
                       </span>
                     </td>
                     <td>
                       {row.latestPaymentAmount
-                        ? `Rs. ${row.latestPaymentAmount} (${new Date(row.latestPaymentAt).toLocaleDateString()})`
+                        ? `${formatCurrency(row.latestPaymentAmount)} (${formatDate(row.latestPaymentAt)})`
                         : '-'}
                     </td>
                   </tr>
@@ -239,7 +341,7 @@ export default function Dashboard() {
             </table>
           </div>
         ) : (
-          <p>No approved bookings with payment records yet.</p>
+          <p className="empty-state">No approved bookings with payment records yet.</p>
         )}
       </div>
     </div>

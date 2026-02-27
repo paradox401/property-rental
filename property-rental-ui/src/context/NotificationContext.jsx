@@ -11,7 +11,10 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    if (!user || !token) return;
+    if (!user || !token) {
+      setNotifications([]);
+      return;
+    }
 
     const fetchNotifications = async () => {
       try {

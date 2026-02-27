@@ -39,7 +39,7 @@
 }
 
 .bookings-table thead {
-  background: #f7f3ec;
+  background: var(--surface-muted);
 }
 
 .bookings-table th,
@@ -47,7 +47,7 @@
   padding: 1rem 1.25rem;
   text-align: left;
   font-size: 0.9rem;
-  border-bottom: 1px solid #efe9de;
+  border-bottom: 1px solid var(--border);
   color: var(--text);
   white-space: nowrap;
 }
@@ -64,7 +64,7 @@
 }
 
 .bookings-table tbody tr:hover {
-  background: #f7f4ef;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   transform: translateY(-1px);
 }
 
@@ -143,16 +143,16 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 1px solid #d7dee8;
-  background: #f8fafc;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
   cursor: pointer;
-  color: #334155;
+  color: var(--text);
   font-size: 0.85rem;
   font-weight: 700;
   transition: all 0.18s ease;
 }
 
 .modal-close:hover {
-  background: #eef2f7;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   transform: scale(1.05);
 }

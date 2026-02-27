@@ -1,6 +1,6 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f4f6f8;
+    background-color: var(--bg, #f4f6f8);
     margin: 0;
     padding: 0;
   }
@@ -13,7 +13,7 @@ body {
   
   h1 {
     text-align: center;
-    color: #333;
+    color: var(--text, #333);
     margin-bottom: 40px;
   }
   
@@ -28,7 +28,7 @@ body {
   .card {
     flex: 1 1 200px;
     max-width: 250px;
-    background-color: #fff;
+    background-color: var(--surface, #fff);
     border-radius: 12px;
     padding: 30px 20px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
@@ -43,7 +43,7 @@ body {
   
   .card p {
     font-size: 1.1rem;
-    color: #555;
+    color: var(--text-muted, #555);
   }
   
   .card:hover {
@@ -63,7 +63,7 @@ body {
   .complaints-table {
     width: 100%;
     border-collapse: collapse;
-    background-color: #fff;
+    background-color: var(--surface, #fff);
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);

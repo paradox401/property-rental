@@ -1,64 +1,133 @@
 import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import Notification from './models/Notification.js';
 import User from './models/User.js';
+import { canUsersChat } from './utils/chatAccess.js';
 
 let io;
 const onlineUsers = new Map();
+const DEFAULT_FRONTEND_ORIGIN = 'http://localhost:5173';
+
+const getAllowedOrigins = () => {
+  const configured = process.env.CORS_ORIGINS || process.env.FRONTEND_URL || DEFAULT_FRONTEND_ORIGIN;
+  return configured
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+};
+
+const addOnlineUserSocket = (userId, socketId) => {
+  const key = userId.toString();
+  const socketSet = onlineUsers.get(key) || new Set();
+  socketSet.add(socketId);
+  onlineUsers.set(key, socketSet);
+};
+
+const removeOnlineUserSocket = (userId, socketId) => {
+  if (!userId) return;
+  const key = userId.toString();
+  const socketSet = onlineUsers.get(key);
+  if (!socketSet) return;
+  socketSet.delete(socketId);
+  if (!socketSet.size) {
+    onlineUsers.delete(key);
+  }
+};
 
 export const setupSocket = (server) => {
+  const allowedOrigins = getAllowedOrigins();
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },
   });
 
+  io.use((socket, next) => {
+    const rawToken = socket.handshake?.auth?.token || socket.handshake?.headers?.authorization || '';
+    const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
+    if (!token) return next(new Error('Authentication error'));
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (!decoded?.id) return next(new Error('Authentication error'));
+      socket.data.userId = decoded.id.toString();
+      socket.data.role = decoded.role;
+      return next();
+    } catch {
+      return next(new Error('Authentication error'));
+    }
+  });
+
   io.on('connection', (socket) => {
     console.log('✅ Socket connected:', socket.id);
+    const currentUserId = socket.data.userId;
+    addOnlineUserSocket(currentUserId, socket.id);
 
     socket.on('addUser', (userId) => {
-      if (!userId) return;
-      onlineUsers.set(userId.toString(), socket.id);
-      console.log('👤 User online:', userId);
+      if (!userId || userId.toString() !== currentUserId) return;
+      addOnlineUserSocket(currentUserId, socket.id);
+      console.log('👤 User online:', currentUserId);
     });
 
-    socket.on('sendMessage', ({ sender, receiver, text }) => {
-      const receiverSocket = onlineUsers.get(receiver?.toString());
-      if (receiverSocket) {
-        io.to(receiverSocket).emit('receiveMessage', { sender, text });
+    socket.on('sendMessage', async ({ receiver, text }) => {
+      const receiverId = receiver?.toString();
+      if (!receiverId || !text?.trim()) return;
+
+      const allowed = await canUsersChat(currentUserId, receiverId);
+      if (!allowed) return;
+
+      const receiverSockets = onlineUsers.get(receiverId);
+      if (receiverSockets?.size) {
+        receiverSockets.forEach((socketId) => {
+          io.to(socketId).emit('receiveMessage', { sender: currentUserId, text });
+        });
       }
     });
 
-    socket.on('typing', ({ from, to }) => {
-      const receiverSocket = onlineUsers.get(to?.toString());
-      if (receiverSocket) {
-        io.to(receiverSocket).emit('typing', { from });
+    socket.on('typing', ({ to }) => {
+      const receiverId = to?.toString();
+      if (!receiverId) return;
+
+      const receiverSockets = onlineUsers.get(receiverId);
+      if (receiverSockets?.size) {
+        receiverSockets.forEach((socketId) => {
+          io.to(socketId).emit('typing', { from: currentUserId });
+        });
       }
     });
 
-    socket.on('stopTyping', ({ from, to }) => {
-      const receiverSocket = onlineUsers.get(to?.toString());
-      if (receiverSocket) {
-        io.to(receiverSocket).emit('stopTyping', { from });
+    socket.on('stopTyping', ({ to }) => {
+      const receiverId = to?.toString();
+      if (!receiverId) return;
+
+      const receiverSockets = onlineUsers.get(receiverId);
+      if (receiverSockets?.size) {
+        receiverSockets.forEach((socketId) => {
+          io.to(socketId).emit('stopTyping', { from: currentUserId });
+        });
       }
     });
 
-    socket.on('messageRead', ({ from, to }) => {
-      const receiverSocket = onlineUsers.get(to?.toString());
-      if (receiverSocket) {
-        io.to(receiverSocket).emit('messageRead', { from });
+    socket.on('messageRead', async ({ to }) => {
+      const receiverId = to?.toString();
+      if (!receiverId) return;
+
+      const allowed = await canUsersChat(currentUserId, receiverId);
+      if (!allowed) return;
+
+      const receiverSockets = onlineUsers.get(receiverId);
+      if (receiverSockets?.size) {
+        receiverSockets.forEach((socketId) => {
+          io.to(socketId).emit('messageRead', { from: currentUserId });
+        });
       }
     });
 
     socket.on('disconnect', () => {
-      for (const [userId, socketId] of onlineUsers.entries()) {
-        if (socketId === socket.id) {
-          onlineUsers.delete(userId);
-          console.log('❌ User disconnected:', userId);
-          break;
-        }
-      }
+      removeOnlineUserSocket(currentUserId, socket.id);
+      console.log('❌ User disconnected:', currentUserId);
     });
   });
 };
@@ -86,15 +155,17 @@ export const sendNotification = async (userId, type, message, link = '') => {
       link,
     });
 
-    const socketId = onlineUsers.get(userId?.toString());
-    if (io && socketId) {
-      io.to(socketId).emit('newNotification', {
-        _id: notification._id,
-        type: notification.type,
-        message: notification.message,
-        link: notification.link,
-        read: notification.read,
-        createdAt: notification.createdAt,
+    const socketIds = onlineUsers.get(userId?.toString());
+    if (io && socketIds?.size) {
+      socketIds.forEach((socketId) => {
+        io.to(socketId).emit('newNotification', {
+          _id: notification._id,
+          type: notification.type,
+          message: notification.message,
+          link: notification.link,
+          read: notification.read,
+          createdAt: notification.createdAt,
+        });
       });
       console.log(`📢 Notification sent in real-time to ${userId} (${type})`);
     } else {

@@ -6,11 +6,11 @@ import { SOCKET_URL } from '../config/api';
 const SocketContext = createContext();
 
 export const SocketProvider = ({ children }) => {
-  const { user } = useContext(AuthContext);
+  const { user, token } = useContext(AuthContext);
   const socket = useRef(null);
 
   useEffect(() => {
-    if (!user?._id) {
+    if (!user?._id || !token) {
       socket.current?.disconnect();
       socket.current = null;
       return undefined;
@@ -23,24 +23,18 @@ export const SocketProvider = ({ children }) => {
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       timeout: 20000,
+      auth: { token: `Bearer ${token}` },
     });
 
     socket.current = currentSocket;
 
-    const onConnect = () => {
-      currentSocket.emit('addUser', user._id);
-    };
-
-    currentSocket.on('connect', onConnect);
-
     return () => {
-      currentSocket.off('connect', onConnect);
       currentSocket.disconnect();
       if (socket.current === currentSocket) {
         socket.current = null;
       }
     };
-  }, [user?._id]);
+  }, [user?._id, token]);
 
   return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>;
 };

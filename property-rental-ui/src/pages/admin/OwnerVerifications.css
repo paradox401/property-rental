@@ -1,0 +1,135 @@
+.owner-verify-page {
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.9rem;
+  animation: ownerVerifyFade 220ms ease;
+}
+
+.owner-verify-loading,
+.owner-verify-empty {
+  color: var(--text-muted);
+}
+
+.owner-verify-message {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.owner-verify-subhead {
+  margin: 0;
+}
+
+.owner-verify-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 0.35rem;
+}
+
+.owner-verify-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 920px;
+  background: var(--surface);
+}
+
+.owner-verify-table th,
+.owner-verify-table td {
+  padding: 0.85rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.owner-verify-table tbody tr {
+  transition: background-color var(--transition);
+}
+
+.owner-verify-table tbody tr:hover {
+  background: var(--surface-muted);
+}
+
+.owner-verify-table th {
+  font-size: 0.76rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.owner-verify-thumb-link {
+  display: inline-block;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.owner-verify-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  transition: transform var(--transition);
+}
+
+.owner-verify-thumb-link:hover .owner-verify-thumb {
+  transform: scale(1.04);
+}
+
+.owner-verify-input {
+  width: 220px;
+}
+
+.owner-verify-actions {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 125px;
+}
+
+.btn-approve,
+.btn-reject {
+  border: none;
+  border-radius: 8px;
+  padding: 0.46rem 0.65rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--transition), filter var(--transition);
+}
+
+.btn-approve {
+  background: var(--success-text);
+  color: #fff;
+}
+
+.btn-reject {
+  background: var(--danger-text);
+  color: #fff;
+}
+
+.btn-approve:hover,
+.btn-reject:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.96);
+}
+
+@keyframes ownerVerifyFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .owner-verify-page {
+    padding: 0.85rem;
+  }
+}

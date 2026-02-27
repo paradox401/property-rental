@@ -8,6 +8,7 @@ import {
   updateOwnerRequest,
   getKycRequests,
   reviewKycDocument,
+  reviewKycRequest,
   getAllProperties,
   updatePropertyStatus,
   deleteProperty,
@@ -42,6 +43,7 @@ router.get('/owner-requests', getOwnerRequests);
 router.patch('/owner-requests/:id', updateOwnerRequest);
 router.get('/kyc-requests', getKycRequests);
 router.patch('/kyc-requests/:id/documents/:docId', reviewKycDocument);
+router.patch('/kyc-requests/:id', reviewKycRequest);
 
 router.get('/properties', getAllProperties);
 router.patch('/properties/:id/status', updatePropertyStatus);

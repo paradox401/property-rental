@@ -26,7 +26,7 @@ export default function ChatWindow({ selectedUser }) {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      socket?.current?.emit('messageRead', { from: user._id, to: selectedUser._id });
+      socket?.current?.emit('messageRead', { to: selectedUser._id });
     } catch (error) {
       console.error('Failed to fetch messages:', error.message);
     }
@@ -34,7 +34,7 @@ export default function ChatWindow({ selectedUser }) {
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
+    const interval = setInterval(fetchMessages, 15000);
     return () => clearInterval(interval);
   }, [selectedUser, token]);
 
@@ -87,12 +87,11 @@ export default function ChatWindow({ selectedUser }) {
       );
       setMessages((prev) => [...prev, res.data]);
       socket?.current?.emit('sendMessage', {
-        sender: user._id,
         receiver: selectedUser._id,
         text: newMessage,
       });
       setNewMessage('');
-      socket?.current?.emit('stopTyping', { from: user._id, to: selectedUser._id });
+      socket?.current?.emit('stopTyping', { to: selectedUser._id });
     } catch (error) {
       console.error('Failed to send message:', error.message);
     }
@@ -108,21 +107,30 @@ export default function ChatWindow({ selectedUser }) {
   const handleTypingChange = (value) => {
     setNewMessage(value);
     if (socket?.current && selectedUser) {
-      socket.current.emit('typing', { from: user._id, to: selectedUser._id });
+      socket.current.emit('typing', { to: selectedUser._id });
       if (typingTimeout.current) clearTimeout(typingTimeout.current);
       typingTimeout.current = setTimeout(() => {
-        socket.current.emit('stopTyping', { from: user._id, to: selectedUser._id });
+        socket.current.emit('stopTyping', { to: selectedUser._id });
       }, 800);
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (typingTimeout.current) {
+        clearTimeout(typingTimeout.current);
+      }
+    };
+  }, []);
+
   const lastSent = [...messages].reverse().find((m) => m.sender === user._id);
+  const selectedUserLabel = selectedUser?.name || selectedUser?.email || 'User';
 
   return (
     <div className="chat-window">
       <div className="chat-header">
-        <h4>Chat with {selectedUser?.email}</h4>
-        {isTyping && <span style={{ marginLeft: 'auto' }}>Typing...</span>}
+        <h4>Chat with {selectedUserLabel}</h4>
+        {isTyping && <span className="chat-typing-indicator">Typing...</span>}
       </div>
       <div className="chat-messages">
         {messages.map((msg, idx) => (
@@ -133,7 +141,7 @@ export default function ChatWindow({ selectedUser }) {
             {msg.content}
           </div>
         ))}
-        {lastSent?.read && <span style={{ alignSelf: 'flex-end', fontSize: '0.75rem' }}>Seen</span>}
+        {lastSent?.read && <span className="chat-seen-indicator">Seen</span>}
       </div>
       <div className="chat-input">
         <input

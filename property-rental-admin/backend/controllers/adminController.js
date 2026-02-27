@@ -192,7 +192,6 @@ export const getKycRequests = async (_req, res) => {
 
     const queue = users.flatMap((user) =>
       (user.kycDocuments || [])
-        .filter((doc) => doc.status === 'pending')
         .map((doc) => ({
           userId: user._id,
           userName: user.name,
@@ -202,6 +201,7 @@ export const getKycRequests = async (_req, res) => {
           kycRejectReason: user.kycRejectReason || '',
           documentId: doc._id,
           docType: doc.docType || 'Government ID',
+          docStatus: doc.status || 'pending',
           imageUrl: doc.imageUrl,
           uploadedAt: doc.uploadedAt || doc.createdAt,
         }))
@@ -245,6 +245,7 @@ export const reviewKycDocument = async (req, res) => {
       user.kycStatus = 'pending';
     }
 
+    user.markModified('kycDocuments');
     await user.save();
     await logAudit(req, 'kyc_document_reviewed', 'User', user._id, {
       documentId: req.params.docId,
@@ -255,6 +256,47 @@ export const reviewKycDocument = async (req, res) => {
     res.json({ message: 'KYC document reviewed', user });
   } catch (error) {
     res.status(500).json({ error: 'Failed to review KYC document' });
+  }
+};
+
+export const reviewKycRequest = async (req, res) => {
+  try {
+    const { status, rejectReason = '' } = req.body;
+    if (!['verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const docs = Array.isArray(user.kycDocuments) ? user.kycDocuments : [];
+    const pendingDocs = docs.filter((d) => d.status === 'pending');
+    if (pendingDocs.length === 0) {
+      return res.status(400).json({ error: 'No pending KYC docs for this user' });
+    }
+
+    docs.forEach((doc) => {
+      if (doc.status !== 'pending') return;
+      doc.status = status;
+      doc.rejectReason = status === 'rejected' ? String(rejectReason || 'KYC rejected') : '';
+      doc.reviewedAt = new Date();
+    });
+
+    user.kycStatus = status;
+    user.kycVerifiedAt = status === 'verified' ? new Date() : null;
+    user.kycRejectReason = status === 'rejected' ? String(rejectReason || 'KYC rejected') : '';
+
+    user.markModified('kycDocuments');
+    await user.save();
+    await logAudit(req, 'kyc_request_reviewed', 'User', user._id, {
+      status,
+      rejectReason: user.kycRejectReason || '',
+      reviewedDocs: pendingDocs.length,
+    });
+
+    res.json({ message: 'KYC request reviewed', user });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to review KYC request' });
   }
 };
 

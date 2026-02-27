@@ -81,26 +81,18 @@ export const getMyBookings = async (req, res) => {
 export const getOwnerBookings = async (req, res) => {
   try {
     const ownerId = req.user._id;
+    const ownerProperties = await Property.find({ ownerId }).select('_id').lean();
+    const ownerPropertyIds = ownerProperties.map((p) => p._id);
 
-    const bookings = await Booking.find()
-      .populate({
-        path: 'property',
-        populate: {
-          path: 'ownerId',
-          model: 'User',
-          select: '_id name email',
-        },
-      })
+    if (!ownerPropertyIds.length) {
+      return res.status(200).json([]);
+    }
+
+    const bookings = await Booking.find({ property: { $in: ownerPropertyIds } })
+      .populate('property')
       .populate('renter', 'name email');
 
-    const filteredBookings = bookings.filter(
-      (booking) =>
-        booking.property &&
-        booking.property.ownerId &&
-        booking.property.ownerId._id.toString() === ownerId.toString()
-    );
-
-    res.status(200).json(filteredBookings);
+    res.status(200).json(bookings);
   } catch (err) {
     console.error('❌ Error in getOwnerBookings:', err.message);
     res.status(500).json({ error: 'Failed to fetch owner bookings' });
@@ -156,9 +148,32 @@ export const updateStatus = async (req, res) => {
 // ==========================
 export const getApprovedBookings = async (req, res) => {
   try {
-    const renterId = req.params.renterId;
-    const bookings = await Booking.find({ renter: renterId, status: "Approved" })
-      .populate("property");
+    const requestedRenterId = req.params.renterId;
+    let renterId = requestedRenterId;
+    let bookingFilter = { status: 'Approved' };
+
+    if (req.user.role === 'renter') {
+      if (req.user._id.toString() !== requestedRenterId.toString()) {
+        return res.status(403).json({ success: false, message: 'Not authorized' });
+      }
+      renterId = req.user._id;
+      bookingFilter.renter = renterId;
+    } else if (req.user.role === 'owner') {
+      const ownerProperties = await Property.find({ ownerId: req.user._id }).select('_id').lean();
+      const ownerPropertyIds = ownerProperties.map((property) => property._id);
+      if (!ownerPropertyIds.length) return res.json([]);
+      bookingFilter = {
+        ...bookingFilter,
+        renter: renterId,
+        property: { $in: ownerPropertyIds },
+      };
+    } else if (req.user.role === 'admin') {
+      bookingFilter.renter = renterId;
+    } else {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const bookings = await Booking.find(bookingFilter).populate('property');
     res.json(bookings);
   } catch (err) {
     console.error(err);

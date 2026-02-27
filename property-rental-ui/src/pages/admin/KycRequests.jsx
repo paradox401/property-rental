@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
-import '../owner/Bookings.css';
+import './KycRequests.css';
 
 export default function KycRequests() {
   const { token } = useContext(AuthContext);
@@ -52,16 +52,17 @@ export default function KycRequests() {
     setMessage(`Document ${status}.`);
   };
 
-  if (loading) return <p>Loading KYC queue...</p>;
+  if (loading) return <p className="kyc-admin-loading">Loading KYC queue...</p>;
 
   return (
-    <div className="surface-card" style={{ padding: '2rem' }}>
+    <div className="kyc-admin-page surface-card">
       <h2>KYC Verification Queue</h2>
-      {message && <p style={{ marginBottom: '1rem' }}>{message}</p>}
+      {message && <p className="kyc-admin-message">{message}</p>}
       {docs.length === 0 ? (
-        <p>No pending KYC documents.</p>
+        <p className="kyc-admin-empty">No pending KYC documents.</p>
       ) : (
-        <table className="bookings-table">
+        <div className="kyc-admin-table-wrap">
+          <table className="kyc-admin-table">
           <thead>
             <tr>
               <th>User</th>
@@ -82,35 +83,39 @@ export default function KycRequests() {
                   <td>{doc.userRole}</td>
                   <td>{doc.docType || 'Government ID'}</td>
                   <td>
-                    <a href={doc.imageUrl} target="_blank" rel="noreferrer">
+                    <a href={doc.imageUrl} target="_blank" rel="noreferrer" className="kyc-doc-thumb-link">
                       <img
                         src={doc.imageUrl}
                         alt={`${doc.userName} KYC`}
-                        style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
+                        className="kyc-doc-thumb"
                       />
                     </a>
                   </td>
                   <td>{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : '-'}</td>
                   <td>
                     <input
+                      className="kyc-reason-input"
                       value={reasons[key] || ''}
                       onChange={(e) => setReasons((prev) => ({ ...prev, [key]: e.target.value }))}
                       placeholder="Reason if rejecting"
                     />
                   </td>
                   <td>
-                    <button className="btn-approve" onClick={() => reviewDoc(doc.userId, doc.documentId, 'verified')}>
-                      Approve
-                    </button>
-                    <button className="btn-reject" onClick={() => reviewDoc(doc.userId, doc.documentId, 'rejected')}>
-                      Reject
-                    </button>
+                    <div className="kyc-admin-actions">
+                      <button className="btn-approve" onClick={() => reviewDoc(doc.userId, doc.documentId, 'verified')}>
+                        Approve
+                      </button>
+                      <button className="btn-reject" onClick={() => reviewDoc(doc.userId, doc.documentId, 'rejected')}>
+                        Reject
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
+          </table>
+        </div>
       )}
     </div>
   );

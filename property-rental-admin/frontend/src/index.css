@@ -1,5 +1,13 @@
 :root {
   font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --bg: #f3f6fb;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #dbe2eb;
+  --accent: #1d4ed8;
+  --accent-strong: #1e40af;
   color: #0f172a;
   background: #f3f6fb;
 }
@@ -259,4 +267,114 @@ body {
 @media (max-width: 600px) {
   .admin-main { padding: 0.75rem; }
   .kpi-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a;
+    --surface: #111827;
+    --surface-muted: #1f2937;
+    --text: #e5e7eb;
+    --text-muted: #9ca3af;
+    --border: #374151;
+    --accent: #3b82f6;
+    --accent-strong: #2563eb;
+    color: #e5e7eb;
+    background: #0f172a;
+  }
+
+  body {
+    background: #0f172a;
+    color: #e5e7eb;
+  }
+
+  .admin-main,
+  .dashboard-container {
+    background: #0f172a;
+  }
+
+  .page-subtitle,
+  .kpi-label,
+  .thread-item small,
+  .messages-empty,
+  .error {
+    color: #9ca3af;
+  }
+
+  .card,
+  .kpi,
+  .table-wrap,
+  .messages-toolbar,
+  .messages-thread-list,
+  .messages-thread-panel,
+  .payments-page .payments-toolbar,
+  .payments-table-wrap,
+  .thread-item,
+  .thread-message,
+  .admin-kyc-doc-card,
+  .login-card {
+    background: #111827 !important;
+    border-color: #374151 !important;
+    color: #e5e7eb;
+  }
+
+  .table th,
+  .table td,
+  .thread-panel-header,
+  .thread-message,
+  .thread-item {
+    border-color: #374151 !important;
+    color: #e5e7eb;
+  }
+
+  .table th,
+  .thread-item p,
+  .thread-message p,
+  .admin-kyc-doc-type,
+  .messages-unread-toggle {
+    color: #d1d5db !important;
+  }
+
+  .toolbar input,
+  .toolbar select,
+  .toolbar textarea,
+  .payments-page .commission-input,
+  .payments-page .remark-input,
+  .admin-kyc-reason-input,
+  .login-card input {
+    background: #1f2937;
+    border-color: #4b5563;
+    color: #e5e7eb;
+  }
+
+  .thread-item.active,
+  .messages-view-switch .btn.active {
+    background: rgba(59, 130, 246, 0.25) !important;
+    border-color: #3b82f6 !important;
+  }
+
+  .badge.pending { background: #422006; color: #fde68a; border-color: #78350f; }
+  .badge.approved, .badge.verified, .badge.paid, .badge.resolved { background: #042f2e; color: #99f6e4; border-color: #134e4a; }
+  .badge.rejected, .badge.failed, .badge.inactive { background: #3f0a0a; color: #fecaca; border-color: #7f1d1d; }
+  .badge.active { background: #082f49; color: #bae6fd; border-color: #0c4a6e; }
+
+  .login-card h2,
+  .dashboard-container h1,
+  .card h2,
+  .card p,
+  .complaints-table td,
+  .complaints-table th {
+    color: #e5e7eb;
+  }
+
+  .complaints-table,
+  .complaints-table tbody tr:nth-child(even),
+  .complaints-table tbody tr.resolved {
+    background: #111827;
+    color: #e5e7eb;
+  }
+
+  .complaints-table thead {
+    background: #1e3a8a;
+  }
 }

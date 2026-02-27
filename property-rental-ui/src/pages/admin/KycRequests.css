@@ -1,0 +1,134 @@
+.kyc-admin-page {
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.9rem;
+  animation: kycAdminFade 220ms ease;
+}
+
+.kyc-admin-page h2 {
+  margin: 0;
+}
+
+.kyc-admin-loading,
+.kyc-admin-empty {
+  color: var(--text-muted);
+}
+
+.kyc-admin-message {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.kyc-admin-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.kyc-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 920px;
+  background: var(--surface);
+}
+
+.kyc-admin-table th,
+.kyc-admin-table td {
+  padding: 0.85rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.kyc-admin-table tbody tr {
+  transition: background-color var(--transition);
+}
+
+.kyc-admin-table tbody tr:hover {
+  background: var(--surface-muted);
+}
+
+.kyc-admin-table th {
+  font-size: 0.76rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.kyc-doc-thumb-link {
+  display: inline-block;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.kyc-doc-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  transition: transform var(--transition);
+}
+
+.kyc-doc-thumb-link:hover .kyc-doc-thumb {
+  transform: scale(1.04);
+}
+
+.kyc-reason-input {
+  width: 220px;
+}
+
+.kyc-admin-actions {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 110px;
+}
+
+.btn-approve,
+.btn-reject {
+  border: none;
+  border-radius: 8px;
+  padding: 0.46rem 0.65rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--transition), filter var(--transition);
+}
+
+.btn-approve {
+  background: var(--success-text);
+  color: #fff;
+}
+
+.btn-reject {
+  background: var(--danger-text);
+  color: #fff;
+}
+
+.btn-approve:hover,
+.btn-reject:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.96);
+}
+
+@keyframes kycAdminFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .kyc-admin-page {
+    padding: 0.85rem;
+  }
+}

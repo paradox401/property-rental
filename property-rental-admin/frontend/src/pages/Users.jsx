@@ -46,7 +46,7 @@ export default function Users() {
       </div>
       <div className="table-wrap">
         <table className="table">
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Owner Verify</th><th>Joined</th><th>Action</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Owner Verify</th><th>KYC</th><th>Joined</th><th>Action</th></tr></thead>
           <tbody>
             {rows.map((u) => (
               <tr key={u._id}>
@@ -55,11 +55,16 @@ export default function Users() {
                 <td>{u.role}</td>
                 <td><span className={`badge ${u.isActive ? 'active' : 'inactive'}`}>{u.isActive ? 'Active' : 'Inactive'}</span></td>
                 <td><span className={`badge ${statusClass(u.ownerVerificationStatus || 'unverified')}`}>{u.ownerVerificationStatus || 'unverified'}</span></td>
+                <td>
+                  <span className={`badge ${statusClass(u.kycStatus || 'unsubmitted')}`}>
+                    {u.kycStatus || 'unsubmitted'}
+                  </span>
+                </td>
                 <td>{formatDate(u.createdAt)}</td>
                 <td><button className="btn secondary" onClick={() => toggleActive(u)}>{u.isActive ? 'Suspend' : 'Activate'}</button></td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan="7">No users found.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan="8">No users found.</td></tr>}
           </tbody>
         </table>
       </div>

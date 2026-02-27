@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
-import '../owner/Bookings.css';
+import './OwnerVerifications.css';
 
 export default function OwnerVerifications() {
   const { token } = useContext(AuthContext);
@@ -86,18 +86,19 @@ export default function OwnerVerifications() {
     fetchOwners();
   };
 
-  if (loading) return <p>Loading owner verification requests...</p>;
+  if (loading) return <p className="owner-verify-loading">Loading owner verification requests...</p>;
 
   return (
-    <div className="surface-card" style={{ padding: '2rem' }}>
+    <div className="owner-verify-page surface-card">
       <h2>Owner Verification & KYC Queue</h2>
-      {message && <p style={{ marginBottom: '1rem' }}>{message}</p>}
+      {message && <p className="owner-verify-message">{message}</p>}
 
-      <h3 style={{ marginBottom: '0.75rem' }}>Pending KYC Documents ({pendingDocs.length})</h3>
+      <h3 className="owner-verify-subhead">Pending KYC Documents ({pendingDocs.length})</h3>
       {pendingDocs.length === 0 ? (
-        <p style={{ marginBottom: '1.5rem' }}>No pending documents.</p>
+        <p className="owner-verify-empty">No pending documents.</p>
       ) : (
-        <table className="bookings-table" style={{ marginBottom: '1.5rem' }}>
+        <div className="owner-verify-table-wrap">
+          <table className="owner-verify-table">
           <thead>
             <tr>
               <th>Owner</th>
@@ -116,17 +117,18 @@ export default function OwnerVerifications() {
                   <td>{doc.ownerName} ({doc.ownerEmail})</td>
                   <td>{doc.docType || 'Government ID'}</td>
                   <td>
-                    <a href={doc.imageUrl} target="_blank" rel="noreferrer">
+                    <a href={doc.imageUrl} target="_blank" rel="noreferrer" className="owner-verify-thumb-link">
                       <img
                         src={doc.imageUrl}
                         alt={`${doc.ownerName} ID`}
-                        style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
+                        className="owner-verify-thumb"
                       />
                     </a>
                   </td>
                   <td>{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : '-'}</td>
                   <td>
                     <input
+                      className="owner-verify-input"
                       value={rejectReasons[key] || ''}
                       onChange={(e) =>
                         setRejectReasons((prev) => ({ ...prev, [key]: e.target.value }))
@@ -135,25 +137,29 @@ export default function OwnerVerifications() {
                     />
                   </td>
                   <td>
-                    <button className="btn-approve" onClick={() => reviewDocument(doc.ownerId, doc.documentId, 'verified')}>
-                      Approve Doc
-                    </button>
-                    <button className="btn-reject" onClick={() => reviewDocument(doc.ownerId, doc.documentId, 'rejected')}>
-                      Reject Doc
-                    </button>
+                    <div className="owner-verify-actions">
+                      <button className="btn-approve" onClick={() => reviewDocument(doc.ownerId, doc.documentId, 'verified')}>
+                        Approve Doc
+                      </button>
+                      <button className="btn-reject" onClick={() => reviewDocument(doc.ownerId, doc.documentId, 'rejected')}>
+                        Reject Doc
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
+          </table>
+        </div>
       )}
 
-      <h3 style={{ marginBottom: '0.75rem' }}>Owner Requests</h3>
+      <h3 className="owner-verify-subhead">Owner Requests</h3>
       {owners.length === 0 ? (
-        <p>No pending verification requests.</p>
+        <p className="owner-verify-empty">No pending verification requests.</p>
       ) : (
-        <table className="bookings-table">
+        <div className="owner-verify-table-wrap">
+          <table className="owner-verify-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -171,6 +177,7 @@ export default function OwnerVerifications() {
                 <td>{o.citizenshipNumber}</td>
                 <td>
                   <input
+                    className="owner-verify-input"
                     value={rejectReasons[o._id] || ''}
                     onChange={(e) =>
                       setRejectReasons((prev) => ({ ...prev, [o._id]: e.target.value }))
@@ -179,17 +186,20 @@ export default function OwnerVerifications() {
                   />
                 </td>
                 <td>
-                  <button className="btn-approve" onClick={() => updateStatus(o._id, 'verified')}>
-                    Verify Owner
-                  </button>
-                  <button className="btn-reject" onClick={() => updateStatus(o._id, 'rejected')}>
-                    Reject Owner
-                  </button>
+                  <div className="owner-verify-actions">
+                    <button className="btn-approve" onClick={() => updateStatus(o._id, 'verified')}>
+                      Verify Owner
+                    </button>
+                    <button className="btn-reject" onClick={() => updateStatus(o._id, 'rejected')}>
+                      Reject Owner
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,5 @@
 import Booking from '../models/Booking.js';
 import Property from '../models/Property.js';
-import User from '../models/User.js';
 
 export const getAllowedChatUsers = async (req, res) => {
   try {
@@ -16,18 +15,17 @@ export const getAllowedChatUsers = async (req, res) => {
           populate: { path: 'ownerId', model: 'User', select: '_id name email' }
         });
     } else if (req.user.role === 'owner') {
-      // Owner: fetch all approved bookings
-      bookings = await Booking.find({ status: 'Approved' })
-        .populate({
-          path: 'property',
-          select: 'ownerId',
-          populate: { path: 'ownerId', model: 'User', select: '_id name email' }
-        })
-        .populate('renter', 'name email');
-      // filter only bookings for properties owned by this owner
-      bookings = bookings.filter(
-        (b) => b.property?.ownerId?._id.toString() === currentUserId.toString()
-      );
+      // Owner: fetch approved bookings only for properties owned by this owner
+      const ownerProperties = await Property.find({ ownerId: currentUserId }).select('_id').lean();
+      const ownerPropertyIds = ownerProperties.map((property) => property._id);
+
+      bookings = ownerPropertyIds.length
+        ? await Booking.find({ status: 'Approved', property: { $in: ownerPropertyIds } })
+            .populate('renter', 'name email')
+            .lean()
+        : [];
+    } else {
+      return res.status(403).json({ error: 'Role not allowed for chat' });
     }
 
     const usersMap = new Map();

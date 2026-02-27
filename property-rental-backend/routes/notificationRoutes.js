@@ -33,7 +33,10 @@ router.put('/:id/read', protect, async (req, res) => {
 });
 
 // Test route to send notifications to all users with pending bookings
-router.get('/test-send', async (req, res) => {
+router.get('/test-send', protect, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Not authorized' });
+  }
   const Booking = (await import('../models/Booking.js')).default;
   const pendingBookings = await Booking.find({ paymentStatus: 'pending' }).populate('renter property');
 
