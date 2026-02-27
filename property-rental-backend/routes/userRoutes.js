@@ -109,7 +109,7 @@ router.put('/me/preferences', protect, async (req, res) => {
   }
 });
 
-router.post('/owner/verify-request', protect, upload.single('idImage'), async (req, res) => {
+router.post('/owner/verify-request', protect, upload.array('idImages', 5), async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('role ownerVerificationStatus name');
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -125,23 +125,41 @@ router.post('/owner/verify-request', protect, upload.single('idImage'), async (r
       return res.status(400).json({ error: 'Verification request is already pending' });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ error: 'Please upload a valid ID photo to request verification' });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'Please upload at least one valid ID photo to request verification' });
     }
 
     if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
       return res.status(500).json({ error: 'Cloudinary credentials are not configured on server' });
     }
 
-    const uploaded = await uploadImageBufferToCloudinary(req.file.buffer);
+    let docTypes = [];
+    if (req.body?.docTypes) {
+      try {
+        docTypes = JSON.parse(req.body.docTypes);
+      } catch {
+        docTypes = [];
+      }
+    }
+
+    const uploadedDocs = [];
+    for (let i = 0; i < req.files.length; i += 1) {
+      const file = req.files[i];
+      const uploaded = await uploadImageBufferToCloudinary(file.buffer);
+      uploadedDocs.push({
+        imageUrl: uploaded.secure_url,
+        publicId: uploaded.public_id,
+        docType: docTypes[i] || 'Government ID',
+        status: 'pending',
+        rejectReason: '',
+        uploadedAt: new Date(),
+      });
+    }
 
     await User.findByIdAndUpdate(req.user._id, {
       ownerVerificationStatus: 'pending',
-      ownerVerificationDocument: {
-        imageUrl: uploaded.secure_url,
-        publicId: uploaded.public_id,
-        submittedAt: new Date(),
-      },
+      ownerVerificationRejectReason: '',
+      $push: { ownerVerificationDocuments: { $each: uploadedDocs } },
     });
 
     const admins = await User.find({ role: 'admin' }).select('_id');
@@ -167,35 +185,114 @@ router.post('/owner/verify-request', protect, upload.single('idImage'), async (r
 
 router.get('/admin/owner-requests', protect, adminOnly, async (req, res) => {
   try {
-    const owners = await User.find({ role: 'owner', ownerVerificationStatus: 'pending' }).select('-password');
+    const owners = await User.find({
+      role: 'owner',
+      ownerVerificationStatus: 'pending',
+      'ownerVerificationDocuments.status': 'pending',
+    }).select('-password');
     res.json(owners);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch owner requests' });
   }
 });
 
+router.get('/admin/owner-requests/pending-docs', protect, adminOnly, async (req, res) => {
+  try {
+    const owners = await User.find({ role: 'owner', 'ownerVerificationDocuments.status': 'pending' })
+      .select('name email ownerVerificationDocuments ownerVerificationStatus');
+
+    const pendingDocs = owners.flatMap((owner) =>
+      (owner.ownerVerificationDocuments || [])
+        .filter((doc) => doc.status === 'pending')
+        .map((doc) => ({
+          ownerId: owner._id,
+          ownerName: owner.name,
+          ownerEmail: owner.email,
+          ownerVerificationStatus: owner.ownerVerificationStatus,
+          documentId: doc._id,
+          docType: doc.docType,
+          imageUrl: doc.imageUrl,
+          uploadedAt: doc.uploadedAt,
+        }))
+    );
+
+    res.json(pendingDocs);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch pending KYC documents' });
+  }
+});
+
+router.put('/admin/owner-requests/:id/documents/:docId', protect, adminOnly, async (req, res) => {
+  try {
+    const { status, rejectReason = '' } = req.body;
+    if (!['verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid document review status' });
+    }
+
+    const owner = await User.findOne({ _id: req.params.id, role: 'owner' });
+    if (!owner) return res.status(404).json({ error: 'Owner not found' });
+
+    const doc = owner.ownerVerificationDocuments?.id(req.params.docId);
+    if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+    doc.status = status;
+    doc.rejectReason = status === 'rejected' ? String(rejectReason || 'Invalid or unclear document') : '';
+    doc.reviewedAt = new Date();
+
+    const pendingCount = owner.ownerVerificationDocuments.filter((d) => d.status === 'pending').length;
+    const rejectedCount = owner.ownerVerificationDocuments.filter((d) => d.status === 'rejected').length;
+
+    if (pendingCount === 0 && rejectedCount === 0) {
+      owner.ownerVerificationStatus = 'verified';
+      owner.ownerVerifiedAt = new Date();
+      owner.ownerVerificationRejectReason = '';
+    } else if (status === 'rejected') {
+      owner.ownerVerificationStatus = 'rejected';
+      owner.ownerVerificationRejectReason = doc.rejectReason;
+    } else if (owner.ownerVerificationStatus !== 'verified') {
+      owner.ownerVerificationStatus = 'pending';
+    }
+
+    await owner.save();
+    res.json({ message: 'Document review updated', owner });
+  } catch (err) {
+    console.error('owner document review error:', err);
+    res.status(500).json({ error: 'Failed to update document review' });
+  }
+});
+
 router.put('/admin/owner-requests/:id', protect, adminOnly, async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, rejectReason = '' } = req.body;
     if (!['verified', 'rejected'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    const owner = await User.findOneAndUpdate(
-      { _id: req.params.id, role: 'owner' },
-      {
-        ownerVerificationStatus: status,
-        ownerVerifiedAt: status === 'verified' ? new Date() : null,
-      },
-      { new: true }
-    ).select('name email role ownerVerificationStatus ownerVerifiedAt');
+    const owner = await User.findOne({ _id: req.params.id, role: 'owner' });
     if (!owner) return res.status(404).json({ error: 'Owner not found' });
+
+    owner.ownerVerificationStatus = status;
+    owner.ownerVerifiedAt = status === 'verified' ? new Date() : null;
+    owner.ownerVerificationRejectReason = status === 'rejected' ? String(rejectReason || 'Verification rejected') : '';
+
+    owner.ownerVerificationDocuments = (owner.ownerVerificationDocuments || []).map((doc) => {
+      if (doc.status === 'pending') {
+        return {
+          ...doc.toObject(),
+          status,
+          rejectReason: status === 'rejected' ? owner.ownerVerificationRejectReason : '',
+          reviewedAt: new Date(),
+        };
+      }
+      return doc;
+    });
+    await owner.save();
 
     try {
       await sendNotification(
         owner._id,
         'ownerVerification',
-        `Your verification was ${status}.`,
+        `Your verification was ${status}.${status === 'rejected' ? ` Reason: ${owner.ownerVerificationRejectReason}` : ''}`,
         `/owner`
       );
     } catch (notifyErr) {

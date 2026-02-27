@@ -28,6 +28,7 @@ export default function OwnerLayout() {
           <NavLink to="/owner/add"><span className="nav-short">A</span><span className="nav-label">Add Property</span></NavLink>
           <NavLink to="/owner/requests"><span className="nav-short">B</span><span className="nav-label">Bookings</span></NavLink>
           <NavLink to="/owner/messages"><span className="nav-short">M</span><span className="nav-label">Messages</span></NavLink>
+          <NavLink to="/owner/agreements"><span className="nav-short">G</span><span className="nav-label">Agreements</span></NavLink>
           <NavLink to="/owner/ocomplaint"><span className="nav-short">C</span><span className="nav-label">Complaints</span></NavLink>
           <NavLink to="/owner/payment-status"><span className="nav-short">R</span><span className="nav-label">Rent Status</span></NavLink>
           <NavLink to="/owner/settings"><span className="nav-short">S</span><span className="nav-label">Settings</span></NavLink>

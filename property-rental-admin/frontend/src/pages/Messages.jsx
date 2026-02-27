@@ -5,6 +5,22 @@ import { formatDate, parsePaged } from '../utils';
 import './Messages.css';
 
 const getMessageText = (msg) => msg?.text || msg?.content || '-';
+const getRefId = (ref) => {
+  if (!ref) return '';
+  if (typeof ref === 'string') return ref;
+  if (typeof ref === 'object' && ref._id) return String(ref._id);
+  return '';
+};
+const getRefLabel = (ref, fallback = 'Unknown user') => {
+  if (!ref) return fallback;
+  if (typeof ref === 'object') {
+    if (ref.email) return ref.email;
+    if (ref.name) return ref.name;
+    if (ref._id) return `User (${String(ref._id).slice(-6)})`;
+  }
+  if (typeof ref === 'string') return `User (${ref.slice(-6)})`;
+  return fallback;
+};
 
 export default function Messages() {
   const [rows, setRows] = useState([]);
@@ -28,13 +44,13 @@ export default function Messages() {
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((m) => {
-      const sender = m.sender?.email || m.sender?.name || '';
-      const receiver = m.receiver?.email || m.receiver?.name || m.recipient?.email || m.recipient?.name || '';
+      const sender = getRefLabel(m.sender, '').toLowerCase();
+      const receiver = getRefLabel(m.receiver || m.recipient, '').toLowerCase();
       const text = getMessageText(m);
       const matchesQuery =
         !q ||
-        sender.toLowerCase().includes(q) ||
-        receiver.toLowerCase().includes(q) ||
+        sender.includes(q) ||
+        receiver.includes(q) ||
         text.toLowerCase().includes(q);
       const isUnread = !(m.isRead || m.read);
       const matchesUnread = !onlyUnread || isUnread;
@@ -45,11 +61,11 @@ export default function Messages() {
   const threads = useMemo(() => {
     const map = new Map();
     filteredRows.forEach((m) => {
-      const senderId = String(m.sender?._id || 'unknown-sender');
-      const receiverId = String(m.receiver?._id || m.recipient?._id || 'unknown-receiver');
+      const senderId = getRefId(m.sender) || 'unknown-sender';
+      const receiverId = getRefId(m.receiver || m.recipient) || 'unknown-receiver';
       const key = [senderId, receiverId].sort().join('__');
-      const senderLabel = m.sender?.email || m.sender?.name || 'Unknown sender';
-      const receiverLabel = m.receiver?.email || m.receiver?.name || m.recipient?.email || m.recipient?.name || 'Unknown receiver';
+      const senderLabel = getRefLabel(m.sender, 'Unknown sender');
+      const receiverLabel = getRefLabel(m.receiver || m.recipient, 'Unknown receiver');
 
       if (!map.has(key)) {
         map.set(key, {
@@ -160,7 +176,7 @@ export default function Messages() {
                 </div>
                 <div className="thread-messages">
                   {selectedThread.messages.map((m) => {
-                    const senderLabel = m.sender?.email || m.sender?.name || 'Unknown sender';
+                    const senderLabel = getRefLabel(m.sender, 'Unknown sender');
                     return (
                       <div key={m._id} className="thread-message">
                         <div className="thread-message-top">
@@ -194,8 +210,8 @@ export default function Messages() {
               <tbody>
                 {filteredRows.map((m) => (
                   <tr key={m._id}>
-                    <td>{m.sender?.email || '-'}</td>
-                    <td>{m.receiver?.email || m.recipient?.email || '-'}</td>
+                    <td>{getRefLabel(m.sender, '-')}</td>
+                    <td>{getRefLabel(m.receiver || m.recipient, '-')}</td>
                     <td>{getMessageText(m)}</td>
                     <td>{m.isRead || m.read ? 'Yes' : 'No'}</td>
                     <td>{formatDate(m.createdAt)}</td>

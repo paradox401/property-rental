@@ -37,6 +37,23 @@ const appPreferencesSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ownerVerificationDocumentSchema = new mongoose.Schema(
+  {
+    imageUrl: { type: String, required: true },
+    publicId: { type: String },
+    docType: { type: String, default: 'Government ID' },
+    status: {
+      type: String,
+      enum: ['pending', 'verified', 'rejected'],
+      default: 'pending',
+    },
+    rejectReason: { type: String, default: '' },
+    uploadedAt: { type: Date, default: Date.now },
+    reviewedAt: { type: Date },
+  },
+  { _id: true }
+);
+
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   citizenshipNumber: { type: String, required: true },
@@ -49,11 +66,11 @@ const userSchema = new mongoose.Schema({
     default: 'unverified',
   },
   ownerVerifiedAt: { type: Date },
-  ownerVerificationDocument: {
-    imageUrl: { type: String },
-    publicId: { type: String },
-    submittedAt: { type: Date },
+  ownerVerificationDocuments: {
+    type: [ownerVerificationDocumentSchema],
+    default: [],
   },
+  ownerVerificationRejectReason: { type: String, default: '' },
   notificationPreferences: {
     type: notificationPreferencesSchema,
     default: () => ({}),

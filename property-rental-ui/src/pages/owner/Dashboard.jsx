@@ -31,7 +31,7 @@ export default function Dashboard() {
   });
   const [requesting, setRequesting] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
-  const [verificationIdFile, setVerificationIdFile] = useState(null);
+  const [verificationIdFiles, setVerificationIdFiles] = useState([]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -52,14 +52,16 @@ export default function Dashboard() {
 
   const requestVerification = async () => {
     if (!token) return;
-    if (!verificationIdFile) {
-      setVerificationMessage('Please upload a valid ID photo before submitting verification request.');
+    if (!verificationIdFiles.length) {
+      setVerificationMessage('Please upload at least one valid ID photo before submitting verification request.');
       return;
     }
     setRequesting(true);
     setVerificationMessage('');
     const formData = new FormData();
-    formData.append('idImage', verificationIdFile);
+    verificationIdFiles.forEach((file) => {
+      formData.append('idImages', file);
+    });
     const res = await fetch(`${API_BASE_URL}/api/users/owner/verify-request`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
@@ -69,7 +71,7 @@ export default function Dashboard() {
     if (res.ok) {
       setUser((prev) => ({ ...prev, ownerVerificationStatus: data.status }));
       setVerificationMessage('Verification request submitted. Please wait for admin approval.');
-      setVerificationIdFile(null);
+      setVerificationIdFiles([]);
     } else {
       setVerificationMessage(data.error || 'Failed to submit verification request.');
     }
@@ -104,19 +106,28 @@ export default function Dashboard() {
       <div className="surface-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
         <h3>Owner Verification</h3>
         <p>Status: {user?.ownerVerificationStatus || 'unverified'}</p>
+        {user?.ownerVerificationStatus === 'rejected' && user?.ownerVerificationRejectReason && (
+          <p style={{ color: '#b91c1c', marginTop: '0.5rem' }}>
+            Last rejection reason: {user.ownerVerificationRejectReason}
+          </p>
+        )}
         {(user?.ownerVerificationStatus === 'unverified' ||
           user?.ownerVerificationStatus === 'rejected') && (
           <>
             <div style={{ marginBottom: '0.75rem' }}>
               <label htmlFor="owner-id-image" style={{ display: 'block', marginBottom: '0.4rem' }}>
-                Upload Valid ID Photo
+                Upload Valid ID Photo(s)
               </label>
               <input
                 id="owner-id-image"
                 type="file"
                 accept="image/*"
-                onChange={(e) => setVerificationIdFile(e.target.files?.[0] || null)}
+                multiple
+                onChange={(e) => setVerificationIdFiles(Array.from(e.target.files || []))}
               />
+              {verificationIdFiles.length > 0 && (
+                <p style={{ marginTop: '0.4rem' }}>{verificationIdFiles.length} file(s) selected</p>
+              )}
             </div>
             <button onClick={requestVerification} disabled={requesting}>
               {requesting ? 'Requesting...' : 'Request Verification'}
