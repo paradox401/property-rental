@@ -46,6 +46,29 @@ export default function Bookings() {
   const closeModal = () => {
     setSelectedProperty(null);
   };
+
+  const renderTimeline = (workflow) => {
+    const steps = Array.isArray(workflow?.steps) ? workflow.steps : [];
+    if (!steps.length) return <span className="timeline-label">Requested</span>;
+
+    return (
+      <div className="booking-timeline-wrap">
+        <div className="booking-timeline">
+          {steps.map((step) => (
+            <span
+              key={step.key}
+              className={`timeline-node ${step.completed ? 'completed' : ''} ${step.active ? 'active' : ''}`}
+              title={step.label}
+            />
+          ))}
+        </div>
+        <span className={`timeline-label ${workflow?.stage === 'rejected' ? 'rejected' : ''}`}>
+          {workflow?.label || 'Requested'}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className="bookings-container">
       <h2>My Bookings</h2>
@@ -63,17 +86,19 @@ export default function Bookings() {
               <th>From</th>
               <th>To</th>
               <th>Status</th>
+              <th>Timeline</th>
               <th>Payment</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {bookings.map(({ _id, property, fromDate, toDate, status, paymentStatus }) => (
+            {bookings.map(({ _id, property, fromDate, toDate, status, paymentStatus, workflow }) => (
               <tr key={_id}>
                 <td>{property?.title || 'N/A'}</td>
                 <td>{new Date(fromDate).toLocaleDateString()}</td>
                 <td>{new Date(toDate).toLocaleDateString()}</td>
                 <td>{status || 'N/A'}</td>
+                <td>{renderTimeline(workflow)}</td>
                 <td>
                   {paymentStatus === 'pending_verification'
                     ? 'pending verification'

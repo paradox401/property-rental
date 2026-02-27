@@ -13,14 +13,24 @@ function renderRows(rows, valueKey = 'count') {
 
 export default function Reports() {
   const [data, setData] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    API.get('/reports').then((res) => setData(res.data));
+    const load = async () => {
+      try {
+        const res = await API.get('/reports');
+        setData(res.data);
+      } catch (err) {
+        setError(err.response?.data?.error || 'Failed to load reports');
+      }
+    };
+    load();
   }, []);
 
   return (
     <div>
       <div className="page-header"><div><h1>Reports</h1><p className="page-subtitle">Operational and financial breakdowns by status.</p></div></div>
+      {error ? <p className="error">{error}</p> : null}
 
       <div className="kpi-grid">
         <div className="card">

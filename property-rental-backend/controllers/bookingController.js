@@ -1,6 +1,155 @@
 import Booking from '../models/Booking.js';
 import Property from '../models/Property.js';
+import Agreement from '../models/Agreement.js';
+import Payment from '../models/Payment.js';
 import { sendNewBookingNotification, sendBookingStatusNotification } from '../cronJobs/paymentReminder.js';
+
+const WORKFLOW_STEPS = [
+  { key: 'requested', label: 'Requested' },
+  { key: 'accepted', label: 'Accepted' },
+  { key: 'agreement_signed', label: 'Agreement Signed' },
+  { key: 'paid', label: 'Paid' },
+  { key: 'moved_in', label: 'Moved In' },
+];
+
+const stageLabelMap = {
+  requested: 'Requested',
+  accepted: 'Accepted',
+  agreement_signed: 'Agreement Signed',
+  paid: 'Paid',
+  moved_in: 'Moved In',
+  rejected: 'Rejected',
+};
+
+const toStartOfDay = (value) => {
+  const date = new Date(value);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+};
+
+const getActiveAgreementVersion = (agreement) => {
+  if (!agreement) return null;
+  const versions = Array.isArray(agreement.versions) ? agreement.versions : [];
+  return (
+    versions.find((version) => Number(version.version) === Number(agreement.currentVersion)) ||
+    versions[versions.length - 1] ||
+    null
+  );
+};
+
+const buildBookingWorkflow = (bookingDoc, agreementDoc, paidPaymentSummary) => {
+  const status = bookingDoc.status || 'Pending';
+  const approved = status === 'Approved';
+  const rejected = status === 'Rejected';
+
+  const activeAgreementVersion = getActiveAgreementVersion(agreementDoc);
+  const agreementSigned = approved && activeAgreementVersion?.status === 'fully_signed';
+  const paid = agreementSigned && Boolean(paidPaymentSummary);
+
+  const fromDate = bookingDoc.fromDate ? new Date(bookingDoc.fromDate) : null;
+  const movedIn =
+    paid &&
+    fromDate &&
+    toStartOfDay(new Date()) >= toStartOfDay(fromDate);
+
+  let stage = 'requested';
+  if (rejected) stage = 'rejected';
+  else if (movedIn) stage = 'moved_in';
+  else if (paid) stage = 'paid';
+  else if (agreementSigned) stage = 'agreement_signed';
+  else if (approved) stage = 'accepted';
+
+  const requestedAt = bookingDoc.createdAt || bookingDoc.fromDate || null;
+  const acceptedAt = bookingDoc.acceptedAt || null;
+  const rejectedAt = bookingDoc.rejectedAt || null;
+  const agreementSignedAt =
+    activeAgreementVersion?.renterSignedAt ||
+    activeAgreementVersion?.ownerSignedAt ||
+    null;
+  const paidAt = paidPaymentSummary?.paidAt || null;
+  const movedInAt = movedIn && fromDate ? fromDate : null;
+
+  const stepTimeMap = {
+    requested: requestedAt,
+    accepted: acceptedAt,
+    agreement_signed: agreementSignedAt,
+    paid: paidAt,
+    moved_in: movedInAt,
+  };
+
+  const stageIndex = WORKFLOW_STEPS.findIndex((step) => step.key === stage);
+  const steps = WORKFLOW_STEPS.map((step, index) => ({
+    key: step.key,
+    label: step.label,
+    completed: stage !== 'rejected' && index <= stageIndex,
+    active: stage !== 'rejected' && index === stageIndex,
+    at: stepTimeMap[step.key] || null,
+  }));
+
+  return {
+    stage,
+    label: stageLabelMap[stage] || 'Requested',
+    rejected,
+    requestedAt,
+    acceptedAt,
+    rejectedAt,
+    agreementSignedAt,
+    paidAt,
+    movedInAt,
+    flags: {
+      approved,
+      agreementSigned,
+      paid,
+      movedIn,
+    },
+    steps,
+  };
+};
+
+const decorateBookingsWithWorkflow = async (bookings = []) => {
+  if (!Array.isArray(bookings) || !bookings.length) return [];
+
+  const bookingDocs = bookings.map((booking) =>
+    typeof booking.toObject === 'function' ? booking.toObject() : booking
+  );
+  const bookingIds = bookingDocs.map((booking) => booking._id);
+
+  const [agreements, paidPayments] = await Promise.all([
+    Agreement.find({ booking: { $in: bookingIds } })
+      .select('booking currentVersion versions')
+      .lean(),
+    Payment.aggregate([
+      { $match: { booking: { $in: bookingIds }, status: 'Paid' } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: '$booking',
+          paidAt: { $first: '$createdAt' },
+          paymentId: { $first: '$_id' },
+        },
+      },
+    ]),
+  ]);
+
+  const agreementMap = new Map(
+    agreements.map((agreement) => [agreement.booking.toString(), agreement])
+  );
+  const paidPaymentMap = new Map(
+    paidPayments.map((payment) => [payment._id.toString(), payment])
+  );
+
+  return bookingDocs.map((booking) => {
+    const bookingId = booking._id.toString();
+    const workflow = buildBookingWorkflow(
+      booking,
+      agreementMap.get(bookingId),
+      paidPaymentMap.get(bookingId)
+    );
+    return {
+      ...booking,
+      workflow,
+    };
+  });
+};
 
 // ==========================
 // CREATE BOOKING
@@ -45,6 +194,8 @@ export const createBooking = async (req, res) => {
         emergencyContactPhone: bookingDetails.emergencyContactPhone,
         noteToOwner: bookingDetails.noteToOwner,
       },
+      acceptedAt: null,
+      rejectedAt: null,
     });
 
     await booking.save();
@@ -55,7 +206,8 @@ export const createBooking = async (req, res) => {
       await sendNewBookingNotification(property.ownerId, property.title, booking._id);
     }
 
-    res.status(201).json({ message: 'Booking successful', booking });
+    const [decoratedBooking] = await decorateBookingsWithWorkflow([booking]);
+    res.status(201).json({ message: 'Booking successful', booking: decoratedBooking || booking });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -68,7 +220,8 @@ export const createBooking = async (req, res) => {
 export const getMyBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ renter: req.user._id }).populate('property');
-    res.json(bookings);
+    const decorated = await decorateBookingsWithWorkflow(bookings);
+    res.json(decorated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error while fetching bookings' });
@@ -92,7 +245,8 @@ export const getOwnerBookings = async (req, res) => {
       .populate('property')
       .populate('renter', 'name email');
 
-    res.status(200).json(bookings);
+    const decorated = await decorateBookingsWithWorkflow(bookings);
+    res.status(200).json(decorated);
   } catch (err) {
     console.error('❌ Error in getOwnerBookings:', err.message);
     res.status(500).json({ error: 'Failed to fetch owner bookings' });
@@ -126,6 +280,13 @@ export const updateStatus = async (req, res) => {
     }
 
     booking.status = status;
+    if (status === 'Approved') {
+      booking.acceptedAt = new Date();
+      booking.rejectedAt = null;
+    } else if (status === 'Rejected') {
+      booking.rejectedAt = new Date();
+      booking.acceptedAt = null;
+    }
     await booking.save();
 
     // ✅ Notify renter about booking status update
@@ -136,7 +297,8 @@ export const updateStatus = async (req, res) => {
       booking._id
     );
 
-    res.status(200).json({ message: 'Status updated', booking });
+    const [decoratedBooking] = await decorateBookingsWithWorkflow([booking]);
+    res.status(200).json({ message: 'Status updated', booking: decoratedBooking || booking });
   } catch (err) {
     console.error('Error updating booking status:', err.message);
     res.status(500).json({ error: 'Server error' });
@@ -174,7 +336,8 @@ export const getApprovedBookings = async (req, res) => {
     }
 
     const bookings = await Booking.find(bookingFilter).populate('property');
-    res.json(bookings);
+    const decorated = await decorateBookingsWithWorkflow(bookings);
+    res.json(decorated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Failed to fetch bookings" });

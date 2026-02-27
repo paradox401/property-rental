@@ -68,6 +68,42 @@
   transform: translateY(-1px);
 }
 
+.booking-timeline-wrap {
+  display: grid;
+  gap: 6px;
+  min-width: 170px;
+}
+
+.booking-timeline {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.timeline-node {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 88%, transparent);
+}
+
+.timeline-node.completed {
+  background: color-mix(in srgb, var(--accent) 70%, #86efac);
+}
+
+.timeline-node.active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.timeline-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.timeline-label.rejected {
+  color: var(--danger-text, #b42318);
+}
+
 @media (max-width: 900px) {
   .bookings-container {
     padding: 2rem 1.25rem;

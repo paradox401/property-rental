@@ -6,6 +6,10 @@ import { useSocket } from '../../../context/SocketContext';
 import './ChatWindow.css';
 
 const REACTION_OPTIONS = ['👍', '❤️', '😂', '😮', '🙏'];
+const formatTime = (value) => {
+  if (!value) return '';
+  return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
 
 const toMessageObject = (payloadMessage = {}) => ({
   _id: payloadMessage._id,
@@ -28,6 +32,7 @@ export default function ChatWindow({ selectedUser }) {
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [openReactionFor, setOpenReactionFor] = useState(null);
   const typingTimeout = useRef(null);
 
   const fetchMessages = async () => {
@@ -185,6 +190,7 @@ export default function ChatWindow({ selectedUser }) {
       );
       const updated = toMessageObject(res.data);
       setMessages((prev) => prev.map((msg) => (msg._id === updated._id ? updated : msg)));
+      setOpenReactionFor(null);
     } catch (error) {
       console.error('Failed to react to message:', error.message);
     }
@@ -204,6 +210,8 @@ export default function ChatWindow({ selectedUser }) {
     return { text: '✓', className: 'sent' };
   };
 
+  const canSend = Boolean(newMessage.trim() || selectedFiles.length > 0);
+
   return (
     <div className="chat-window">
       <div className="chat-header">
@@ -211,58 +219,77 @@ export default function ChatWindow({ selectedUser }) {
         {isTyping && <span className="chat-typing-indicator">Typing...</span>}
       </div>
       <div className="chat-messages">
-        {messages.map((msg, idx) => (
-          <div
-            key={msg._id || idx}
-            className={`chat-message ${msg.sender === user._id ? 'sent' : 'received'}`}
-          >
-            {msg.content ? <p className="chat-message-content">{msg.content}</p> : null}
-            {Array.isArray(msg.attachments) && msg.attachments.length > 0 ? (
-              <div className="chat-attachments">
-                {msg.attachments.map((attachment, attachmentIndex) => (
-                  <a
-                    key={attachment.publicId || attachment.url || attachmentIndex}
-                    href={attachment.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="chat-attachment-link"
-                  >
-                    <img src={attachment.url} alt={attachment.fileName || 'Attachment'} />
-                  </a>
-                ))}
+        {messages.length === 0 ? <div className="chat-empty">No messages yet. Start the conversation.</div> : null}
+        {messages.map((msg, idx) => {
+          const isSent = msg.sender === user._id;
+          const reactionEntries = Object.entries(getReactionCounts(msg.reactions));
+          const tick = isSent ? getTickState(msg) : null;
+          const messageId = msg._id || `fallback-${idx}`;
+          const isReactionOpen = openReactionFor === messageId;
+
+          return (
+            <div key={messageId} className={`chat-message-row ${isSent ? 'sent' : 'received'}`}>
+              <div className={`chat-message ${isSent ? 'sent' : 'received'}`}>
+                {msg.content ? <p className="chat-message-content">{msg.content}</p> : null}
+                {Array.isArray(msg.attachments) && msg.attachments.length > 0 ? (
+                  <div className="chat-attachments">
+                    {msg.attachments.map((attachment, attachmentIndex) => (
+                      <a
+                        key={attachment.publicId || attachment.url || attachmentIndex}
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="chat-attachment-link"
+                      >
+                        <img src={attachment.url} alt={attachment.fileName || 'Attachment'} />
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-            <div className="chat-message-meta">
-              <div className="chat-reactions">
-                {Object.entries(getReactionCounts(msg.reactions)).map(([emoji, count]) => (
-                  <button
-                    key={`${msg._id}-${emoji}`}
-                    type="button"
-                    className="chat-reaction-pill"
-                    onClick={() => reactToMessage(msg._id, emoji)}
-                  >
-                    {emoji} {count}
-                  </button>
-                ))}
+              <div className="chat-message-meta">
+                <span className="chat-time">{formatTime(msg.createdAt)}</span>
+                <div className="chat-reactions">
+                  {reactionEntries.map(([emoji, count]) => (
+                    <button
+                      key={`${msg._id}-${emoji}`}
+                      type="button"
+                      className="chat-reaction-pill"
+                      onClick={() => reactToMessage(msg._id, emoji)}
+                    >
+                      {emoji} {count}
+                    </button>
+                  ))}
+                </div>
+                {isSent ? (
+                  <span className={`chat-tick ${tick.className}`}>{tick.text}</span>
+                ) : null}
+                <button
+                  type="button"
+                  className={`chat-reaction-toggle ${isReactionOpen ? 'active' : ''}`}
+                  onClick={() => setOpenReactionFor(isReactionOpen ? null : messageId)}
+                  title="React"
+                >
+                  🙂
+                </button>
               </div>
-              {msg.sender === user._id ? (
-                <span className={`chat-tick ${getTickState(msg).className}`}>{getTickState(msg).text}</span>
+              {isReactionOpen ? (
+                <div className="chat-reaction-options">
+                  {REACTION_OPTIONS.map((emoji) => (
+                    <button
+                      key={`${messageId}-${emoji}`}
+                      type="button"
+                      className="chat-reaction-btn"
+                      onClick={() => reactToMessage(msg._id, emoji)}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
               ) : null}
             </div>
-            <div className="chat-reaction-options">
-              {REACTION_OPTIONS.map((emoji) => (
-                <button
-                  key={`${msg._id || idx}-${emoji}`}
-                  type="button"
-                  className="chat-reaction-btn"
-                  onClick={() => reactToMessage(msg._id, emoji)}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="chat-input">
         <label className="chat-attach-btn" htmlFor="chat-attachment-input">📎</label>
@@ -281,11 +308,18 @@ export default function ChatWindow({ selectedUser }) {
           onKeyDown={handleKeyDown}
           placeholder="Type a message"
         />
-        <button onClick={handleSend}>Send</button>
+        <button onClick={handleSend} disabled={!canSend}>Send</button>
       </div>
       {selectedFiles.length > 0 ? (
         <div className="chat-selected-files">
-          {selectedFiles.length} attachment(s) selected
+          <span>{selectedFiles.length} attachment(s) selected</span>
+          <div className="chat-selected-file-list">
+            {selectedFiles.map((file) => (
+              <span key={`${file.name}-${file.size}`} className="chat-selected-file-chip">
+                {file.name}
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

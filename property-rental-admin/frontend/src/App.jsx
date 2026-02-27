@@ -17,9 +17,23 @@ import Notifications from './pages/Notifications';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
 
+function isTokenValid(token) {
+  if (!token) return false;
+  try {
+    const base64 = token.split('.')[1]?.replace(/-/g, '+').replace(/_/g, '/');
+    if (!base64) return false;
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const payload = JSON.parse(atob(padded));
+    if (!payload?.exp) return true;
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
+
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('adminToken');
-  return token ? children : <Navigate to="/login" replace />;
+  return isTokenValid(token) ? children : <Navigate to="/login" replace />;
 }
 
 function App() {

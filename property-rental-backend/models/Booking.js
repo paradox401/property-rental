@@ -28,6 +28,12 @@ const bookingSchema = new mongoose.Schema({
     enum: ['Pending', 'Approved', 'Rejected'],
     default: 'Pending'
   },
+  acceptedAt: {
+    type: Date,
+  },
+  rejectedAt: {
+    type: Date,
+  },
   paymentStatus: {
     type: String,
     enum: ['pending', 'pending_verification', 'paid'],
@@ -45,7 +51,7 @@ const bookingSchema = new mongoose.Schema({
     emergencyContactPhone: { type: String, trim: true },
     noteToOwner: { type: String, trim: true },
   }
-});
+}, { timestamps: true });
 
 const Booking = mongoose.model('Booking', bookingSchema);
 

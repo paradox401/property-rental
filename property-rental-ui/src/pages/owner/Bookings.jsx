@@ -69,6 +69,28 @@ export default function Bookings() {
   const handleApprove = (id) => updateStatus(id, 'Approved');
   const handleReject = (id) => updateStatus(id, 'Rejected');
 
+  const renderTimeline = (workflow) => {
+    const steps = Array.isArray(workflow?.steps) ? workflow.steps : [];
+    if (!steps.length) return <span className="timeline-label">Requested</span>;
+
+    return (
+      <div className="booking-timeline-wrap">
+        <div className="booking-timeline">
+          {steps.map((step) => (
+            <span
+              key={step.key}
+              className={`timeline-node ${step.completed ? 'completed' : ''} ${step.active ? 'active' : ''}`}
+              title={step.label}
+            />
+          ))}
+        </div>
+        <span className={`timeline-label ${workflow?.stage === 'rejected' ? 'rejected' : ''}`}>
+          {workflow?.label || 'Requested'}
+        </span>
+      </div>
+    );
+  };
+
   if (loading) return <p>Loading bookings...</p>;
   if (error) return <p style={{ color: 'red' }}>{error}</p>;
 
@@ -86,18 +108,20 @@ export default function Bookings() {
               <th>From</th>
               <th>To</th>
               <th>Status</th>
+              <th>Timeline</th>
               <th>Payment</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {bookings.map(({ _id, renter, property, fromDate, toDate, status = 'Pending', paymentStatus }) => (
+            {bookings.map(({ _id, renter, property, fromDate, toDate, status = 'Pending', paymentStatus, workflow }) => (
               <tr key={_id}>
                 <td>{renter?.name || renter?.email || 'N/A'}</td>
                 <td>{property?.title || 'N/A'}</td>
                 <td>{new Date(fromDate).toLocaleDateString()}</td>
                 <td>{new Date(toDate).toLocaleDateString()}</td>
                 <td className={`status ${status.toLowerCase()}`}>{status}</td>
+                <td>{renderTimeline(workflow)}</td>
                 <td>{paymentStatus || 'pending'}</td>
                 <td>
                   {status === 'Pending' ? (

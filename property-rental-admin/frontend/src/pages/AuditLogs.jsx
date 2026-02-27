@@ -6,12 +6,19 @@ import { formatDate, parsePaged } from '../utils';
 export default function AuditLogs() {
   const [rows, setRows] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 50, totalPages: 1 });
+  const [error, setError] = useState('');
 
   const load = async (nextPage = 1) => {
-    const res = await API.get('/audit-logs', { params: { page: nextPage, limit: 50 } });
-    const parsed = parsePaged(res.data);
-    setRows(parsed.items);
-    setMeta(parsed.meta);
+    try {
+      setError('');
+      const res = await API.get('/audit-logs', { params: { page: nextPage, limit: 50 } });
+      const parsed = parsePaged(res.data);
+      setRows(parsed.items);
+      setMeta(parsed.meta);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load audit logs');
+      setRows([]);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -19,6 +26,7 @@ export default function AuditLogs() {
   return (
     <div>
       <div className="page-header"><div><h1>Audit Logs</h1><p className="page-subtitle">Trace all critical admin changes.</p></div></div>
+      {error ? <p className="error">{error}</p> : null}
       <div className="table-wrap">
         <table className="table">
           <thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>Entity</th><th>Entity ID</th><th>Details</th></tr></thead>
