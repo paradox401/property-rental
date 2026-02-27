@@ -1,5 +1,7 @@
 import express from 'express';
 import User from '../models/User.js';
+import Agreement from '../models/Agreement.js';
+import Payment from '../models/Payment.js';
 import protect from '../middleware/authMiddleware.js';
 import adminOnly from '../middleware/adminMiddleware.js';
 import { sendNotification } from '../socket.js';
@@ -38,6 +40,100 @@ router.get('/me', protect, async (req, res) => {
     res.json(user);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+router.get('/documents/center', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select(
+        'role kycDocuments ownerVerificationDocuments ownerVerificationStatus kycStatus'
+      )
+      .lean();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const isOwner = user.role === 'owner';
+    const agreementFilter = isOwner ? { owner: req.user._id } : { renter: req.user._id };
+    const paymentFilter = isOwner ? { ownerId: req.user._id } : { renter: req.user._id };
+
+    const [agreements, payments] = await Promise.all([
+      Agreement.find(agreementFilter)
+        .populate('property', 'title location')
+        .populate('booking', 'fromDate toDate')
+        .select('property booking currentVersion versions updatedAt')
+        .sort({ updatedAt: -1 })
+        .lean(),
+      Payment.find(paymentFilter)
+        .populate({
+          path: 'booking',
+          populate: { path: 'property', select: 'title location' },
+        })
+        .select(
+          'booking amount monthsCount paymentPeriodStart paymentPeriodEnd status paymentMethod createdAt'
+        )
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+
+    const agreementDocs = agreements.map((agreement) => {
+      const versions = Array.isArray(agreement.versions) ? agreement.versions : [];
+      const activeVersion =
+        versions.find((item) => Number(item.version) === Number(agreement.currentVersion)) ||
+        versions[versions.length - 1];
+      return {
+        id: agreement._id,
+        type: 'agreement',
+        title: agreement.property?.title || 'Lease Agreement',
+        property: agreement.property?.title || 'Unknown property',
+        status: activeVersion?.status || 'pending_owner',
+        version: agreement.currentVersion || 1,
+        updatedAt: agreement.updatedAt,
+        openLink: `/${isOwner ? 'owner' : 'renter'}/agreements`,
+      };
+    });
+
+    const invoiceDocs = payments.map((payment) => ({
+      id: payment._id,
+      type: 'invoice',
+      title: `Invoice INV-${String(payment._id).slice(-6).toUpperCase()}`,
+      property: payment.booking?.property?.title || 'Unknown property',
+      amount: Number(payment.amount || 0),
+      status: payment.status,
+      paymentMethod: payment.paymentMethod,
+      paymentPeriodStart: payment.paymentPeriodStart,
+      paymentPeriodEnd: payment.paymentPeriodEnd,
+      createdAt: payment.createdAt,
+      openLink: `/api/payments/${payment._id}/invoice`,
+    }));
+
+    const verificationSource = isOwner
+      ? user.ownerVerificationDocuments || []
+      : user.kycDocuments || [];
+    const verificationDocs = verificationSource.map((doc) => ({
+      id: doc._id,
+      type: 'verification',
+      title: doc.docType || 'Identity document',
+      status: doc.status || 'pending',
+      uploadedAt: doc.uploadedAt,
+      reviewedAt: doc.reviewedAt,
+      imageUrl: doc.imageUrl,
+      rejectReason: doc.rejectReason || '',
+      openLink: doc.imageUrl,
+    }));
+
+    res.json({
+      summary: {
+        agreements: agreementDocs.length,
+        invoices: invoiceDocs.length,
+        verificationDocs: verificationDocs.length,
+      },
+      agreements: agreementDocs,
+      invoices: invoiceDocs,
+      verificationDocs,
+    });
+  } catch (err) {
+    console.error('documents/center error:', err);
+    res.status(500).json({ error: 'Failed to load document center' });
   }
 });
 

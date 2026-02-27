@@ -12,13 +12,17 @@ function PropertyCard({ property, onViewDetails, onApplyBooking }) {
     if (!token) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/favorites`, {
-        method: 'POST',
+      const endpoint = isFavorited
+        ? `${API_BASE_URL}/api/favorites/${property._id}`
+        : `${API_BASE_URL}/api/favorites`;
+      const method = isFavorited ? 'DELETE' : 'POST';
+      const res = await fetch(endpoint, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ propertyId: property._id }),
+        body: isFavorited ? undefined : JSON.stringify({ propertyId: property._id }),
       });
 
       if (!res.ok) {
@@ -26,7 +30,7 @@ function PropertyCard({ property, onViewDetails, onApplyBooking }) {
         throw new Error(data.error || 'Failed to favorite');
       }
 
-      setIsFavorited(true);
+      setIsFavorited((prev) => !prev);
     } catch (err) {
       console.error('Favorite error:', err.message);
     }
@@ -34,19 +38,23 @@ function PropertyCard({ property, onViewDetails, onApplyBooking }) {
 
   useEffect(() => {
     const checkFavorite = async () => {
+      if (!token) {
+        setIsFavorited(false);
+        return;
+      }
+
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/favorites/check/${property._id}`,
-          {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          }
-        );
+        const res = await fetch(`${API_BASE_URL}/api/favorites`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await res.json();
-        if (res.ok && typeof data.isFavorited === 'boolean') {
-          setIsFavorited(data.isFavorited);
-        } else {
+        if (!res.ok || !Array.isArray(data)) {
           setIsFavorited(false);
+          return;
         }
+
+        const hasFavorite = data.some((favoriteProperty) => favoriteProperty?._id === property._id);
+        setIsFavorited(hasFavorite);
       } catch (err) {
         console.error('Error checking favorite:', err.message);
         setIsFavorited(false);

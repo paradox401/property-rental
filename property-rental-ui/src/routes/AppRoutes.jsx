@@ -30,6 +30,7 @@ import PaymentFailure from '../pages/renter/PaymentFailure';
 import Settings from '../pages/common/Settings';
 import Agreements from '../pages/common/Agreements';
 import Profile from '../pages/common/Profile';
+import DocumentCenter from '../pages/common/DocumentCenter';
 import AdminOverview from '../pages/admin/AdminOverview';
 import Approvals from '../pages/admin/Approvals';
 import OwnerVerifications from '../pages/admin/OwnerVerifications';
@@ -75,6 +76,7 @@ export default function AppRoutes() {
         <Route path="payment-status" element={<PaymentStatus />} />
         <Route path="agreements" element={<Agreements />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="documents" element={<DocumentCenter />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 
@@ -93,6 +95,7 @@ export default function AppRoutes() {
         <Route path="message" element={<Message />} />
         <Route path="agreements" element={<Agreements />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="documents" element={<DocumentCenter />} />
         <Route path="complaint" element={<ComplaintPage />} />
         <Route path="complaint-history" element={<ComplaintHistory />} />
         <Route path="payments" element={<PaymentPage />} />

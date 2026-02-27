@@ -11,7 +11,11 @@ export default function PaymentStatus() {
       paidByRenter: 0,
       pendingFromRenter: 0,
       transferredToOwner: 0,
+      allocatedAmount: 0,
+      transferredAmount: 0,
+      pendingTransferAmount: 0,
     },
+    payoutTrend: [],
     rows: [],
   });
   const [loading, setLoading] = useState(true);
@@ -30,6 +34,7 @@ export default function PaymentStatus() {
         if (!res.ok) throw new Error(payload.error || 'Failed to fetch payment status');
         setData({
           summary: payload.summary || data.summary,
+          payoutTrend: Array.isArray(payload.payoutTrend) ? payload.payoutTrend : [],
           rows: Array.isArray(payload.rows) ? payload.rows : [],
         });
       } catch (err) {
@@ -67,6 +72,49 @@ export default function PaymentStatus() {
         <div className="owner-payment-card">
           <h3>{data.summary.transferredToOwner}</h3>
           <p>Transferred to You</p>
+        </div>
+        <div className="owner-payment-card">
+          <h3>Rs. {data.summary.allocatedAmount || 0}</h3>
+          <p>Allocated</p>
+        </div>
+        <div className="owner-payment-card">
+          <h3>Rs. {data.summary.transferredAmount || 0}</h3>
+          <p>Transferred</p>
+        </div>
+        <div className="owner-payment-card">
+          <h3>Rs. {data.summary.pendingTransferAmount || 0}</h3>
+          <p>Pending Transfer</p>
+        </div>
+      </div>
+
+      <div className="owner-payment-trend">
+        <h3>Monthly Payout Trend</h3>
+        <div className="owner-payment-table-wrap">
+          <table className="owner-payment-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Allocated</th>
+                <th>Transferred</th>
+                <th>Pending Transfer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.payoutTrend.map((row) => (
+                <tr key={row.month}>
+                  <td>{row.month}</td>
+                  <td>Rs. {row.allocated || 0}</td>
+                  <td>Rs. {row.transferred || 0}</td>
+                  <td>Rs. {row.pendingTransfer || 0}</td>
+                </tr>
+              ))}
+              {data.payoutTrend.length === 0 && (
+                <tr>
+                  <td colSpan="4">No payout trend data available.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

@@ -1,12 +1,16 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
+import PropertyDetails from '../../components/common/PropertyDetails';
+import BookingPopup from '../../components/common/BookingPopup';
 import './Favorites.css';
 
 export default function Favorites() {
   const { token } = useContext(AuthContext);
   const [favorites, setFavorites] = useState([]);
   const [error, setError] = useState('');
+  const [viewDetailsId, setViewDetailsId] = useState(null);
+  const [bookingProperty, setBookingProperty] = useState(null);
   const validFavorites = favorites.filter(Boolean);
 
   useEffect(() => {
@@ -62,10 +66,40 @@ export default function Favorites() {
               <h3>{property.title}</h3>
               <p>Location: {property.location}</p>
               <p>Price: Rs. {property.price}</p>
-              <button onClick={() => removeFavorite(property._id)}>Remove</button>
+              <div className="favorite-actions">
+                <button className="btn-primary" onClick={() => setViewDetailsId(property._id)}>
+                  View Details
+                </button>
+                <button className="btn-primary" onClick={() => setBookingProperty(property)}>
+                  Apply Booking
+                </button>
+                <button className="btn-danger" onClick={() => removeFavorite(property._id)}>
+                  Remove
+                </button>
+              </div>
             </div>
           ))}
         </div>
+      )}
+
+      {viewDetailsId && (
+        <div className="modal-overlay" onClick={() => setViewDetailsId(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="modal-close"
+              onClick={() => setViewDetailsId(null)}
+              aria-label="Close popup"
+              title="Close"
+            >
+              ✕
+            </button>
+            <PropertyDetails id={viewDetailsId} />
+          </div>
+        </div>
+      )}
+
+      {bookingProperty && (
+        <BookingPopup property={bookingProperty} onClose={() => setBookingProperty(null)} />
       )}
     </div>
   );

@@ -192,3 +192,28 @@
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   transform: scale(1.05);
 }
+
+.workflow-hint {
+  display: inline-block;
+  max-width: 260px;
+  white-space: normal;
+  line-height: 1.35;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.booking-actions {
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+.btn-renew {
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.btn-renew:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

@@ -43,6 +43,14 @@
   border-radius: 12px;
 }
 
+.owner-payment-trend {
+  margin-bottom: 1rem;
+}
+
+.owner-payment-trend h3 {
+  margin: 0 0 0.6rem;
+}
+
 .owner-payment-table {
   width: 100%;
   border-collapse: collapse;

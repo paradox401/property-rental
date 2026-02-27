@@ -39,6 +39,25 @@ const bookingSchema = new mongoose.Schema({
     enum: ['pending', 'pending_verification', 'paid'],
     default: 'pending'
   },
+  renewalStatus: {
+    type: String,
+    enum: ['none', 'pending', 'approved', 'rejected'],
+    default: 'none',
+  },
+  renewalRequestedAt: {
+    type: Date,
+  },
+  renewalApprovedAt: {
+    type: Date,
+  },
+  renewalMonths: {
+    type: Number,
+    default: 0,
+  },
+  renewalNote: {
+    type: String,
+    default: '',
+  },
   bookingDetails: {
     fullName: { type: String, trim: true },
     phone: { type: String, trim: true },

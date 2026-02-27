@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { clearAdminSession } from '../api';
 
@@ -21,6 +22,18 @@ const navItems = [
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('adminTheme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('adminTheme', theme);
+  }, [theme]);
 
   const logout = () => {
     clearAdminSession();
@@ -46,6 +59,20 @@ export default function AdminLayout() {
       </aside>
 
       <main className="admin-main">
+        <div className="admin-main-topbar">
+          <button
+            className={`theme-toggle ${theme}`}
+            type="button"
+            onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+            aria-label="Toggle dark mode"
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            <span className="theme-toggle-track">
+              <span className="theme-toggle-thumb" />
+            </span>
+            <span className="theme-toggle-label">{theme === 'dark' ? 'Dark' : 'Light'}</span>
+          </button>
+        </div>
         <Outlet />
       </main>
     </div>

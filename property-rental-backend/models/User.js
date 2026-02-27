@@ -14,6 +14,9 @@ const notificationPreferencesSchema = new mongoose.Schema(
       ownerVerification: { type: Boolean, default: true },
       message: { type: Boolean, default: true },
       review: { type: Boolean, default: true },
+      leaseRenewal: { type: Boolean, default: true },
+      workflowReminder: { type: Boolean, default: true },
+      payoutReminder: { type: Boolean, default: true },
     },
   },
   { _id: false }

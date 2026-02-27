@@ -7,6 +7,7 @@ import Message from '../models/Message.js';
 import Notification from '../models/Notification.js';
 import AdminSetting from '../models/AdminSetting.js';
 import AuditLog from '../models/AuditLog.js';
+import Agreement from '../models/Agreement.js';
 
 const safeRegex = (value) => new RegExp(String(value || '').trim(), 'i');
 const parsePage = (value, fallback = 1) => {
@@ -30,6 +31,81 @@ const sendPaginated = (res, items, total, page, limit) => {
   });
 };
 
+const toMonthKey = (value) => {
+  const date = new Date(value);
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  return `${date.getFullYear()}-${month}`;
+};
+
+const parseDateInput = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const toCsvValue = (value) => {
+  const normalized =
+    value == null
+      ? ''
+      : typeof value === 'object'
+        ? JSON.stringify(value)
+        : String(value);
+  return `"${normalized.replace(/"/g, '""')}"`;
+};
+
+const buildActionableReminders = async () => {
+  const reminders = [];
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+  const [approvedBookings, agreements, payoutsPendingTransfer] = await Promise.all([
+    Booking.find({ status: 'Approved', createdAt: { $lte: threeDaysAgo } })
+      .select('_id createdAt fromDate toDate')
+      .lean(),
+    Agreement.find().select('booking currentVersion versions').lean(),
+    Payment.countDocuments({
+      status: 'Paid',
+      payoutStatus: { $ne: 'Transferred' },
+      createdAt: { $lte: threeDaysAgo },
+    }),
+  ]);
+
+  const signedAgreementBookingIds = new Set(
+    agreements
+      .filter((agreement) => {
+        const versions = Array.isArray(agreement.versions) ? agreement.versions : [];
+        const active =
+          versions.find((item) => Number(item.version) === Number(agreement.currentVersion)) ||
+          versions[versions.length - 1];
+        return active?.status === 'fully_signed';
+      })
+      .map((agreement) => String(agreement.booking))
+  );
+
+  const unsignedBookingCount = approvedBookings.filter(
+    (booking) => !signedAgreementBookingIds.has(String(booking._id))
+  ).length;
+
+  if (unsignedBookingCount > 0) {
+    reminders.push({
+      code: 'agreement_unsigned_over_3_days',
+      title: 'Booking approved but agreement unsigned (3+ days)',
+      count: unsignedBookingCount,
+      severity: 'warning',
+    });
+  }
+
+  if (payoutsPendingTransfer > 0) {
+    reminders.push({
+      code: 'paid_not_transferred',
+      title: 'Payment paid but owner payout not transferred',
+      count: payoutsPendingTransfer,
+      severity: 'warning',
+    });
+  }
+
+  return reminders;
+};
+
 const logAudit = async (req, action, entityType, entityId, details = null) => {
   try {
     await AuditLog.create({
@@ -46,6 +122,9 @@ const logAudit = async (req, action, entityType, entityId, details = null) => {
 
 export const getOverview = async (_req, res) => {
   try {
+    const activityDays = Math.max(1, Math.min(Number(_req.query?.activityDays || 30), 365));
+    const activitySince = new Date(Date.now() - activityDays * 24 * 60 * 60 * 1000);
+
     const [users, properties, bookings, complaints, payments, messages] = await Promise.all([
       User.countDocuments(),
       Property.countDocuments(),
@@ -64,10 +143,97 @@ export const getOverview = async (_req, res) => {
 
     const paymentAgg = await Payment.aggregate([
       { $match: { status: 'Paid' } },
-      { $group: { _id: null, totalRevenue: { $sum: '$amount' } } },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$amount' },
+          totalOwnerDistributed: {
+            $sum: {
+              $cond: [
+                { $eq: ['$payoutStatus', 'Transferred'] },
+                { $ifNull: ['$ownerAmount', 0] },
+                0,
+              ],
+            },
+          },
+        },
+      },
     ]);
 
-    const recentActivity = await AuditLog.find().sort({ createdAt: -1 }).limit(15);
+    const totalRevenue = paymentAgg[0]?.totalRevenue || 0;
+    const ownerDistributed = paymentAgg[0]?.totalOwnerDistributed || 0;
+    const profit = Number((totalRevenue - ownerDistributed).toFixed(2));
+
+    const payoutSummary = await Payment.aggregate([
+      {
+        $match: {
+          status: 'Paid',
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          allocated: {
+            $sum: {
+              $cond: [{ $eq: ['$payoutStatus', 'Allocated'] }, { $ifNull: ['$ownerAmount', 0] }, 0],
+            },
+          },
+          transferred: {
+            $sum: {
+              $cond: [{ $eq: ['$payoutStatus', 'Transferred'] }, { $ifNull: ['$ownerAmount', 0] }, 0],
+            },
+          },
+          pendingTransfer: {
+            $sum: {
+              $cond: [
+                { $in: ['$payoutStatus', ['Unallocated', 'Allocated']] },
+                { $ifNull: ['$ownerAmount', 0] },
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    const payoutTrendRows = await Payment.aggregate([
+      { $match: { status: 'Paid' } },
+      {
+        $project: {
+          month: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+          ownerAmount: { $ifNull: ['$ownerAmount', 0] },
+          payoutStatus: '$payoutStatus',
+        },
+      },
+      {
+        $group: {
+          _id: '$month',
+          allocated: {
+            $sum: {
+              $cond: [{ $eq: ['$payoutStatus', 'Allocated'] }, '$ownerAmount', 0],
+            },
+          },
+          transferred: {
+            $sum: {
+              $cond: [{ $eq: ['$payoutStatus', 'Transferred'] }, '$ownerAmount', 0],
+            },
+          },
+          pendingTransfer: {
+            $sum: {
+              $cond: [{ $in: ['$payoutStatus', ['Unallocated', 'Allocated']] }, '$ownerAmount', 0],
+            },
+          },
+        },
+      },
+      { $sort: { _id: -1 } },
+      { $limit: 6 },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const [recentActivity, actionableReminders] = await Promise.all([
+      AuditLog.find({ createdAt: { $gte: activitySince } }).sort({ createdAt: -1 }).limit(15),
+      buildActionableReminders(),
+    ]);
 
     res.json({
       totals: {
@@ -77,13 +243,28 @@ export const getOverview = async (_req, res) => {
         complaints,
         payments,
         messages,
-        revenue: paymentAgg[0]?.totalRevenue || 0,
+        revenue: totalRevenue,
+        ownerDistributed,
+        profit,
       },
       alerts: {
         pendingListings,
         pendingOwnerVerifications,
         openComplaints,
         failedPayments,
+        actionableReminders,
+        activityDays,
+      },
+      payoutSummary: {
+        allocated: payoutSummary[0]?.allocated || 0,
+        transferred: payoutSummary[0]?.transferred || 0,
+        pendingTransfer: payoutSummary[0]?.pendingTransfer || 0,
+        trend: payoutTrendRows.map((row) => ({
+          month: row._id,
+          allocated: row.allocated || 0,
+          transferred: row.transferred || 0,
+          pendingTransfer: row.pendingTransfer || 0,
+        })),
       },
       recentActivity,
     });
@@ -765,18 +946,142 @@ export const getReports = async (_req, res) => {
 
 export const getAuditLogs = async (req, res) => {
   try {
+    const {
+      page,
+      limit,
+      q,
+      entityType,
+      action,
+      adminId,
+      dateFrom,
+      dateTo,
+      export: exportFormat,
+    } = req.query;
+
+    const filter = {};
+    if (q) {
+      const regex = safeRegex(q);
+      filter.$or = [{ action: regex }, { entityType: regex }, { entityId: regex }];
+    }
+    if (entityType) filter.entityType = entityType;
+    if (action) filter.action = action;
+    if (adminId) filter.adminId = adminId;
+
+    const from = parseDateInput(dateFrom);
+    const to = parseDateInput(dateTo);
+    if (from || to) {
+      filter.createdAt = {};
+      if (from) filter.createdAt.$gte = from;
+      if (to) filter.createdAt.$lte = to;
+    }
+
+    const query = AuditLog.find(filter)
+      .populate('adminId', 'username')
+      .sort({ createdAt: -1 });
+
+    if (String(exportFormat || '').toLowerCase() === 'csv') {
+      const rows = await query.limit(5000).lean();
+      const header = ['time', 'admin', 'action', 'entityType', 'entityId', 'details'];
+      const csvRows = rows.map((row) =>
+        [
+          row.createdAt,
+          row.adminId?.username || '',
+          row.action,
+          row.entityType,
+          row.entityId,
+          row.details,
+        ]
+          .map(toCsvValue)
+          .join(',')
+      );
+      const csv = [header.join(','), ...csvRows].join('\n');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="audit-logs.csv"');
+      return res.status(200).send(csv);
+    }
+
     const currentPage = parsePage(req.query.page);
     const currentLimit = parseLimit(req.query.limit, 50);
     const [logs, total] = await Promise.all([
-      AuditLog.find()
-        .populate('adminId', 'username')
-        .sort({ createdAt: -1 })
+      query
         .skip((currentPage - 1) * currentLimit)
         .limit(currentLimit),
-      AuditLog.countDocuments(),
+      AuditLog.countDocuments(filter),
     ]);
     sendPaginated(res, logs, total, currentPage, currentLimit);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch audit logs' });
+  }
+};
+
+export const getDashboardViews = async (req, res) => {
+  try {
+    const key = `dashboardViews:${req.admin._id}`;
+    const setting = await AdminSetting.findOne({ key }).lean();
+    const views = Array.isArray(setting?.value) ? setting.value : [];
+    res.json({ views });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch dashboard views' });
+  }
+};
+
+export const saveDashboardView = async (req, res) => {
+  try {
+    const { id, name, filters = {}, layout = {} } = req.body || {};
+    const trimmedName = String(name || '').trim();
+    if (!trimmedName) return res.status(400).json({ error: 'View name is required' });
+
+    const key = `dashboardViews:${req.admin._id}`;
+    const setting = await AdminSetting.findOne({ key });
+    const current = Array.isArray(setting?.value) ? setting.value : [];
+    const nextId = id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const nextView = {
+      id: nextId,
+      name: trimmedName,
+      filters,
+      layout,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const existingIndex = current.findIndex((item) => item.id === nextId);
+    if (existingIndex >= 0) current[existingIndex] = nextView;
+    else current.unshift(nextView);
+
+    const saved = await AdminSetting.findOneAndUpdate(
+      { key },
+      { key, value: current.slice(0, 20) },
+      { upsert: true, new: true }
+    );
+
+    await logAudit(req, 'dashboard_view_saved', 'AdminSetting', saved._id, {
+      viewId: nextId,
+      name: trimmedName,
+    });
+    res.json({ views: saved.value || [] });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save dashboard view' });
+  }
+};
+
+export const deleteDashboardView = async (req, res) => {
+  try {
+    const viewId = String(req.params.id || '').trim();
+    if (!viewId) return res.status(400).json({ error: 'View id is required' });
+
+    const key = `dashboardViews:${req.admin._id}`;
+    const setting = await AdminSetting.findOne({ key });
+    const current = Array.isArray(setting?.value) ? setting.value : [];
+    const filtered = current.filter((item) => item.id !== viewId);
+
+    const saved = await AdminSetting.findOneAndUpdate(
+      { key },
+      { key, value: filtered },
+      { upsert: true, new: true }
+    );
+
+    await logAudit(req, 'dashboard_view_deleted', 'AdminSetting', saved._id, { viewId });
+    res.json({ views: saved.value || [] });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete dashboard view' });
   }
 };

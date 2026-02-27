@@ -164,7 +164,16 @@ router.get('/owner/status', protect, async (req, res) => {
     const propertyIds = ownerProperties.map((p) => p._id);
     if (propertyIds.length === 0) {
       return res.json({
-        summary: { totalApprovedBookings: 0, paidByRenter: 0, pendingFromRenter: 0, transferredToOwner: 0 },
+        summary: {
+          totalApprovedBookings: 0,
+          paidByRenter: 0,
+          pendingFromRenter: 0,
+          transferredToOwner: 0,
+          allocatedAmount: 0,
+          transferredAmount: 0,
+          pendingTransferAmount: 0,
+        },
+        payoutTrend: [],
         rows: [],
       });
     }
@@ -224,10 +233,65 @@ router.get('/owner/status', protect, async (req, res) => {
         if (row.ownerPayoutStatus === 'Transferred') acc.transferredToOwner += 1;
         return acc;
       },
-      { totalApprovedBookings: 0, paidByRenter: 0, pendingFromRenter: 0, transferredToOwner: 0 }
+      {
+        totalApprovedBookings: 0,
+        paidByRenter: 0,
+        pendingFromRenter: 0,
+        transferredToOwner: 0,
+        allocatedAmount: 0,
+        transferredAmount: 0,
+        pendingTransferAmount: 0,
+      }
     );
 
-    return res.json({ summary, rows });
+    const paidOwnerPayments = payments.filter((payment) => payment.status === 'Paid');
+    paidOwnerPayments.forEach((payment) => {
+      const ownerAmount = Number(payment.ownerAmount || 0);
+      if (payment.payoutStatus === 'Allocated') {
+        summary.allocatedAmount += ownerAmount;
+        summary.pendingTransferAmount += ownerAmount;
+      } else if (payment.payoutStatus === 'Transferred') {
+        summary.transferredAmount += ownerAmount;
+      } else {
+        summary.pendingTransferAmount += ownerAmount;
+      }
+    });
+
+    summary.allocatedAmount = Number(summary.allocatedAmount.toFixed(2));
+    summary.transferredAmount = Number(summary.transferredAmount.toFixed(2));
+    summary.pendingTransferAmount = Number(summary.pendingTransferAmount.toFixed(2));
+
+    const monthBuckets = new Map();
+    const currentMonth = startOfMonth(new Date());
+    for (let i = 5; i >= 0; i -= 1) {
+      const monthDate = addMonths(currentMonth, -i);
+      const monthKey = monthDate.toISOString().slice(0, 7);
+      monthBuckets.set(monthKey, { month: monthKey, allocated: 0, transferred: 0, pendingTransfer: 0 });
+    }
+
+    paidOwnerPayments.forEach((payment) => {
+      const monthKey = new Date(payment.createdAt).toISOString().slice(0, 7);
+      if (!monthBuckets.has(monthKey)) return;
+      const bucket = monthBuckets.get(monthKey);
+      const ownerAmount = Number(payment.ownerAmount || 0);
+      if (payment.payoutStatus === 'Allocated') {
+        bucket.allocated += ownerAmount;
+        bucket.pendingTransfer += ownerAmount;
+      } else if (payment.payoutStatus === 'Transferred') {
+        bucket.transferred += ownerAmount;
+      } else {
+        bucket.pendingTransfer += ownerAmount;
+      }
+    });
+
+    const payoutTrend = Array.from(monthBuckets.values()).map((row) => ({
+      ...row,
+      allocated: Number(row.allocated.toFixed(2)),
+      transferred: Number(row.transferred.toFixed(2)),
+      pendingTransfer: Number(row.pendingTransfer.toFixed(2)),
+    }));
+
+    return res.json({ summary, payoutTrend, rows });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to fetch owner payment status' });

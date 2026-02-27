@@ -97,6 +97,54 @@ body {
   padding: 1.25rem;
 }
 
+.admin-main-topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem 0.3rem 0.35rem;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.theme-toggle-track {
+  width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  background: #334155;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.theme-toggle-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+}
+
+.theme-toggle.dark .theme-toggle-track {
+  background: #1d4ed8;
+}
+
+.theme-toggle.dark .theme-toggle-thumb {
+  transform: translateX(12px);
+}
+
 .page-header {
   display: flex;
   align-items: center;
@@ -460,4 +508,210 @@ body {
   .complaints-table thead {
     background: #1e3a8a;
   }
+}
+
+/* Explicit theme toggle support */
+:root[data-theme='dark'] {
+  --bg: #0f172a;
+  --surface: #111827;
+  --surface-muted: #1f2937;
+  --text: #e5e7eb;
+  --text-muted: #9ca3af;
+  --border: #374151;
+  --accent: #3b82f6;
+  --accent-strong: #2563eb;
+  color: #e5e7eb;
+  background: #0f172a;
+}
+
+html[data-theme='dark'] body {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+html[data-theme='dark'] .admin-main,
+html[data-theme='dark'] .dashboard-container {
+  background: #0f172a;
+}
+
+html[data-theme='dark'] .page-subtitle,
+html[data-theme='dark'] .kpi-label,
+html[data-theme='dark'] .messages-empty,
+html[data-theme='dark'] .error {
+  color: #9ca3af;
+}
+
+html[data-theme='dark'] .card,
+html[data-theme='dark'] .kpi,
+html[data-theme='dark'] .table-wrap,
+html[data-theme='dark'] .messages-toolbar,
+html[data-theme='dark'] .messages-thread-list,
+html[data-theme='dark'] .messages-thread-panel,
+html[data-theme='dark'] .payments-page .payments-toolbar,
+html[data-theme='dark'] .payments-table-wrap,
+html[data-theme='dark'] .thread-item,
+html[data-theme='dark'] .thread-message,
+html[data-theme='dark'] .admin-kyc-doc-card,
+html[data-theme='dark'] .login-card,
+html[data-theme='dark'] .toolbar input,
+html[data-theme='dark'] .toolbar select,
+html[data-theme='dark'] .toolbar textarea,
+html[data-theme='dark'] .payments-page .commission-input,
+html[data-theme='dark'] .payments-page .remark-input,
+html[data-theme='dark'] .admin-kyc-reason-input,
+html[data-theme='dark'] .login-card input {
+  background: #111827 !important;
+  border-color: #374151 !important;
+  color: #e5e7eb;
+}
+
+html[data-theme='dark'] .toolbar input,
+html[data-theme='dark'] .toolbar select,
+html[data-theme='dark'] .toolbar textarea,
+html[data-theme='dark'] .payments-page .commission-input,
+html[data-theme='dark'] .payments-page .remark-input,
+html[data-theme='dark'] .admin-kyc-reason-input,
+html[data-theme='dark'] .login-card input {
+  background: #1f2937 !important;
+  border-color: #4b5563 !important;
+}
+
+html[data-theme='dark'] .table th,
+html[data-theme='dark'] .table td,
+html[data-theme='dark'] .thread-panel-header,
+html[data-theme='dark'] .thread-message,
+html[data-theme='dark'] .thread-item {
+  border-color: #374151 !important;
+  color: #e5e7eb;
+}
+
+html[data-theme='dark'] .table th,
+html[data-theme='dark'] .thread-item p,
+html[data-theme='dark'] .thread-message p,
+html[data-theme='dark'] .admin-kyc-doc-type,
+html[data-theme='dark'] .messages-unread-toggle,
+html[data-theme='dark'] .complaints-table td,
+html[data-theme='dark'] .complaints-table th,
+html[data-theme='dark'] .login-card h2,
+html[data-theme='dark'] .dashboard-container h1,
+html[data-theme='dark'] .card h2,
+html[data-theme='dark'] .card p {
+  color: #e5e7eb !important;
+}
+
+html[data-theme='dark'] .thread-item.active,
+html[data-theme='dark'] .messages-view-switch .btn.active {
+  background: rgba(59, 130, 246, 0.25) !important;
+  border-color: #3b82f6 !important;
+}
+
+html[data-theme='dark'] .complaints-table,
+html[data-theme='dark'] .complaints-table tbody tr:nth-child(even),
+html[data-theme='dark'] .complaints-table tbody tr.resolved {
+  background: #111827;
+  color: #e5e7eb;
+}
+
+html[data-theme='dark'] .complaints-table thead {
+  background: #1e3a8a;
+}
+
+:root[data-theme='light'] {
+  --bg: #f3f6fb;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #dbe2eb;
+  --accent: #1d4ed8;
+  --accent-strong: #1e40af;
+  color: #0f172a;
+  background: #f3f6fb;
+}
+
+html[data-theme='light'] body {
+  background: #f3f6fb;
+  color: #0f172a;
+}
+
+html[data-theme='light'] .admin-main,
+html[data-theme='light'] .dashboard-container {
+  background: #f3f6fb !important;
+}
+
+html[data-theme='light'] .page-subtitle,
+html[data-theme='light'] .kpi-label,
+html[data-theme='light'] .thread-item small,
+html[data-theme='light'] .messages-empty,
+html[data-theme='light'] .error {
+  color: #64748b !important;
+}
+
+html[data-theme='light'] .card,
+html[data-theme='light'] .kpi,
+html[data-theme='light'] .table-wrap,
+html[data-theme='light'] .messages-toolbar,
+html[data-theme='light'] .messages-thread-list,
+html[data-theme='light'] .messages-thread-panel,
+html[data-theme='light'] .payments-page .payments-toolbar,
+html[data-theme='light'] .payments-table-wrap,
+html[data-theme='light'] .thread-item,
+html[data-theme='light'] .thread-message,
+html[data-theme='light'] .admin-kyc-doc-card,
+html[data-theme='light'] .login-card {
+  background: #ffffff !important;
+  border-color: #dbe2eb !important;
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .table th,
+html[data-theme='light'] .table td,
+html[data-theme='light'] .thread-panel-header,
+html[data-theme='light'] .thread-message,
+html[data-theme='light'] .thread-item {
+  border-color: #edf2f7 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .table th,
+html[data-theme='light'] .thread-item p,
+html[data-theme='light'] .thread-message p,
+html[data-theme='light'] .admin-kyc-doc-type,
+html[data-theme='light'] .messages-unread-toggle,
+html[data-theme='light'] .login-card h2,
+html[data-theme='light'] .dashboard-container h1,
+html[data-theme='light'] .card h2,
+html[data-theme='light'] .card p,
+html[data-theme='light'] .complaints-table td,
+html[data-theme='light'] .complaints-table th {
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .toolbar input,
+html[data-theme='light'] .toolbar select,
+html[data-theme='light'] .toolbar textarea,
+html[data-theme='light'] .payments-page .commission-input,
+html[data-theme='light'] .payments-page .remark-input,
+html[data-theme='light'] .admin-kyc-reason-input,
+html[data-theme='light'] .login-card input {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .thread-item.active,
+html[data-theme='light'] .messages-view-switch .btn.active {
+  background: rgba(29, 78, 216, 0.12) !important;
+  border-color: #1d4ed8 !important;
+}
+
+html[data-theme='light'] .complaints-table,
+html[data-theme='light'] .complaints-table tbody tr:nth-child(even),
+html[data-theme='light'] .complaints-table tbody tr.resolved {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .complaints-table thead {
+  background: #eff6ff !important;
 }

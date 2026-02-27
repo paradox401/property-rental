@@ -30,6 +30,9 @@ import {
   sendBroadcast,
   getReports,
   getAuditLogs,
+  getDashboardViews,
+  saveDashboardView,
+  deleteDashboardView,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -73,5 +76,8 @@ router.put('/featured-listings', updateFeaturedListings);
 router.post('/broadcast', sendBroadcast);
 router.get('/reports', getReports);
 router.get('/audit-logs', getAuditLogs);
+router.get('/dashboard-views', getDashboardViews);
+router.post('/dashboard-views', saveDashboardView);
+router.delete('/dashboard-views/:id', deleteDashboardView);
 
 export default router;

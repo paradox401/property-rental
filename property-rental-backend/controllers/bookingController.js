@@ -2,6 +2,8 @@ import Booking from '../models/Booking.js';
 import Property from '../models/Property.js';
 import Agreement from '../models/Agreement.js';
 import Payment from '../models/Payment.js';
+import User from '../models/User.js';
+import { sendNotification } from '../socket.js';
 import { sendNewBookingNotification, sendBookingStatusNotification } from '../cronJobs/paymentReminder.js';
 
 const WORKFLOW_STEPS = [
@@ -341,5 +343,84 @@ export const getApprovedBookings = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Failed to fetch bookings" });
+  }
+};
+
+export const renewBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const months = Math.max(1, Math.min(Number(req.body?.months || 1), 12));
+    const note = String(req.body?.note || '').trim();
+
+    const booking = await Booking.findById(id).populate('property');
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    const isRenter = booking.renter.toString() === req.user._id.toString();
+    const isOwner = booking.property?.ownerId?.toString() === req.user._id.toString();
+    if (!isRenter && !isOwner && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Not authorized to renew this booking' });
+    }
+
+    if (booking.status !== 'Approved') {
+      return res.status(400).json({ error: 'Only approved bookings can be renewed' });
+    }
+
+    const renterUser = await User.findById(booking.renter).select('name');
+    const propertyTitle = booking.property?.title || 'property';
+    if (isRenter && !isOwner && req.user.role !== 'admin') {
+      booking.renewalStatus = 'pending';
+      booking.renewalRequestedAt = new Date();
+      booking.renewalApprovedAt = null;
+      booking.renewalMonths = months;
+      booking.renewalNote = note;
+      await booking.save();
+
+      if (booking.property?.ownerId) {
+        await sendNotification(
+          booking.property.ownerId,
+          'leaseRenewal',
+          `${renterUser?.name || 'Renter'} requested lease renewal for "${propertyTitle}" (${months} month(s)).`,
+          '/owner/requests'
+        );
+      }
+
+      const [decoratedPending] = await decorateBookingsWithWorkflow([booking]);
+      return res.json({
+        success: true,
+        mode: 'requested',
+        message: 'Renewal request sent to owner',
+        booking: decoratedPending || booking,
+      });
+    }
+
+    const currentEnd = booking.toDate ? new Date(booking.toDate) : new Date(booking.fromDate);
+    const renewedEnd = new Date(currentEnd);
+    renewedEnd.setMonth(renewedEnd.getMonth() + months);
+
+    booking.toDate = renewedEnd;
+    booking.renewalStatus = 'approved';
+    booking.renewalRequestedAt = booking.renewalRequestedAt || new Date();
+    booking.renewalApprovedAt = new Date();
+    booking.renewalMonths = months;
+    booking.renewalNote = note || booking.renewalNote;
+    await booking.save();
+
+    await sendNotification(
+      booking.renter,
+      'leaseRenewal',
+      `Your booking for "${propertyTitle}" has been renewed by ${months} month(s).`,
+      '/renter/bookings'
+    );
+
+    const [decorated] = await decorateBookingsWithWorkflow([booking]);
+    return res.json({
+      success: true,
+      mode: 'approved',
+      message: 'Lease renewed successfully',
+      booking: decorated || booking,
+    });
+  } catch (err) {
+    console.error('renewBooking error:', err);
+    return res.status(500).json({ error: 'Failed to renew booking' });
   }
 };

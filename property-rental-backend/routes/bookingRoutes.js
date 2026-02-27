@@ -6,6 +6,7 @@ import {
   getOwnerBookings,
   updateStatus,
   getApprovedBookings,
+  renewBooking,
 } from '../controllers/bookingController.js';
 
 const router = express.Router();
@@ -14,6 +15,7 @@ router.post('/', protect, createBooking);
 router.get('/my', protect, getMyBookings);
 router.get('/owner', protect, getOwnerBookings);
 router.put('/:id/status', protect, updateStatus);
+router.post('/:id/renew', protect, renewBooking);
 router.get('/approved/:renterId', protect, getApprovedBookings);
 
 export default router;
