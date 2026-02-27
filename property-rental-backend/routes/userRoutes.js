@@ -45,11 +45,14 @@ router.put('/me/preferences', protect, async (req, res) => {
   try {
     const { notificationPreferences, privacyPreferences, appPreferences } = req.body;
 
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id)
+      .select('notificationPreferences privacyPreferences appPreferences');
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    const updateDoc = {};
+
     if (notificationPreferences) {
-      user.notificationPreferences = {
+      updateDoc.notificationPreferences = {
         ...user.notificationPreferences?.toObject?.(),
         ...notificationPreferences,
         types: {
@@ -60,7 +63,7 @@ router.put('/me/preferences', protect, async (req, res) => {
     }
 
     if (privacyPreferences) {
-      user.privacyPreferences = {
+      updateDoc.privacyPreferences = {
         ...user.privacyPreferences?.toObject?.(),
         ...privacyPreferences,
       };
@@ -75,7 +78,7 @@ router.put('/me/preferences', protect, async (req, res) => {
         ? appPreferences.language
         : user.appPreferences?.language || 'en';
 
-      user.appPreferences = {
+      updateDoc.appPreferences = {
         ...user.appPreferences?.toObject?.(),
         ...appPreferences,
         theme: nextTheme,
@@ -83,13 +86,18 @@ router.put('/me/preferences', protect, async (req, res) => {
       };
     }
 
-    await user.save();
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updateDoc },
+      { new: true, runValidators: true }
+    ).select('notificationPreferences privacyPreferences appPreferences');
+
     res.json({
       message: 'Preferences updated',
       preferences: {
-        notificationPreferences: user.notificationPreferences,
-        privacyPreferences: user.privacyPreferences,
-        appPreferences: user.appPreferences,
+        notificationPreferences: updatedUser.notificationPreferences,
+        privacyPreferences: updatedUser.privacyPreferences,
+        appPreferences: updatedUser.appPreferences,
       },
     });
   } catch (err) {
