@@ -47,6 +47,10 @@ import {
   getAdminPermissions,
   updateAdminPermissions,
   getAuditLogDiff,
+  getBookingAmendmentsAdmin,
+  decideBookingAmendmentAdmin,
+  getBookingDepositLedgerAdmin,
+  updateBookingDepositLedgerEntryAdmin,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -68,6 +72,10 @@ router.delete('/properties/:id', deleteProperty);
 
 router.get('/bookings', getAllBookings);
 router.patch('/bookings/:id/status', updateBookingStatus);
+router.get('/bookings/:id/amendments', requireAdminPermission('workflow:read'), getBookingAmendmentsAdmin);
+router.patch('/bookings/:id/amendments/:amendmentId', requireAdminPermission('workflow:write'), decideBookingAmendmentAdmin);
+router.get('/bookings/:id/deposit-ledger', requireAdminPermission('workflow:read'), getBookingDepositLedgerAdmin);
+router.patch('/bookings/:id/deposit-ledger/:entryId', requireAdminPermission('workflow:write'), updateBookingDepositLedgerEntryAdmin);
 
 router.get('/payments', getAllPayments);
 router.patch('/payments/:id/status', updatePaymentStatus);

@@ -10,6 +10,8 @@ import AdminSetting from '../models/AdminSetting.js';
 import AuditLog from '../models/AuditLog.js';
 import Agreement from '../models/Agreement.js';
 import AdminAnnotation from '../models/AdminAnnotation.js';
+import LeaseAmendment from '../models/LeaseAmendment.js';
+import DepositLedgerEntry from '../models/DepositLedgerEntry.js';
 import { calcMoMChangePct, calcOccupancyRate, calcProfit } from '../utils/kpiMath.js';
 
 const safeRegex = (value) => new RegExp(String(value || '').trim(), 'i');
@@ -1982,5 +1984,207 @@ export const getAuditLogDiff = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch audit diff' });
+  }
+};
+
+const round2 = (value) => Number(Number(value || 0).toFixed(2));
+
+const buildDepositSummary = (entries = []) => {
+  const summary = {
+    received: 0,
+    deductionsApproved: 0,
+    refundsPaid: 0,
+    pending: 0,
+    netHeld: 0,
+  };
+
+  entries.forEach((entry) => {
+    const amount = Number(entry.amount || 0);
+    if (entry.type === 'deposit_received' && ['recorded', 'approved', 'paid'].includes(entry.status)) {
+      summary.received += amount;
+    }
+    if (entry.type === 'deduction' && entry.status === 'approved') {
+      summary.deductionsApproved += amount;
+    }
+    if (entry.type === 'refund_paid' && entry.status === 'paid') {
+      summary.refundsPaid += amount;
+    }
+    if (entry.status === 'pending') {
+      summary.pending += amount;
+    }
+  });
+
+  summary.netHeld = round2(summary.received - summary.deductionsApproved - summary.refundsPaid);
+  Object.keys(summary).forEach((key) => {
+    summary[key] = round2(summary[key]);
+  });
+
+  return summary;
+};
+
+export const getBookingAmendmentsAdmin = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id).select('_id fromDate toDate status agreedMonthlyRent').lean();
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    const rows = await LeaseAmendment.find({ booking: booking._id })
+      .populate('requestedBy', 'name email role')
+      .populate('decidedBy', 'name email role')
+      .sort({ createdAt: -1 });
+
+    return res.json({ booking, items: rows });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch booking amendments' });
+  }
+};
+
+export const decideBookingAmendmentAdmin = async (req, res) => {
+  try {
+    const status = String(req.body?.status || '').toLowerCase();
+    const decisionNote = String(req.body?.decisionNote || '').trim();
+    if (!['approved', 'rejected', 'cancelled'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const booking = await Booking.findById(req.params.id).lean();
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    const amendment = await LeaseAmendment.findOne({
+      _id: req.params.amendmentId,
+      booking: booking._id,
+    });
+    if (!amendment) return res.status(404).json({ error: 'Amendment not found' });
+    if (amendment.status !== 'pending') return res.status(400).json({ error: 'Amendment already decided' });
+
+    if (status === 'approved') {
+      const targetFrom = amendment.proposedFromDate || booking.fromDate;
+      const targetTo = amendment.proposedToDate || booking.toDate;
+      if (new Date(targetTo) < new Date(targetFrom)) {
+        return res.status(400).json({ error: 'Invalid amendment date range' });
+      }
+
+      const overlap = await findOverlappingApprovedBooking({
+        propertyId: booking.property,
+        fromDate: targetFrom,
+        toDate: targetTo,
+        excludeBookingId: booking._id,
+      });
+      if (overlap) {
+        return res.status(409).json({ error: 'Approved amendment would overlap another approved booking' });
+      }
+
+      const updates = {
+        fromDate: targetFrom,
+        toDate: targetTo,
+      };
+      if (Number.isFinite(amendment.proposedMonthlyRent)) {
+        updates.agreedMonthlyRent = amendment.proposedMonthlyRent;
+      }
+      await Booking.findByIdAndUpdate(booking._id, updates);
+      amendment.appliedAt = new Date();
+    }
+
+    amendment.status = status;
+    amendment.decisionNote = decisionNote;
+    amendment.decidedBy = req.admin._id;
+    amendment.decidedByRole = 'admin';
+    amendment.decidedAt = new Date();
+    await amendment.save();
+
+    await logAudit(req, 'booking_amendment_decided', 'LeaseAmendment', amendment._id, {
+      bookingId: booking._id,
+      status,
+      decisionNote,
+    });
+
+    return res.json({ success: true, amendment });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to update amendment' });
+  }
+};
+
+export const getBookingDepositLedgerAdmin = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id).select('_id status property renter').lean();
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    const entries = await DepositLedgerEntry.find({ booking: booking._id })
+      .populate('createdBy', 'name email role')
+      .populate('approvedBy', 'name email role')
+      .sort({ createdAt: -1 });
+
+    return res.json({
+      booking,
+      summary: buildDepositSummary(entries),
+      items: entries,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch deposit ledger' });
+  }
+};
+
+export const updateBookingDepositLedgerEntryAdmin = async (req, res) => {
+  try {
+    const status = String(req.body?.status || '').toLowerCase();
+    const note = String(req.body?.note || '').trim();
+    if (!['approved', 'rejected', 'paid'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const entry = await DepositLedgerEntry.findOne({
+      _id: req.params.entryId,
+      booking: req.params.id,
+    });
+    if (!entry) return res.status(404).json({ error: 'Ledger entry not found' });
+
+    if (status === 'paid') {
+      if (entry.type !== 'refund_requested') {
+        return res.status(400).json({ error: 'Only refund request can be marked paid' });
+      }
+      if (!['approved', 'paid'].includes(entry.status)) {
+        return res.status(400).json({ error: 'Refund request must be approved before paid' });
+      }
+      entry.status = 'paid';
+      entry.note = [entry.note, note].filter(Boolean).join(' | ');
+      entry.approvedBy = req.admin._id;
+      entry.approvedByRole = 'admin';
+      entry.approvedAt = new Date();
+      await entry.save();
+
+      await DepositLedgerEntry.create({
+        booking: entry.booking,
+        property: entry.property,
+        renter: entry.renter,
+        owner: entry.owner,
+        type: 'refund_paid',
+        status: 'paid',
+        amount: entry.amount,
+        reason: 'Refund paid',
+        note,
+        metadata: { sourceEntryId: entry._id },
+        createdBy: req.admin._id,
+        createdByRole: 'admin',
+      });
+    } else {
+      if (entry.status !== 'pending') {
+        return res.status(400).json({ error: 'Only pending entries can be approved/rejected' });
+      }
+      entry.status = status;
+      entry.note = [entry.note, note].filter(Boolean).join(' | ');
+      entry.approvedBy = req.admin._id;
+      entry.approvedByRole = 'admin';
+      entry.approvedAt = new Date();
+      await entry.save();
+    }
+
+    await logAudit(req, 'deposit_ledger_entry_updated', 'DepositLedgerEntry', entry._id, {
+      status,
+      note,
+      bookingId: req.params.id,
+    });
+
+    return res.json({ success: true, entry });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to update ledger entry' });
   }
 };

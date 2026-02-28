@@ -4,6 +4,11 @@ import PropertyDetails from '../../components/common/PropertyDetails';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
 
+const jsonHeaders = (token) => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${token}`,
+});
+
 export default function Bookings() {
   const { token } = useContext(AuthContext);
   const [bookings, setBookings] = useState([]);
@@ -11,41 +16,84 @@ export default function Bookings() {
   const [error, setError] = useState('');
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [renewingId, setRenewingId] = useState('');
+  const [activeBookingId, setActiveBookingId] = useState('');
+  const [panelLoading, setPanelLoading] = useState(false);
+  const [panelError, setPanelError] = useState('');
+  const [amendments, setAmendments] = useState([]);
+  const [ledger, setLedger] = useState({ summary: null, items: [] });
+  const [amendmentForm, setAmendmentForm] = useState({
+    proposedFromDate: '',
+    proposedToDate: '',
+    proposedMonthlyRent: '',
+    reason: '',
+  });
+  const [refundForm, setRefundForm] = useState({ amount: '', reason: '' });
+
+  const fetchBookings = async () => {
+    if (!token) return;
+    const res = await fetch(`${API_BASE_URL}/api/bookings/my`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch bookings');
+    setBookings(Array.isArray(data) ? data : []);
+  };
 
   useEffect(() => {
-    const fetchBookings = async () => {
+    const run = async () => {
       try {
         if (!token) {
           setError('Please log in to view bookings.');
           return;
         }
-
-        const res = await fetch(`${API_BASE_URL}/api/bookings/my`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) throw new Error('Failed to fetch bookings');
-
-        const data = await res.json();
-        setBookings(data);
+        await fetchBookings();
       } catch (err) {
         setError(err.message || 'Failed to load bookings');
       } finally {
         setLoading(false);
       }
     };
-
-    fetchBookings();
+    run();
   }, [token]);
 
-  const onViewDetails = (property) => {
-    setSelectedProperty(property);
+  const loadPanel = async (bookingId) => {
+    if (!token) return;
+    try {
+      setPanelError('');
+      setPanelLoading(true);
+      const [amendRes, ledgerRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/bookings/${bookingId}/amendments`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/api/bookings/${bookingId}/deposit-ledger`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      const amendData = await amendRes.json();
+      const ledgerData = await ledgerRes.json();
+      if (!amendRes.ok) throw new Error(amendData.error || 'Failed to load amendments');
+      if (!ledgerRes.ok) throw new Error(ledgerData.error || 'Failed to load deposit ledger');
+      setAmendments(amendData.items || []);
+      setLedger({
+        summary: ledgerData.summary || null,
+        items: ledgerData.items || [],
+      });
+    } catch (err) {
+      setPanelError(err.message || 'Failed to load booking controls');
+      setAmendments([]);
+      setLedger({ summary: null, items: [] });
+    } finally {
+      setPanelLoading(false);
+    }
   };
 
-  const closeModal = () => {
-    setSelectedProperty(null);
+  const toggleManage = async (bookingId) => {
+    if (activeBookingId === bookingId) {
+      setActiveBookingId('');
+      return;
+    }
+    setActiveBookingId(bookingId);
+    await loadPanel(bookingId);
   };
 
   const renewBooking = async (bookingId) => {
@@ -55,10 +103,7 @@ export default function Bookings() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/renew`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: jsonHeaders(token),
         body: JSON.stringify({ months: 1 }),
       });
       const payload = await res.json();
@@ -66,10 +111,91 @@ export default function Bookings() {
       setBookings((prev) =>
         prev.map((booking) => (booking._id === bookingId ? payload.booking : booking))
       );
+      if (activeBookingId === bookingId) await loadPanel(bookingId);
     } catch (err) {
       setError(err.message || 'Failed to request renewal');
     } finally {
       setRenewingId('');
+    }
+  };
+
+  const cancelBooking = async (bookingId) => {
+    if (!token) return;
+    const reason = window.prompt('Cancellation reason (optional):', '') || '';
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/cancel`, {
+        method: 'POST',
+        headers: jsonHeaders(token),
+        body: JSON.stringify({ reason }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to cancel booking');
+      await fetchBookings();
+      window.alert(
+        `Cancelled. Penalty: Rs ${payload?.cancellation?.penaltyAmount || 0}, Refund: Rs ${payload?.cancellation?.refundAmount || 0}`
+      );
+    } catch (err) {
+      setError(err.message || 'Failed to cancel booking');
+    }
+  };
+
+  const submitAmendment = async (bookingId) => {
+    if (!token) return;
+    try {
+      const body = {
+        reason: amendmentForm.reason,
+      };
+      if (amendmentForm.proposedFromDate) body.proposedFromDate = amendmentForm.proposedFromDate;
+      if (amendmentForm.proposedToDate) body.proposedToDate = amendmentForm.proposedToDate;
+      if (amendmentForm.proposedMonthlyRent !== '') body.proposedMonthlyRent = Number(amendmentForm.proposedMonthlyRent);
+
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/amendments`, {
+        method: 'POST',
+        headers: jsonHeaders(token),
+        body: JSON.stringify(body),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to request amendment');
+      setAmendmentForm({ proposedFromDate: '', proposedToDate: '', proposedMonthlyRent: '', reason: '' });
+      await loadPanel(bookingId);
+    } catch (err) {
+      setPanelError(err.message || 'Failed to request amendment');
+    }
+  };
+
+  const decideDeduction = async (bookingId, entryId, status) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/deposit-ledger/${entryId}/${status === 'approved' ? 'approve' : 'reject'}`, {
+        method: 'PATCH',
+        headers: jsonHeaders(token),
+        body: JSON.stringify({ note: `Renter ${status}` }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to update entry');
+      await loadPanel(bookingId);
+    } catch (err) {
+      setPanelError(err.message || 'Failed to update deduction');
+    }
+  };
+
+  const requestRefund = async (bookingId) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/deposit-ledger/refund-request`, {
+        method: 'POST',
+        headers: jsonHeaders(token),
+        body: JSON.stringify({
+          amount: Number(refundForm.amount || 0),
+          reason: refundForm.reason,
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to request refund');
+      setRefundForm({ amount: '', reason: '' });
+      await loadPanel(bookingId);
+    } catch (err) {
+      setPanelError(err.message || 'Failed to request refund');
     }
   };
 
@@ -101,28 +227,17 @@ export default function Bookings() {
     const status = booking?.status || 'Pending';
     const paymentStatus = String(booking?.paymentStatus || 'pending').toLowerCase();
 
-    if (stage === 'rejected' || status === 'Rejected') {
-      return 'Booking was rejected. Find another listing or contact owner.';
-    }
-    if (stage === 'requested' || status === 'Pending') {
-      return 'Waiting for owner approval.';
-    }
-    if (stage === 'accepted' && !workflow?.flags?.agreementSigned) {
-      return 'Open Agreements page and sign the rental agreement.';
-    }
+    if (stage === 'rejected' || status === 'Rejected') return 'Booking was rejected.';
+    if (status === 'Cancelled') return 'Booking cancelled.';
+    if (stage === 'requested' || status === 'Pending') return 'Waiting for owner approval.';
+    if (stage === 'accepted' && !workflow?.flags?.agreementSigned) return 'Sign agreement from Agreements page.';
     if (stage === 'agreement_signed' && !workflow?.flags?.paid) {
-      if (paymentStatus === 'pending_verification') {
-        return 'Payment submitted. Waiting for admin verification.';
-      }
-      return 'Go to Payments page and submit rent payment.';
+      if (paymentStatus === 'pending_verification') return 'Payment pending admin verification.';
+      return 'Submit rent payment from Payments page.';
     }
-    if (stage === 'paid' && !workflow?.flags?.movedIn) {
-      return 'Payment complete. Move-in starts on booking date.';
-    }
-    if (stage === 'moved_in') {
-      return 'Booking completed. You are moved in.';
-    }
-    return 'Continue completing booking steps.';
+    if (stage === 'paid' && !workflow?.flags?.movedIn) return 'Move-in starts on booking date.';
+    if (stage === 'moved_in') return 'Booking active. Manage amendments/deposit below.';
+    return 'Continue booking flow.';
   };
 
   return (
@@ -150,48 +265,102 @@ export default function Bookings() {
           </thead>
           <tbody>
             {bookings.map(({ _id, property, fromDate, toDate, status, paymentStatus, workflow, renewalStatus }) => (
-              <tr key={_id}>
-                <td>{property?.title || 'N/A'}</td>
-                <td>{new Date(fromDate).toLocaleDateString()}</td>
-                <td>{new Date(toDate).toLocaleDateString()}</td>
-                <td>{status || 'N/A'}</td>
-                <td>{renderTimeline(workflow)}</td>
-                <td>
-                  <span className="workflow-hint">{getWorkflowHint({ status, paymentStatus, workflow })}</span>
-                </td>
-                <td>
-                  {paymentStatus === 'pending_verification'
-                    ? 'pending verification'
-                    : paymentStatus || 'pending'}
-                </td>
-                <td>
-                  <div className="booking-actions">
-                    <button onClick={() => onViewDetails(property)}>View Details</button>
-                    {status === 'Approved' && (
-                      <button
-                        className="btn-renew"
-                        disabled={renewingId === _id || renewalStatus === 'pending'}
-                        onClick={() => renewBooking(_id)}
-                      >
-                        {renewalStatus === 'pending'
-                          ? 'Renewal Pending'
-                          : renewingId === _id
-                            ? 'Requesting...'
-                            : 'Renew +1M'}
+              <React.Fragment key={_id}>
+                <tr>
+                  <td>{property?.title || 'N/A'}</td>
+                  <td>{new Date(fromDate).toLocaleDateString()}</td>
+                  <td>{new Date(toDate).toLocaleDateString()}</td>
+                  <td>{status || 'N/A'}</td>
+                  <td>{renderTimeline(workflow)}</td>
+                  <td><span className="workflow-hint">{getWorkflowHint({ status, paymentStatus, workflow })}</span></td>
+                  <td>{paymentStatus === 'pending_verification' ? 'pending verification' : paymentStatus || 'pending'}</td>
+                  <td>
+                    <div className="booking-actions">
+                      <button onClick={() => setSelectedProperty(property)}>View Details</button>
+                      <button className="btn-renew" onClick={() => toggleManage(_id)}>
+                        {activeBookingId === _id ? 'Hide Manage' : 'Manage'}
                       </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
+                      {status === 'Approved' && (
+                        <button
+                          className="btn-renew"
+                          disabled={renewingId === _id || renewalStatus === 'pending'}
+                          onClick={() => renewBooking(_id)}
+                        >
+                          {renewalStatus === 'pending' ? 'Renewal Pending' : renewingId === _id ? 'Requesting...' : 'Renew +1M'}
+                        </button>
+                      )}
+                      {(status === 'Pending' || status === 'Approved') && (
+                        <button className="btn-renew" onClick={() => cancelBooking(_id)}>Cancel</button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                {activeBookingId === _id ? (
+                  <tr>
+                    <td colSpan="8">
+                      <div className="booking-panel">
+                        {panelLoading ? <p>Loading controls...</p> : null}
+                        {panelError ? <p className="error">{panelError}</p> : null}
+                        {!panelLoading ? (
+                          <>
+                            <h4>Request Lease Amendment</h4>
+                            <div className="booking-panel-grid">
+                              <input type="date" value={amendmentForm.proposedFromDate} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedFromDate: e.target.value }))} />
+                              <input type="date" value={amendmentForm.proposedToDate} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedToDate: e.target.value }))} />
+                              <input type="number" placeholder="Monthly rent (optional)" value={amendmentForm.proposedMonthlyRent} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedMonthlyRent: e.target.value }))} />
+                              <input type="text" placeholder="Reason" value={amendmentForm.reason} onChange={(e) => setAmendmentForm((p) => ({ ...p, reason: e.target.value }))} />
+                              <button className="btn-renew" onClick={() => submitAmendment(_id)}>Submit Amendment</button>
+                            </div>
+                            <div className="booking-chip-list">
+                              {amendments.map((a) => (
+                                <span key={a._id} className="booking-chip">
+                                  {a.status.toUpperCase()} | {a.reason || 'No reason'} | Rent: {a.proposedMonthlyRent ?? '-'}
+                                </span>
+                              ))}
+                              {amendments.length === 0 ? <span className="booking-chip">No amendment history.</span> : null}
+                            </div>
+
+                            <h4>Deposit Ledger</h4>
+                            {ledger.summary ? (
+                              <p className="workflow-hint">
+                                Held Rs {ledger.summary.netHeld} | Received Rs {ledger.summary.received} | Pending Rs {ledger.summary.pending}
+                              </p>
+                            ) : null}
+                            <div className="booking-panel-grid">
+                              <input type="number" placeholder="Refund amount" value={refundForm.amount} onChange={(e) => setRefundForm((p) => ({ ...p, amount: e.target.value }))} />
+                              <input type="text" placeholder="Refund reason" value={refundForm.reason} onChange={(e) => setRefundForm((p) => ({ ...p, reason: e.target.value }))} />
+                              <button className="btn-renew" onClick={() => requestRefund(_id)}>Request Refund</button>
+                            </div>
+                            <div className="booking-chip-list">
+                              {(ledger.items || []).map((entry) => (
+                                <div key={entry._id} className="booking-chip">
+                                  {entry.type} | Rs {entry.amount} | {entry.status}
+                                  {entry.type === 'deduction' && entry.status === 'pending' ? (
+                                    <>
+                                      <button className="btn-renew" onClick={() => decideDeduction(_id, entry._id, 'approved')}>Approve</button>
+                                      <button className="btn-renew" onClick={() => decideDeduction(_id, entry._id, 'rejected')}>Reject</button>
+                                    </>
+                                  ) : null}
+                                </div>
+                              ))}
+                              {(ledger.items || []).length === 0 ? <span className="booking-chip">No deposit entries.</span> : null}
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
       )}
 
       {selectedProperty && (
-        <div className="modal-overlay" onClick={closeModal}>
+        <div className="modal-overlay" onClick={() => setSelectedProperty(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeModal} aria-label="Close popup" title="Close">
+            <button className="modal-close" onClick={() => setSelectedProperty(null)} aria-label="Close popup" title="Close">
               ✕
             </button>
             <PropertyDetails id={selectedProperty._id} />
