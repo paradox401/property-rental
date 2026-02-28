@@ -97,6 +97,31 @@ body {
   padding: 1.25rem;
 }
 
+.incident-banner {
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.7rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.incident-banner.high {
+  border-color: #ef4444;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.incident-banner.medium {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+
 .admin-main-topbar {
   display: flex;
   justify-content: flex-end;
@@ -642,6 +667,18 @@ html[data-theme='dark'] .thread-item.active,
 html[data-theme='dark'] .messages-view-switch .btn.active {
   background: rgba(59, 130, 246, 0.25) !important;
   border-color: #3b82f6 !important;
+}
+
+html[data-theme='dark'] .incident-banner {
+  border-color: #a16207;
+  background: #422006;
+  color: #fde68a;
+}
+
+html[data-theme='dark'] .incident-banner.high {
+  border-color: #7f1d1d;
+  background: #3f0a0a;
+  color: #fecaca;
 }
 
 html[data-theme='dark'] .complaints-table,

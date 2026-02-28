@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { clearAdminSession } from '../api';
+import API, { clearAdminSession } from '../api';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -18,6 +18,11 @@ const navItems = [
   { to: '/notifications', label: 'Notifications' },
   { to: '/reports', label: 'Reports' },
   { to: '/revenue-command', label: 'Revenue Command' },
+  { to: '/ops-center', label: 'Ops Center' },
+  { to: '/rule-engine', label: 'Rule Engine' },
+  { to: '/export-center', label: 'Export Center' },
+  { to: '/admin-notes', label: 'Admin Notes' },
+  { to: '/access-control', label: 'Access Control' },
   { to: '/audit-logs', label: 'Audit Logs' },
 ];
 
@@ -30,11 +35,32 @@ export default function AdminLayout() {
       ? 'dark'
       : 'light';
   });
+  const [incident, setIncident] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('adminTheme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadIncident = async () => {
+      try {
+        const res = await API.get('/ops/incidents');
+        if (!mounted) return;
+        const list = Array.isArray(res.data?.incidents) ? res.data.incidents : [];
+        setIncident(list[0] || null);
+      } catch {
+        if (mounted) setIncident(null);
+      }
+    };
+    loadIncident();
+    const timer = setInterval(loadIncident, 60_000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, []);
 
   const logout = () => {
     clearAdminSession();
@@ -60,6 +86,12 @@ export default function AdminLayout() {
       </aside>
 
       <main className="admin-main">
+        {incident ? (
+          <div className={`incident-banner ${incident.severity || 'medium'}`}>
+            <strong>{incident.title || 'Incident'}</strong>
+            <span>{incident.message || incident.detail}</span>
+          </div>
+        ) : null}
         <div className="admin-main-topbar">
           <button
             className={`theme-toggle ${theme}`}

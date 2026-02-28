@@ -17,6 +17,11 @@ import Notifications from './pages/Notifications';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
 import RevenueCommand from './pages/RevenueCommand';
+import OpsCenter from './pages/OpsCenter';
+import ExportCenter from './pages/ExportCenter';
+import AccessControl from './pages/AccessControl';
+import RuleEngine from './pages/RuleEngine';
+import AdminNotes from './pages/AdminNotes';
 
 function isTokenValid(token) {
   if (!token) return false;
@@ -65,6 +70,11 @@ function App() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/revenue-command" element={<RevenueCommand />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
+          <Route path="/ops-center" element={<OpsCenter />} />
+          <Route path="/export-center" element={<ExportCenter />} />
+          <Route path="/access-control" element={<AccessControl />} />
+          <Route path="/rule-engine" element={<RuleEngine />} />
+          <Route path="/admin-notes" element={<AdminNotes />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

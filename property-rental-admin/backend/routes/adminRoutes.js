@@ -1,5 +1,5 @@
 import express from 'express';
-import { adminAuthMiddleware } from '../middlewares/adminAuth.js';
+import { adminAuthMiddleware, requireAdminPermission } from '../middlewares/adminAuth.js';
 import {
   getOverview,
   getAllUsers,
@@ -34,6 +34,19 @@ import {
   getDashboardViews,
   saveDashboardView,
   deleteDashboardView,
+  getOpsInbox,
+  runBulkAction,
+  getSlaDashboard,
+  getIncidentBanner,
+  getReconciliation,
+  getRuleEngine,
+  updateRuleEngine,
+  getAdminNotes,
+  upsertAdminNote,
+  getExportDataset,
+  getAdminPermissions,
+  updateAdminPermissions,
+  getAuditLogDiff,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -78,8 +91,26 @@ router.post('/broadcast', sendBroadcast);
 router.get('/reports', getReports);
 router.get('/revenue-command', getRevenueCommandCenter);
 router.get('/audit-logs', getAuditLogs);
+router.get('/audit-logs/:id/diff', getAuditLogDiff);
 router.get('/dashboard-views', getDashboardViews);
 router.post('/dashboard-views', saveDashboardView);
 router.delete('/dashboard-views/:id', deleteDashboardView);
+
+router.get('/ops/inbox', requireAdminPermission('workflow:read'), getOpsInbox);
+router.post('/ops/bulk-action', requireAdminPermission('workflow:write'), runBulkAction);
+router.get('/ops/sla', requireAdminPermission('sla:read'), getSlaDashboard);
+router.get('/ops/incidents', requireAdminPermission('workflow:read'), getIncidentBanner);
+router.get('/ops/reconciliation', requireAdminPermission('reconciliation:read'), getReconciliation);
+
+router.get('/rules', requireAdminPermission('rules:read'), getRuleEngine);
+router.put('/rules', requireAdminPermission('workflow:write'), updateRuleEngine);
+
+router.get('/notes', requireAdminPermission('notes:read'), getAdminNotes);
+router.put('/notes/:entityType/:entityId', requireAdminPermission('notes:write'), upsertAdminNote);
+
+router.get('/exports/:dataset', requireAdminPermission('exports:run'), getExportDataset);
+
+router.get('/admins/permissions', requireAdminPermission('audit:read'), getAdminPermissions);
+router.patch('/admins/:id/permissions', requireAdminPermission('audit:read'), updateAdminPermissions);
 
 export default router;

@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import Admin from '../models/Admin.js';
 import Property from '../models/Property.js';
 import Booking from '../models/Booking.js';
 import Complaint from '../models/Complaint.js';
@@ -8,6 +9,7 @@ import Notification from '../models/Notification.js';
 import AdminSetting from '../models/AdminSetting.js';
 import AuditLog from '../models/AuditLog.js';
 import Agreement from '../models/Agreement.js';
+import AdminAnnotation from '../models/AdminAnnotation.js';
 import { calcMoMChangePct, calcOccupancyRate, calcProfit } from '../utils/kpiMath.js';
 
 const safeRegex = (value) => new RegExp(String(value || '').trim(), 'i');
@@ -67,6 +69,19 @@ const endOfMonth = (value = new Date()) => {
 const addMonths = (value, months) => {
   const date = new Date(value);
   return new Date(date.getFullYear(), date.getMonth() + months, 1);
+};
+
+const findOverlappingApprovedBooking = async ({ propertyId, fromDate, toDate, excludeBookingId = null }) => {
+  const filter = {
+    property: propertyId,
+    status: 'Approved',
+    fromDate: { $lte: toDate },
+    toDate: { $gte: fromDate },
+  };
+  if (excludeBookingId) {
+    filter._id = { $ne: excludeBookingId };
+  }
+  return Booking.findOne(filter).select('_id fromDate toDate renter').lean();
 };
 
 const buildActionableReminders = async () => {
@@ -676,8 +691,27 @@ export const updateBookingStatus = async (req, res) => {
       return res.status(400).json({ error: 'Invalid booking status' });
     }
 
-    const booking = await Booking.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    if (status === 'Approved') {
+      const overlap = await findOverlappingApprovedBooking({
+        propertyId: booking.property,
+        fromDate: booking.fromDate,
+        toDate: booking.toDate,
+        excludeBookingId: booking._id,
+      });
+      if (overlap) {
+        return res.status(409).json({
+          error: 'Cannot approve booking due to overlap with an existing approved booking',
+        });
+      }
+    }
+
+    booking.status = status;
+    booking.acceptedAt = status === 'Approved' ? new Date() : null;
+    booking.rejectedAt = status === 'Rejected' ? new Date() : null;
+    await booking.save();
 
     await logAudit(req, 'booking_status_changed', 'Booking', booking._id, { status });
     res.json(booking);
@@ -1437,5 +1471,516 @@ export const deleteDashboardView = async (req, res) => {
     res.json({ views: saved.value || [] });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete dashboard view' });
+  }
+};
+
+export const getOpsInbox = async (_req, res) => {
+  try {
+    const [pendingProperties, pendingOwners, pendingKycUsers, pendingComplaints, pendingPayoutPayments, unsignedAgreements] =
+      await Promise.all([
+        Property.find({ status: 'Pending' }).select('_id title location createdAt').sort({ createdAt: 1 }).limit(30).lean(),
+        User.find({ role: 'owner', ownerVerificationStatus: 'pending' }).select('_id name email createdAt').sort({ createdAt: 1 }).limit(30).lean(),
+        User.find({ kycStatus: 'pending' }).select('_id name email role updatedAt').sort({ updatedAt: 1 }).limit(30).lean(),
+        Complaint.find({ status: { $ne: 'resolved' } }).select('_id subject status createdAt').sort({ createdAt: 1 }).limit(30).lean(),
+        Payment.find({ status: 'Paid', payoutStatus: { $ne: 'Transferred' } })
+          .select('_id amount ownerAmount payoutStatus createdAt booking')
+          .populate({ path: 'booking', populate: { path: 'property', select: 'title' } })
+          .sort({ createdAt: 1 })
+          .limit(30)
+          .lean(),
+        Agreement.find().select('_id booking property currentVersion versions updatedAt').populate('property', 'title').limit(80).lean(),
+      ]);
+
+    const unsignedAgreementItems = unsignedAgreements
+      .filter((agreement) => {
+        const versions = Array.isArray(agreement.versions) ? agreement.versions : [];
+        const active =
+          versions.find((item) => Number(item.version) === Number(agreement.currentVersion)) ||
+          versions[versions.length - 1];
+        return active?.status !== 'fully_signed';
+      })
+      .slice(0, 30)
+      .map((agreement) => ({
+        id: agreement._id,
+        property: agreement.property?.title || 'Unknown property',
+        status: 'agreement_unsigned',
+        createdAt: agreement.updatedAt,
+      }));
+
+    const inbox = [
+      ...pendingProperties.map((item) => ({
+        id: item._id,
+        type: 'property_pending',
+        title: item.title,
+        subtitle: item.location || '',
+        createdAt: item.createdAt,
+        entityType: 'Property',
+        entityId: String(item._id),
+      })),
+      ...pendingOwners.map((item) => ({
+        id: item._id,
+        type: 'owner_verification_pending',
+        title: item.name || item.email,
+        subtitle: item.email || '',
+        createdAt: item.createdAt,
+        entityType: 'User',
+        entityId: String(item._id),
+      })),
+      ...pendingKycUsers.map((item) => ({
+        id: item._id,
+        type: 'kyc_pending',
+        title: item.name || item.email,
+        subtitle: `${item.role} • ${item.email || ''}`,
+        createdAt: item.updatedAt,
+        entityType: 'User',
+        entityId: String(item._id),
+      })),
+      ...pendingComplaints.map((item) => ({
+        id: item._id,
+        type: 'complaint_open',
+        title: item.subject || 'Complaint',
+        subtitle: item.status || 'pending',
+        createdAt: item.createdAt,
+        entityType: 'Complaint',
+        entityId: String(item._id),
+      })),
+      ...pendingPayoutPayments.map((item) => ({
+        id: item._id,
+        type: 'payout_pending_transfer',
+        title: item.booking?.property?.title || 'Payment',
+        subtitle: `Owner amount Rs. ${item.ownerAmount || 0}`,
+        createdAt: item.createdAt,
+        entityType: 'Payment',
+        entityId: String(item._id),
+      })),
+      ...unsignedAgreementItems.map((item) => ({
+        id: item.id,
+        type: item.status,
+        title: item.property,
+        subtitle: 'Agreement needs signatures',
+        createdAt: item.createdAt,
+        entityType: 'Agreement',
+        entityId: String(item.id),
+      })),
+    ]
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .slice(0, 120);
+
+    res.json({
+      summary: {
+        total: inbox.length,
+        propertyPending: pendingProperties.length,
+        ownerVerificationPending: pendingOwners.length,
+        kycPending: pendingKycUsers.length,
+        complaintOpen: pendingComplaints.length,
+        payoutPending: pendingPayoutPayments.length,
+        unsignedAgreements: unsignedAgreementItems.length,
+      },
+      items: inbox,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch workflow inbox' });
+  }
+};
+
+export const runBulkAction = async (req, res) => {
+  try {
+    const { action, ids = [], payload = {} } = req.body || {};
+    const normalizedIds = Array.isArray(ids) ? ids.filter(Boolean) : [];
+    if (!action || !normalizedIds.length) return res.status(400).json({ error: 'Action and ids are required' });
+
+    let modified = 0;
+    if (action === 'properties_approve') {
+      const result = await Property.updateMany({ _id: { $in: normalizedIds } }, { $set: { status: 'Approved' } });
+      modified = result.modifiedCount || 0;
+    } else if (action === 'properties_reject') {
+      const result = await Property.updateMany({ _id: { $in: normalizedIds } }, { $set: { status: 'Rejected' } });
+      modified = result.modifiedCount || 0;
+    } else if (action === 'bookings_approve') {
+      const result = await Booking.updateMany({ _id: { $in: normalizedIds } }, { $set: { status: 'Approved' } });
+      modified = result.modifiedCount || 0;
+    } else if (action === 'bookings_reject') {
+      const result = await Booking.updateMany({ _id: { $in: normalizedIds } }, { $set: { status: 'Rejected' } });
+      modified = result.modifiedCount || 0;
+    } else if (action === 'complaints_resolve') {
+      const result = await Complaint.updateMany({ _id: { $in: normalizedIds } }, { $set: { status: 'resolved' } });
+      modified = result.modifiedCount || 0;
+    } else if (action === 'payments_mark_transferred') {
+      const result = await Payment.updateMany(
+        { _id: { $in: normalizedIds }, status: 'Paid' },
+        {
+          $set: {
+            payoutStatus: 'Transferred',
+            payoutTransferredAt: new Date(),
+            ...(payload.payoutNote ? { payoutNote: String(payload.payoutNote) } : {}),
+          },
+        }
+      );
+      modified = result.modifiedCount || 0;
+    } else {
+      return res.status(400).json({ error: 'Unsupported bulk action' });
+    }
+
+    await logAudit(req, 'bulk_action_executed', 'BulkAction', action, {
+      ids: normalizedIds.slice(0, 200),
+      action,
+      modified,
+    });
+
+    res.json({ success: true, action, modified, requested: normalizedIds.length });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to run bulk action' });
+  }
+};
+
+export const getSlaDashboard = async (_req, res) => {
+  try {
+    const now = new Date();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    const [pendingPropertyRows, pendingOwnerRows, openComplaintRows, pendingPayoutRows] = await Promise.all([
+      Property.find({ status: 'Pending' }).select('_id createdAt').lean(),
+      User.find({ role: 'owner', ownerVerificationStatus: 'pending' }).select('_id createdAt').lean(),
+      Complaint.find({ status: { $ne: 'resolved' } }).select('_id createdAt').lean(),
+      Payment.find({ status: 'Paid', payoutStatus: { $ne: 'Transferred' } }).select('_id createdAt payoutAllocatedAt').lean(),
+    ]);
+
+    const bucketize = (items, createdAtResolver) => {
+      const buckets = { '0-1d': 0, '2-3d': 0, '4-7d': 0, '8+d': 0 };
+      items.forEach((item) => {
+        const base = createdAtResolver(item);
+        const age = Math.max(0, Math.floor((now - new Date(base)) / oneDayMs));
+        if (age <= 1) buckets['0-1d'] += 1;
+        else if (age <= 3) buckets['2-3d'] += 1;
+        else if (age <= 7) buckets['4-7d'] += 1;
+        else buckets['8+d'] += 1;
+      });
+      return buckets;
+    };
+
+    res.json({
+      listings: bucketize(pendingPropertyRows, (item) => item.createdAt),
+      ownerVerification: bucketize(pendingOwnerRows, (item) => item.createdAt),
+      complaints: bucketize(openComplaintRows, (item) => item.createdAt),
+      payouts: bucketize(pendingPayoutRows, (item) => item.payoutAllocatedAt || item.createdAt),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch SLA dashboard' });
+  }
+};
+
+export const getIncidentBanner = async (_req, res) => {
+  try {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [failed7d, total7d, delayedPayout, unsignedCount] = await Promise.all([
+      Payment.countDocuments({ status: 'Failed', createdAt: { $gte: sevenDaysAgo } }),
+      Payment.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+      Payment.countDocuments({ status: 'Paid', payoutStatus: { $ne: 'Transferred' }, createdAt: { $lte: threeDaysAgo } }),
+      (async () => {
+        const [approved, agreements] = await Promise.all([
+          Booking.find({ status: 'Approved', createdAt: { $lte: threeDaysAgo } }).select('_id').lean(),
+          Agreement.find().select('booking currentVersion versions').lean(),
+        ]);
+        const signed = new Set(
+          agreements
+            .filter((agreement) => {
+              const versions = Array.isArray(agreement.versions) ? agreement.versions : [];
+              const active =
+                versions.find((item) => Number(item.version) === Number(agreement.currentVersion)) ||
+                versions[versions.length - 1];
+              return active?.status === 'fully_signed';
+            })
+            .map((agreement) => String(agreement.booking))
+        );
+        return approved.filter((item) => !signed.has(String(item._id))).length;
+      })(),
+    ]);
+
+    const failedRate = total7d ? Number(((failed7d / total7d) * 100).toFixed(2)) : 0;
+    const incidents = [];
+    if (failedRate >= 20 && total7d >= 8) {
+      incidents.push({ code: 'payment_fail_spike', severity: 'high', message: `Payment failure rate ${failedRate}% in last 7 days.` });
+    }
+    if (delayedPayout > 0) {
+      incidents.push({ code: 'payout_delay', severity: delayedPayout > 10 ? 'high' : 'medium', message: `${delayedPayout} paid payments waiting payout transfer.` });
+    }
+    if (unsignedCount > 0) {
+      incidents.push({ code: 'agreement_unsigned', severity: 'medium', message: `${unsignedCount} approved bookings still unsigned after 3+ days.` });
+    }
+    res.json({ incidents, hasIncident: incidents.length > 0 });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch incidents' });
+  }
+};
+
+export const getReconciliation = async (_req, res) => {
+  try {
+    const [bookings, payments, agreements] = await Promise.all([
+      Booking.find().select('_id status paymentStatus').lean(),
+      Payment.find().select('_id booking status payoutStatus ownerAmount amount').lean(),
+      Agreement.find().select('_id booking currentVersion versions').lean(),
+    ]);
+
+    const paymentByBooking = new Map();
+    payments.forEach((payment) => {
+      const key = String(payment.booking);
+      const current = paymentByBooking.get(key);
+      if (!current || new Date(payment.createdAt || 0) > new Date(current.createdAt || 0)) {
+        paymentByBooking.set(key, payment);
+      }
+    });
+    const agreementByBooking = new Map(agreements.map((agreement) => [String(agreement.booking), agreement]));
+
+    const issues = [];
+    for (const booking of bookings) {
+      const key = String(booking._id);
+      const payment = paymentByBooking.get(key);
+      const agreement = agreementByBooking.get(key);
+      const versions = Array.isArray(agreement?.versions) ? agreement.versions : [];
+      const active =
+        versions.find((item) => Number(item.version) === Number(agreement?.currentVersion)) ||
+        versions[versions.length - 1];
+      const signed = active?.status === 'fully_signed';
+
+      if (booking.status === 'Approved' && !signed) {
+        issues.push({
+          type: 'agreement_missing_signature',
+          bookingId: booking._id,
+          message: 'Approved booking without fully signed agreement',
+          severity: 'medium',
+        });
+      }
+      if (booking.status === 'Approved' && payment?.status === 'Paid' && payment.payoutStatus === 'Unallocated') {
+        issues.push({
+          type: 'payout_unallocated',
+          bookingId: booking._id,
+          paymentId: payment._id,
+          message: 'Paid booking payment has not been allocated for payout',
+          severity: 'high',
+        });
+      }
+      if (booking.paymentStatus === 'paid' && (!payment || payment.status !== 'Paid')) {
+        issues.push({
+          type: 'booking_payment_mismatch',
+          bookingId: booking._id,
+          message: 'Booking payment status is paid but payment record is missing or not paid',
+          severity: 'high',
+        });
+      }
+    }
+
+    res.json({
+      totalIssues: issues.length,
+      high: issues.filter((item) => item.severity === 'high').length,
+      medium: issues.filter((item) => item.severity === 'medium').length,
+      items: issues.slice(0, 200),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch reconciliation data' });
+  }
+};
+
+export const getRuleEngine = async (_req, res) => {
+  try {
+    const setting = await AdminSetting.findOne({ key: 'automationRules' }).lean();
+    const defaults = {
+      autoApproveLowRiskListings: false,
+      autoResolveStaleComplaintsDays: 0,
+      highRiskPaymentFailRatePct: 20,
+      payoutDelayThresholdDays: 3,
+      broadcastOnCriticalIncident: false,
+    };
+    const rules = { ...defaults, ...(setting?.value || {}) };
+    res.json({ rules });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch rules' });
+  }
+};
+
+export const updateRuleEngine = async (req, res) => {
+  try {
+    const input = req.body || {};
+    const rules = {
+      autoApproveLowRiskListings: Boolean(input.autoApproveLowRiskListings),
+      autoResolveStaleComplaintsDays: Math.max(0, Math.min(Number(input.autoResolveStaleComplaintsDays || 0), 365)),
+      highRiskPaymentFailRatePct: Math.max(1, Math.min(Number(input.highRiskPaymentFailRatePct || 20), 100)),
+      payoutDelayThresholdDays: Math.max(1, Math.min(Number(input.payoutDelayThresholdDays || 3), 60)),
+      broadcastOnCriticalIncident: Boolean(input.broadcastOnCriticalIncident),
+    };
+
+    const saved = await AdminSetting.findOneAndUpdate(
+      { key: 'automationRules' },
+      { key: 'automationRules', value: rules },
+      { upsert: true, new: true }
+    );
+
+    await logAudit(req, 'rule_engine_updated', 'AdminSetting', saved._id, rules);
+    res.json({ rules: saved.value || rules });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update rules' });
+  }
+};
+
+export const getAdminNotes = async (req, res) => {
+  try {
+    const { entityType, entityId, tag, q } = req.query;
+    const filter = {};
+    if (entityType) filter.entityType = entityType;
+    if (entityId) filter.entityId = String(entityId);
+    if (tag) filter.tags = tag;
+    if (q) filter.note = safeRegex(q);
+
+    const page = parsePage(req.query.page, 1);
+    const limit = parseLimit(req.query.limit, 25);
+    const [rows, total] = await Promise.all([
+      AdminAnnotation.find(filter)
+        .populate('updatedBy', 'username displayName role')
+        .sort({ updatedAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      AdminAnnotation.countDocuments(filter),
+    ]);
+    sendPaginated(res, rows, total, page, limit);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch admin notes' });
+  }
+};
+
+export const upsertAdminNote = async (req, res) => {
+  try {
+    const { entityType, entityId } = req.params;
+    const note = String(req.body?.note || '').trim();
+    const tags = Array.isArray(req.body?.tags)
+      ? req.body.tags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 12)
+      : [];
+    if (!note && tags.length === 0) return res.status(400).json({ error: 'Note or tags required' });
+
+    const doc = await AdminAnnotation.findOneAndUpdate(
+      { entityType, entityId: String(entityId) },
+      {
+        entityType,
+        entityId: String(entityId),
+        note,
+        tags,
+        updatedBy: req.admin._id,
+      },
+      { upsert: true, new: true }
+    ).populate('updatedBy', 'username displayName role');
+
+    await logAudit(req, 'admin_note_upserted', entityType, entityId, { tags, noteLength: note.length });
+    res.json(doc);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save admin note' });
+  }
+};
+
+export const getExportDataset = async (req, res) => {
+  try {
+    const dataset = String(req.params.dataset || '').trim();
+    const maxRows = Math.max(1, Math.min(Number(req.query.limit || 5000), 10000));
+    let rows = [];
+    let headers = [];
+
+    if (dataset === 'payments') {
+      rows = await Payment.find().sort({ createdAt: -1 }).limit(maxRows).lean();
+      headers = ['_id', 'booking', 'amount', 'status', 'payoutStatus', 'ownerAmount', 'createdAt'];
+    } else if (dataset === 'bookings') {
+      rows = await Booking.find().sort({ createdAt: -1 }).limit(maxRows).lean();
+      headers = ['_id', 'property', 'renter', 'status', 'fromDate', 'toDate', 'createdAt'];
+    } else if (dataset === 'users') {
+      rows = await User.find().sort({ createdAt: -1 }).limit(maxRows).lean();
+      headers = ['_id', 'name', 'email', 'role', 'isActive', 'ownerVerificationStatus', 'createdAt'];
+    } else if (dataset === 'audit-logs') {
+      rows = await AuditLog.find().sort({ createdAt: -1 }).limit(maxRows).lean();
+      headers = ['_id', 'adminId', 'action', 'entityType', 'entityId', 'details', 'createdAt'];
+    } else {
+      return res.status(400).json({ error: 'Unsupported dataset' });
+    }
+
+    if (String(req.query.export || '').toLowerCase() !== 'csv') {
+      return res.json({
+        dataset,
+        headers,
+        count: rows.length,
+        preview: rows.slice(0, 30),
+      });
+    }
+
+    const csvRows = rows.map((row) =>
+      headers.map((header) => toCsvValue(row?.[header])).join(',')
+    );
+    const csv = [headers.join(','), ...csvRows].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${dataset}-${Date.now()}.csv"`);
+    return res.status(200).send(csv);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to export dataset' });
+  }
+};
+
+export const getAdminPermissions = async (_req, res) => {
+  try {
+    const admins = await Admin.find().select('username displayName role permissions isActive createdAt').sort({ createdAt: -1 }).lean();
+    res.json({ admins });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch admin permissions' });
+  }
+};
+
+export const updateAdminPermissions = async (req, res) => {
+  try {
+    const { role, permissions, isActive } = req.body || {};
+    const updates = {};
+    if (role) updates.role = String(role);
+    if (Array.isArray(permissions)) {
+      updates.permissions = permissions.map((item) => String(item).trim()).filter(Boolean).slice(0, 50);
+    }
+    if (typeof isActive === 'boolean') updates.isActive = isActive;
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'No fields to update' });
+
+    const admin = await Admin.findByIdAndUpdate(req.params.id, updates, { new: true })
+      .select('username displayName role permissions isActive createdAt');
+    if (!admin) return res.status(404).json({ error: 'Admin not found' });
+
+    await logAudit(req, 'admin_permission_updated', 'Admin', req.params.id, updates);
+    res.json(admin);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update admin permissions' });
+  }
+};
+
+export const getAuditLogDiff = async (req, res) => {
+  try {
+    const log = await AuditLog.findById(req.params.id).populate('adminId', 'username displayName').lean();
+    if (!log) return res.status(404).json({ error: 'Audit log not found' });
+
+    const details = log.details || {};
+    const before = details.before || null;
+    const after = details.after || null;
+
+    const changedFields = [];
+    if (before && after && typeof before === 'object' && typeof after === 'object') {
+      const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+      keys.forEach((key) => {
+        const left = before[key];
+        const right = after[key];
+        if (JSON.stringify(left) !== JSON.stringify(right)) {
+          changedFields.push({ field: key, before: left, after: right });
+        }
+      });
+    }
+
+    res.json({
+      log,
+      diff: {
+        before,
+        after,
+        changedFields,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch audit diff' });
   }
 };

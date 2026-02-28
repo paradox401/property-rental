@@ -38,6 +38,21 @@ const getActiveAgreementVersion = (agreement) => {
   );
 };
 
+const findOverlappingApprovedBooking = async ({ propertyId, fromDate, toDate, excludeBookingId = null }) => {
+  const filter = {
+    property: propertyId,
+    status: 'Approved',
+    fromDate: { $lte: toDate },
+    toDate: { $gte: fromDate },
+  };
+
+  if (excludeBookingId) {
+    filter._id = { $ne: excludeBookingId };
+  }
+
+  return Booking.findOne(filter).select('_id fromDate toDate renter').lean();
+};
+
 const buildBookingWorkflow = (bookingDoc, agreementDoc, paidPaymentSummary) => {
   const status = bookingDoc.status || 'Pending';
   const approved = status === 'Approved';
@@ -295,6 +310,20 @@ export const updateStatus = async (req, res) => {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
+    if (status === 'Approved') {
+      const overlap = await findOverlappingApprovedBooking({
+        propertyId: booking.property._id,
+        fromDate: booking.fromDate,
+        toDate: booking.toDate,
+        excludeBookingId: booking._id,
+      });
+      if (overlap) {
+        return res.status(409).json({
+          error: 'Cannot approve booking due to overlap with an existing approved booking',
+        });
+      }
+    }
+
     booking.status = status;
     if (status === 'Approved') {
       booking.acceptedAt = new Date();
@@ -410,6 +439,18 @@ export const renewBooking = async (req, res) => {
     const currentEnd = booking.toDate ? new Date(booking.toDate) : new Date(booking.fromDate);
     const renewedEnd = new Date(currentEnd);
     renewedEnd.setMonth(renewedEnd.getMonth() + months);
+
+    const overlap = await findOverlappingApprovedBooking({
+      propertyId: booking.property?._id || booking.property,
+      fromDate: booking.fromDate,
+      toDate: renewedEnd,
+      excludeBookingId: booking._id,
+    });
+    if (overlap) {
+      return res.status(409).json({
+        error: 'Cannot renew booking because it overlaps another approved booking',
+      });
+    }
 
     booking.toDate = renewedEnd;
     booking.renewalStatus = 'approved';
