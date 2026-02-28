@@ -93,7 +93,8 @@ router.post('/create', protect, async (req, res) => {
     }
 
     const monthsCount = monthDiffInclusive(dueStart, currentMonthStart);
-    const amount = Number(booking.property?.price || 0) * monthsCount;
+    const monthlyRent = Number(booking.agreedMonthlyRent ?? booking.property?.price ?? 0);
+    const amount = monthlyRent * monthsCount;
     const billingPeriodKey = `${toMonthKey(dueStart)}__${toMonthKey(currentMonthEnd)}`;
 
     if (idempotencyKey) {
@@ -277,7 +278,7 @@ router.get('/owner/status', protect, async (req, res) => {
         propertyTitle: booking.property?.title || 'Unknown property',
         renterName: booking.renter?.name || booking.renter?.email || 'Unknown renter',
         renterEmail: booking.renter?.email || '',
-        monthlyRent: booking.property?.price || 0,
+        monthlyRent: (booking.agreedMonthlyRent ?? booking.property?.price ?? 0),
         bookingFrom: booking.fromDate,
         renterPaymentStatus,
         latestPaymentAmount: latestPayment?.amount || 0,

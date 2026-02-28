@@ -58,7 +58,7 @@ export const getOwnerDashboardStats = async (req, res) => {
             bookingId: booking._id,
             propertyId: booking.property?._id,
             propertyTitle: booking.property?.title || 'Unknown property',
-            monthlyRent: booking.property?.price || 0,
+            monthlyRent: Number(booking.agreedMonthlyRent ?? booking.property?.price ?? 0),
             renterName: booking.renter?.name || booking.renter?.email || 'Unknown renter',
             renterEmail: booking.renter?.email || '',
             fromDate: booking.fromDate,
@@ -73,7 +73,7 @@ export const getOwnerDashboardStats = async (req, res) => {
         });
 
       const liveMRR = activeApprovedBookings.reduce(
-        (sum, booking) => sum + Number(booking.property?.price || 0),
+        (sum, booking) => sum + Number(booking.agreedMonthlyRent ?? booking.property?.price ?? 0),
         0
       );
 

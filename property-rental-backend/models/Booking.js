@@ -25,7 +25,7 @@ const bookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Pending', 'Approved', 'Rejected'],
+    enum: ['Pending', 'Approved', 'Rejected', 'Cancelled'],
     default: 'Pending'
   },
   acceptedAt: {
@@ -38,6 +38,42 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'pending_verification', 'paid'],
     default: 'pending'
+  },
+  agreedMonthlyRent: {
+    type: Number,
+    min: 0,
+    default: null,
+  },
+  cancelledAt: {
+    type: Date,
+  },
+  cancelledBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  cancelledByRole: {
+    type: String,
+    enum: ['owner', 'renter', 'admin'],
+  },
+  cancellationReason: {
+    type: String,
+    default: '',
+  },
+  cancellationPenaltyPercent: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0,
+  },
+  cancellationPenaltyAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  cancellationRefundAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
   },
   renewalStatus: {
     type: String,
