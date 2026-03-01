@@ -374,6 +374,19 @@ body {
 .badge.approved, .badge.verified, .badge.paid, .badge.resolved { background: #ecfdf5; color: #166534; border-color: #86efac; }
 .badge.rejected, .badge.failed, .badge.inactive { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
 .badge.active { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
+.badge.unsubmitted, .badge.unverified, .badge.unknown {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+.badge.new { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
+.badge.reviewing { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+.badge.merged { background: #ecfdf5; color: #166534; border-color: #86efac; }
+.badge.ignored, .badge.false_positive { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
+.badge.low { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
+.badge.medium { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+.badge.high { background: #fef3c7; color: #92400e; border-color: #f59e0b; }
+.badge.critical { background: #fef2f2; color: #991b1b; border-color: #f87171; }
 
 .login-shell {
   min-height: 100vh;
@@ -552,6 +565,19 @@ body {
   .badge.approved, .badge.verified, .badge.paid, .badge.resolved { background: #042f2e; color: #99f6e4; border-color: #134e4a; }
   .badge.rejected, .badge.failed, .badge.inactive { background: #3f0a0a; color: #fecaca; border-color: #7f1d1d; }
   .badge.active { background: #082f49; color: #bae6fd; border-color: #0c4a6e; }
+  .badge.unsubmitted, .badge.unverified, .badge.unknown {
+    background: #111827;
+    color: #cbd5e1;
+    border-color: #334155;
+  }
+  .badge.new { background: #1e1b4b; color: #c7d2fe; border-color: #3730a3; }
+  .badge.reviewing { background: #422006; color: #fde68a; border-color: #78350f; }
+  .badge.merged { background: #042f2e; color: #99f6e4; border-color: #134e4a; }
+  .badge.ignored, .badge.false_positive { background: #111827; color: #cbd5e1; border-color: #334155; }
+  .badge.low { background: #111827; color: #cbd5e1; border-color: #334155; }
+  .badge.medium { background: #422006; color: #fde68a; border-color: #78350f; }
+  .badge.high { background: #451a03; color: #fcd34d; border-color: #92400e; }
+  .badge.critical { background: #3f0a0a; color: #fecaca; border-color: #7f1d1d; }
 
   .login-card h2,
   .dashboard-container h1,

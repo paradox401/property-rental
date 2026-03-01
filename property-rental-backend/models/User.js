@@ -78,6 +78,12 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   citizenshipNumber: { type: String, required: true },
   email: { type: String, required: true, unique: true },
+  emailVerified: { type: Boolean, default: false },
+  emailVerifiedAt: { type: Date },
+  emailVerificationCodeHash: { type: String, select: false },
+  emailVerificationExpiresAt: { type: Date, select: false },
+  emailVerificationAttemptCount: { type: Number, default: 0, select: false },
+  emailVerificationLastSentAt: { type: Date, select: false },
   password: { type: String, required: true },
   role: { type: String, enum: ['owner', 'renter', 'admin'], default: 'renter' },
   ownerVerificationStatus: {

@@ -27,3 +27,11 @@ export const requireAdminPermission = (permission) => {
     return res.status(403).json({ error: 'Forbidden: missing permission' });
   };
 };
+
+export const requireAdminRole = (roles) => {
+  const allowed = new Set(Array.isArray(roles) ? roles : [roles]);
+  return (req, res, next) => {
+    if (allowed.has(req.admin?.role)) return next();
+    return res.status(403).json({ error: 'Forbidden: insufficient role' });
+  };
+};

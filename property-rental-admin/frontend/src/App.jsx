@@ -22,6 +22,9 @@ import ExportCenter from './pages/ExportCenter';
 import AccessControl from './pages/AccessControl';
 import RuleEngine from './pages/RuleEngine';
 import AdminNotes from './pages/AdminNotes';
+import DuplicateHub from './pages/DuplicateHub';
+import DuplicateMergeHistory from './pages/DuplicateMergeHistory';
+import SoftDeletedUsers from './pages/SoftDeletedUsers';
 
 function isTokenValid(token) {
   if (!token) return false;
@@ -75,6 +78,9 @@ function App() {
           <Route path="/access-control" element={<AccessControl />} />
           <Route path="/rule-engine" element={<RuleEngine />} />
           <Route path="/admin-notes" element={<AdminNotes />} />
+          <Route path="/duplicate-hub" element={<DuplicateHub />} />
+          <Route path="/duplicate-merge-history" element={<DuplicateMergeHistory />} />
+          <Route path="/soft-deleted-users" element={<SoftDeletedUsers />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

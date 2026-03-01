@@ -1,5 +1,5 @@
 import express from 'express';
-import { adminAuthMiddleware, requireAdminPermission } from '../middlewares/adminAuth.js';
+import { adminAuthMiddleware, requireAdminPermission, requireAdminRole } from '../middlewares/adminAuth.js';
 import {
   getOverview,
   getAllUsers,
@@ -45,12 +45,25 @@ import {
   upsertAdminNote,
   getExportDataset,
   getAdminPermissions,
+  createAdminAccount,
   updateAdminPermissions,
   getAuditLogDiff,
   getBookingAmendmentsAdmin,
   decideBookingAmendmentAdmin,
   getBookingDepositLedgerAdmin,
   updateBookingDepositLedgerEntryAdmin,
+  getDuplicateHub,
+  getDuplicateCases,
+  upsertDuplicateCase,
+  updateDuplicateCase,
+  bulkUpdateDuplicateCases,
+  getDuplicateUserImpact,
+  getDuplicateUserMergePreview,
+  commitDuplicateUserMerge,
+  rollbackDuplicateUserMerge,
+  getDuplicateMergeHistory,
+  getSoftDeletedDuplicateUsers,
+  resolveDuplicateUser,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -118,7 +131,20 @@ router.put('/notes/:entityType/:entityId', requireAdminPermission('notes:write')
 
 router.get('/exports/:dataset', requireAdminPermission('exports:run'), getExportDataset);
 
-router.get('/admins/permissions', requireAdminPermission('audit:read'), getAdminPermissions);
-router.patch('/admins/:id/permissions', requireAdminPermission('audit:read'), updateAdminPermissions);
+router.get('/admins/permissions', requireAdminRole('super_admin'), getAdminPermissions);
+router.post('/admins', requireAdminRole('super_admin'), createAdminAccount);
+router.patch('/admins/:id/permissions', requireAdminRole('super_admin'), updateAdminPermissions);
+router.get('/duplicates/hub', requireAdminPermission('audit:read'), getDuplicateHub);
+router.get('/duplicates/cases', requireAdminPermission('audit:read'), getDuplicateCases);
+router.post('/duplicates/cases', requireAdminPermission('audit:read'), upsertDuplicateCase);
+router.patch('/duplicates/cases/:id', requireAdminPermission('audit:read'), updateDuplicateCase);
+router.post('/duplicates/cases/bulk-update', requireAdminPermission('audit:read'), bulkUpdateDuplicateCases);
+router.get('/duplicates/users/:userId/impact', requireAdminPermission('audit:read'), getDuplicateUserImpact);
+router.get('/duplicates/users/:userId/merge-preview', requireAdminPermission('audit:read'), getDuplicateUserMergePreview);
+router.post('/duplicates/users/:userId/merge-commit', requireAdminPermission('audit:read'), commitDuplicateUserMerge);
+router.post('/duplicates/merge-operations/:operationId/rollback', requireAdminPermission('audit:read'), rollbackDuplicateUserMerge);
+router.get('/duplicates/merge-history', requireAdminPermission('audit:read'), getDuplicateMergeHistory);
+router.get('/duplicates/soft-deleted-users', requireAdminPermission('audit:read'), getSoftDeletedDuplicateUsers);
+router.post('/duplicates/users/:userId/resolve', requireAdminPermission('audit:read'), resolveDuplicateUser);
 
 export default router;

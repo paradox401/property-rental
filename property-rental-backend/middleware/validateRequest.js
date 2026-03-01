@@ -45,3 +45,16 @@ export const validateResetPassword = validate((req) => {
   if (!password || String(password).length < 8) return 'Password must be at least 8 characters';
   return '';
 });
+
+export const validateEmailOtp = validate((req) => {
+  const { email, otp } = req.body || {};
+  if (!email || !emailRegex.test(String(email).toLowerCase())) return 'Valid email is required';
+  if (!otp || !/^\d{6}$/.test(String(otp).trim())) return 'Valid 6-digit OTP is required';
+  return '';
+});
+
+export const validateResendEmailOtp = validate((req) => {
+  const { email } = req.body || {};
+  if (!email || !emailRegex.test(String(email).toLowerCase())) return 'Valid email is required';
+  return '';
+});

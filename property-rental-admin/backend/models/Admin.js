@@ -62,4 +62,19 @@ export const ROLE_PERMISSION_MAP = {
   ],
 };
 
+export const PERMISSION_CATALOG = [
+  'workflow:read',
+  'workflow:write',
+  'sla:read',
+  'reconciliation:read',
+  'exports:run',
+  'rules:read',
+  'notes:read',
+  'notes:write',
+  'audit:read',
+  'payments:read',
+  'payments:write',
+  'complaints:write',
+];
+
 export default mongoose.model('Admin', adminSchema);

@@ -1,5 +1,7 @@
 import User from '../models/User.js';
-import Admin from '../models/Admin.js';
+import Admin, { PERMISSION_CATALOG, ROLE_PERMISSION_MAP } from '../models/Admin.js';
+import bcrypt from 'bcryptjs';
+import nodemailer from 'nodemailer';
 import Property from '../models/Property.js';
 import Booking from '../models/Booking.js';
 import Complaint from '../models/Complaint.js';
@@ -12,6 +14,8 @@ import Agreement from '../models/Agreement.js';
 import AdminAnnotation from '../models/AdminAnnotation.js';
 import LeaseAmendment from '../models/LeaseAmendment.js';
 import DepositLedgerEntry from '../models/DepositLedgerEntry.js';
+import DuplicateCase from '../models/DuplicateCase.js';
+import DuplicateMergeOperation from '../models/DuplicateMergeOperation.js';
 import { calcMoMChangePct, calcOccupancyRate, calcProfit } from '../utils/kpiMath.js';
 
 const safeRegex = (value) => new RegExp(String(value || '').trim(), 'i');
@@ -34,6 +38,157 @@ const sendPaginated = (res, items, total, page, limit) => {
       totalPages: Math.max(1, Math.ceil(total / limit)),
     },
   });
+};
+
+const sendEmail = async ({ to, subject, html, text }) => {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpFrom = process.env.SMTP_FROM;
+
+  if (smtpHost && smtpUser && smtpPass && smtpFrom) {
+    if (!to) return { sent: false, reason: 'missing_recipient' };
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    await transporter.sendMail({
+      from: smtpFrom,
+      to,
+      subject,
+      text,
+      html,
+    });
+    return { sent: true, provider: 'smtp' };
+  }
+
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM;
+  if (!apiKey || !from) {
+    return { sent: false, reason: 'email_not_configured' };
+  }
+  if (!to) {
+    return { sent: false, reason: 'missing_recipient' };
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      html,
+      text,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Resend failed (${response.status}): ${body}`);
+  }
+  return { sent: true, provider: 'resend' };
+};
+
+const notifyDuplicateMergeUsers = async ({
+  sourceUser,
+  targetUser,
+  operation,
+  totalModified,
+  docsMoved,
+  rollbackWindowMinutes,
+}) => {
+  const sourceName = sourceUser?.name || sourceUser?.email || 'User';
+  const targetName = targetUser?.name || targetUser?.email || 'User';
+  const targetEmail = targetUser?.email || '';
+  const sourceEmail = sourceUser?.email || '';
+  const rollbackUntilText = operation?.rollbackExpiresAt
+    ? new Date(operation.rollbackExpiresAt).toLocaleString()
+    : '';
+
+  const sourceSubject = 'Duplicate account merged into superior account';
+  const sourceText = [
+    `Hello ${sourceName},`,
+    '',
+    'We detected a duplicate identity record and merged your less-superior account into a superior account to keep data consistent.',
+    `Superior account: ${targetName} (${targetEmail})`,
+    `Records moved: ${Number(totalModified || 0)}`,
+    `KYC documents moved: ${Number(docsMoved || 0)}`,
+    rollbackUntilText ? `Rollback window (admin): until ${rollbackUntilText}` : '',
+    '',
+    'You can continue using the superior account credentials.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const targetSubject = 'Duplicate account consolidated into your account';
+  const targetText = [
+    `Hello ${targetName},`,
+    '',
+    'A duplicate account linked to your identity was consolidated into your superior account.',
+    `Merged account: ${sourceName} (${sourceEmail})`,
+    `Records moved: ${Number(totalModified || 0)}`,
+    `KYC documents moved: ${Number(docsMoved || 0)}`,
+    rollbackUntilText ? `Rollback window (admin): until ${rollbackUntilText}` : '',
+    '',
+    'No action is required from you.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const htmlWrap = (body) => `<div style="font-family:Arial,sans-serif;line-height:1.5;white-space:pre-line">${body}</div>`;
+  const results = await Promise.allSettled([
+    sourceEmail
+      ? sendEmail({
+          to: sourceEmail,
+          subject: sourceSubject,
+          text: sourceText,
+          html: htmlWrap(sourceText),
+        })
+      : Promise.resolve({ sent: false, reason: 'missing_source_email' }),
+    targetEmail
+      ? sendEmail({
+          to: targetEmail,
+          subject: targetSubject,
+          text: targetText,
+          html: htmlWrap(targetText),
+        })
+      : Promise.resolve({ sent: false, reason: 'missing_target_email' }),
+  ]);
+
+  await Promise.allSettled([
+    sourceUser?._id
+      ? Notification.create({
+          userId: sourceUser._id,
+          type: 'account_merge',
+          message: `Duplicate account merged into superior account (${targetName}).`,
+          link: '/profile',
+        })
+      : Promise.resolve(null),
+    targetUser?._id
+      ? Notification.create({
+          userId: targetUser._id,
+          type: 'account_merge',
+          message: `Duplicate account (${sourceName}) has been consolidated into your account.`,
+          link: '/profile',
+        })
+      : Promise.resolve(null),
+  ]);
+
+  return {
+    source: results[0].status === 'fulfilled' ? results[0].value : { sent: false, reason: results[0].reason?.message || 'failed' },
+    target: results[1].status === 'fulfilled' ? results[1].value : { sent: false, reason: results[1].reason?.message || 'failed' },
+  };
 };
 
 const toMonthKey = (value) => {
@@ -1925,9 +2080,84 @@ export const getExportDataset = async (req, res) => {
 export const getAdminPermissions = async (_req, res) => {
   try {
     const admins = await Admin.find().select('username displayName role permissions isActive createdAt').sort({ createdAt: -1 }).lean();
-    res.json({ admins });
+    res.json({
+      admins,
+      rolePermissionMap: ROLE_PERMISSION_MAP,
+      permissionCatalog: PERMISSION_CATALOG,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch admin permissions' });
+  }
+};
+
+export const createAdminAccount = async (req, res) => {
+  try {
+    const {
+      username,
+      password,
+      displayName = '',
+      role = 'ops_admin',
+      permissions = [],
+      isActive = true,
+    } = req.body || {};
+
+    const normalizedUsername = String(username || '').trim().toLowerCase();
+    const normalizedDisplayName = String(displayName || '').trim();
+    const normalizedRole = String(role || '').trim();
+
+    if (!normalizedUsername || normalizedUsername.length < 3) {
+      return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    }
+    if (!password || String(password).length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    if (!Object.keys(ROLE_PERMISSION_MAP).includes(normalizedRole)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    const sanitizedPermissions = Array.from(
+      new Set((Array.isArray(permissions) ? permissions : []).map((item) => String(item).trim()).filter(Boolean))
+    ).slice(0, 50);
+    const invalid = sanitizedPermissions.filter(
+      (item) => item !== '*' && !PERMISSION_CATALOG.includes(item)
+    );
+    if (invalid.length) {
+      return res.status(400).json({ error: `Invalid permissions: ${invalid.join(', ')}` });
+    }
+
+    const existing = await Admin.findOne({ username: normalizedUsername }).lean();
+    if (existing) {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
+
+    const passwordHash = await bcrypt.hash(String(password), 10);
+    const admin = await Admin.create({
+      username: normalizedUsername,
+      password: passwordHash,
+      displayName: normalizedDisplayName,
+      role: normalizedRole,
+      permissions: sanitizedPermissions,
+      isActive: Boolean(isActive),
+    });
+
+    await logAudit(req, 'admin_created', 'Admin', admin._id, {
+      username: admin.username,
+      role: admin.role,
+      permissions: admin.permissions,
+      isActive: admin.isActive,
+    });
+
+    return res.status(201).json({
+      _id: admin._id,
+      username: admin.username,
+      displayName: admin.displayName,
+      role: admin.role,
+      permissions: admin.permissions || [],
+      isActive: admin.isActive,
+      createdAt: admin.createdAt,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to create admin account' });
   }
 };
 
@@ -1935,11 +2165,31 @@ export const updateAdminPermissions = async (req, res) => {
   try {
     const { role, permissions, isActive } = req.body || {};
     const updates = {};
-    if (role) updates.role = String(role);
-    if (Array.isArray(permissions)) {
-      updates.permissions = permissions.map((item) => String(item).trim()).filter(Boolean).slice(0, 50);
+    if (role) {
+      const nextRole = String(role);
+      if (!Object.keys(ROLE_PERMISSION_MAP).includes(nextRole)) {
+        return res.status(400).json({ error: 'Invalid role' });
+      }
+      updates.role = nextRole;
     }
-    if (typeof isActive === 'boolean') updates.isActive = isActive;
+    if (Array.isArray(permissions)) {
+      const sanitized = Array.from(
+        new Set(permissions.map((item) => String(item).trim()).filter(Boolean))
+      ).slice(0, 50);
+      const invalid = sanitized.filter(
+        (item) => item !== '*' && !PERMISSION_CATALOG.includes(item)
+      );
+      if (invalid.length) {
+        return res.status(400).json({ error: `Invalid permissions: ${invalid.join(', ')}` });
+      }
+      updates.permissions = sanitized;
+    }
+    if (typeof isActive === 'boolean') {
+      if (isActive === false && String(req.admin?._id) === String(req.params.id)) {
+        return res.status(400).json({ error: 'You cannot deactivate your current admin account' });
+      }
+      updates.isActive = isActive;
+    }
     if (!Object.keys(updates).length) return res.status(400).json({ error: 'No fields to update' });
 
     const admin = await Admin.findByIdAndUpdate(req.params.id, updates, { new: true })
@@ -1984,6 +2234,1351 @@ export const getAuditLogDiff = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch audit diff' });
+  }
+};
+
+const normalizeText = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+
+const normalizeUrl = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\?.*$/, '')
+    .replace(/\/+$/, '');
+
+const normalizeNumberLike = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+const resolveUserKycStatus = (user) => {
+  if (user?.kycStatus) return user.kycStatus;
+  const docs = Array.isArray(user?.kycDocuments) ? user.kycDocuments : [];
+  if (!docs.length) return 'unsubmitted';
+  const statuses = docs.map((doc) => String(doc?.status || '').toLowerCase());
+  if (statuses.includes('rejected')) return 'rejected';
+  if (statuses.every((status) => status === 'verified')) return 'verified';
+  return 'pending';
+};
+
+const resolveOwnerVerificationStatus = (user) =>
+  user?.ownerVerificationStatus || 'unverified';
+
+const kycScore = (status) => {
+  const value = String(status || '').toLowerCase();
+  if (value === 'verified') return 40;
+  if (value === 'pending') return 18;
+  if (value === 'rejected') return 6;
+  return 0; // unsubmitted/unknown
+};
+
+const ownerVerificationScore = (status) => {
+  const value = String(status || '').toLowerCase();
+  if (value === 'verified') return 30;
+  if (value === 'pending') return 12;
+  if (value === 'rejected') return 3;
+  return 0; // unverified/unknown
+};
+
+const candidatePrimaryScore = (user) => {
+  const kyc = resolveUserKycStatus(user);
+  const owner = resolveOwnerVerificationStatus(user);
+  const docsCount = Array.isArray(user?.kycDocuments) ? user.kycDocuments.length : 0;
+  const hasCitizenship = Boolean(normalizeNumberLike(user?.citizenshipNumber));
+  const isActive = user?.isActive === true;
+  return (
+    kycScore(kyc) +
+    ownerVerificationScore(owner) +
+    (isActive ? 10 : 0) +
+    (hasCitizenship ? 6 : 0) +
+    Math.min(8, docsCount * 2)
+  );
+};
+
+const scoreDuplicateConfidence = (entityType, reason, matchCount) => {
+  const normalizedReason = normalizeText(reason);
+  let base = 45;
+
+  if (normalizedReason.includes('citizenship')) base = 94;
+  else if (normalizedReason.includes('publicid')) base = 95;
+  else if (normalizedReason.includes('kyc image')) base = 88;
+  else if (normalizedReason.includes('name + citizenship')) base = 90;
+  else if (normalizedReason.includes('title + location + owner + price')) base = 82;
+  else if (normalizedReason.includes('property image')) base = 72;
+
+  const boost = Math.min(10, Math.max(0, (Number(matchCount || 0) - 2) * 2));
+  return Math.max(1, Math.min(99, Math.round(base + boost)));
+};
+
+const toMergeSuggestion = (entityType, key, rows, reason) => {
+  const sorted = [...rows].sort((a, b) => {
+    // For user-like entities, prefer better verified profile as primary.
+    if (entityType === 'user' || entityType === 'kyc_document') {
+      const scoreDiff = candidatePrimaryScore(b) - candidatePrimaryScore(a);
+      if (scoreDiff !== 0) return scoreDiff;
+    }
+    // Stable tie-breaker: oldest record first.
+    return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+  });
+  const [primary, ...duplicates] = sorted;
+  const confidence = scoreDuplicateConfidence(entityType, reason, rows.length);
+  const signals = {
+    reason,
+    matchCount: rows.length,
+    highConfidence: confidence >= 85,
+  };
+  return {
+    entityType,
+    key,
+    reason,
+    confidence,
+    signals,
+    matchCount: rows.length,
+    primary: {
+      id: primary?._id,
+      label:
+        primary?.name ||
+        primary?.email ||
+        primary?.title ||
+        primary?.location ||
+        String(primary?._id || ''),
+      name: primary?.name || '',
+      email: primary?.email || '',
+      role: primary?.role || '',
+      citizenshipNumber: primary?.citizenshipNumber || '',
+      createdAt: primary?.createdAt || null,
+      kycStatus: resolveUserKycStatus(primary),
+      ownerVerificationStatus: resolveOwnerVerificationStatus(primary),
+      isActive: typeof primary?.isActive === 'boolean' ? primary.isActive : null,
+    },
+    duplicates: duplicates.map((row) => ({
+      id: row._id,
+      label: row?.name || row?.email || row?.title || row?.location || String(row?._id || ''),
+      name: row?.name || '',
+      email: row?.email || '',
+      role: row?.role || '',
+      citizenshipNumber: row?.citizenshipNumber || '',
+      createdAt: row?.createdAt || null,
+      kycStatus: resolveUserKycStatus(row),
+      ownerVerificationStatus: resolveOwnerVerificationStatus(row),
+      isActive: typeof row?.isActive === 'boolean' ? row.isActive : null,
+    })),
+    suggestedAction:
+      entityType === 'property'
+        ? 'Keep the earliest listing as canonical, then review and archive duplicate listings.'
+        : entityType === 'kyc_document'
+          ? 'Review KYC docs and retain one user identity record as source of truth.'
+          : 'Review user profiles and merge duplicate identities manually.',
+    workflow: {
+      status: 'new',
+      assignee: null,
+    },
+  };
+};
+
+const preferUserSuggestion = (existing, candidate) => {
+  if (!existing) return candidate;
+  const existingCitizenship = normalizeText(existing.reason).includes('citizenship number');
+  const candidateCitizenship = normalizeText(candidate.reason).includes('citizenship number');
+  if (candidateCitizenship && !existingCitizenship) return candidate;
+  if (existingCitizenship && !candidateCitizenship) return existing;
+  if (Number(candidate.confidence || 0) > Number(existing.confidence || 0)) return candidate;
+  return existing;
+};
+
+const collapseUserSuggestionsToSingleEntity = (suggestions = []) => {
+  const byMemberSet = new Map();
+  suggestions.forEach((item) => {
+    const memberIds = [
+      item?.primary?.id,
+      ...(Array.isArray(item?.duplicates) ? item.duplicates.map((row) => row?.id) : []),
+    ]
+      .filter(Boolean)
+      .map((id) => String(id))
+      .sort();
+    if (!memberIds.length) return;
+    const setKey = memberIds.join('|');
+    const winner = preferUserSuggestion(byMemberSet.get(setKey), item);
+    byMemberSet.set(setKey, winner);
+  });
+
+  return Array.from(byMemberSet.values()).map((item) => ({
+    ...item,
+    signals: {
+      ...(item.signals || {}),
+      singleCanonicalEntity: true,
+      superiorPrimaryRule: 'highest_verified_profile',
+    },
+  }));
+};
+
+const toSeverity = (score) => {
+  if (score >= 85) return 'critical';
+  if (score >= 70) return 'high';
+  if (score >= 45) return 'medium';
+  return 'low';
+};
+
+const computeSmartMeta = (suggestion, caseDoc) => {
+  const confidence = Number(suggestion?.confidence || 0);
+  const matchCount = Number(suggestion?.matchCount || 0);
+  const reason = normalizeText(suggestion?.reason);
+  const duplicateList = Array.isArray(suggestion?.duplicates) ? suggestion.duplicates : [];
+  const activeDuplicates = duplicateList.filter((item) => item?.isActive === true).length;
+  const unverifiedDuplicates = duplicateList.filter((item) =>
+    ['unverified', 'unsubmitted', 'pending', 'rejected'].includes(String(item?.kycStatus || '').toLowerCase())
+  ).length;
+  const primaryIsInactive = suggestion?.primary?.isActive === false;
+  const staleHours = caseDoc?.updatedAt
+    ? Math.max(0, (Date.now() - new Date(caseDoc.updatedAt).getTime()) / (1000 * 60 * 60))
+    : 0;
+
+  let score = confidence * 0.62 + Math.min(20, matchCount * 5);
+  if (suggestion?.entityType === 'kyc_document') score += 8;
+  if (reason.includes('citizenship') || reason.includes('publicid')) score += 7;
+  if (primaryIsInactive && activeDuplicates > 0) score += 6;
+  if (unverifiedDuplicates > 0) score += Math.min(6, unverifiedDuplicates * 2);
+  if (staleHours >= 72) score += 6;
+  if (staleHours >= 168) score += 6;
+  if ((caseDoc?.status || 'new') === 'new') score += 4;
+
+  const roundedScore = Math.max(1, Math.min(99, Math.round(score)));
+  const severity = toSeverity(roundedScore);
+  const recommendedStatus = severity === 'low' ? 'false_positive' : 'reviewing';
+  const nextStep =
+    severity === 'critical'
+      ? 'Assign immediately and verify merge impact before any deletion.'
+      : severity === 'high'
+        ? 'Start review now and resolve in current triage cycle.'
+        : severity === 'medium'
+          ? 'Queue for review and gather supporting notes.'
+          : 'Likely false positive; verify quickly before closing.';
+
+  return {
+    priorityScore: roundedScore,
+    severity,
+    staleHours: Math.round(staleHours),
+    recommendedStatus,
+    signals: {
+      activeDuplicates,
+      unverifiedDuplicates,
+      primaryIsInactive,
+      staleReview: staleHours >= 72,
+    },
+    nextStep,
+  };
+};
+
+export const getDuplicateHub = async (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(Number(req.query.limit || 100), 500));
+    const minConfidence = Math.max(0, Math.min(Number(req.query.minConfidence || 0), 100));
+    const entityTypeFilter = String(req.query.entityType || '').trim().toLowerCase();
+    const includeResolved = String(req.query.includeResolved || 'false').toLowerCase() === 'true';
+    const statuses = ['new', 'reviewing', 'merged', 'ignored', 'false_positive'];
+    const [users, properties] = await Promise.all([
+      User.find()
+        .select('_id name email citizenshipNumber kycStatus ownerVerificationStatus isActive kycDocuments createdAt')
+        .sort({ createdAt: 1 })
+        .limit(10_000)
+        .lean(),
+      Property.find()
+        .select('_id title location price ownerId image createdAt')
+        .sort({ createdAt: 1 })
+        .limit(10_000)
+        .lean(),
+    ]);
+
+    const userByCitizenship = new Map();
+    const userByNameCitizenship = new Map();
+    const propertyByFingerprint = new Map();
+    const propertyByImage = new Map();
+    const docsByPublicId = new Map();
+    const docsByImage = new Map();
+
+    users.forEach((user) => {
+      const citizenship = normalizeNumberLike(user.citizenshipNumber);
+      if (citizenship) {
+        const list = userByCitizenship.get(citizenship) || [];
+        list.push(user);
+        userByCitizenship.set(citizenship, list);
+      }
+
+      const nameKey = normalizeText(user.name);
+      if (nameKey && citizenship) {
+        const key = `${nameKey}::${citizenship}`;
+        const list = userByNameCitizenship.get(key) || [];
+        list.push(user);
+        userByNameCitizenship.set(key, list);
+      }
+
+      const docs = Array.isArray(user.kycDocuments) ? user.kycDocuments : [];
+      docs.forEach((doc) => {
+        const publicId = normalizeText(doc?.publicId);
+        const imageUrl = normalizeUrl(doc?.imageUrl);
+
+        if (publicId) {
+          const list = docsByPublicId.get(publicId) || [];
+          list.push({ user, doc });
+          docsByPublicId.set(publicId, list);
+        }
+        if (imageUrl) {
+          const list = docsByImage.get(imageUrl) || [];
+          list.push({ user, doc });
+          docsByImage.set(imageUrl, list);
+        }
+      });
+    });
+
+    properties.forEach((property) => {
+      const key = [
+        normalizeText(property.title),
+        normalizeText(property.location),
+        normalizeNumberLike(property.ownerId),
+        Number(property.price || 0).toFixed(2),
+      ].join('::');
+      const list = propertyByFingerprint.get(key) || [];
+      list.push(property);
+      propertyByFingerprint.set(key, list);
+
+      const image = normalizeUrl(property.image);
+      if (image) {
+        const sameImage = propertyByImage.get(image) || [];
+        sameImage.push(property);
+        propertyByImage.set(image, sameImage);
+      }
+    });
+
+    const userSuggestionsRaw = [];
+    userByCitizenship.forEach((rows, key) => {
+      if (rows.length > 1) {
+        userSuggestionsRaw.push(
+          toMergeSuggestion('user', key, rows, 'Same citizenship number')
+        );
+      }
+    });
+    userByNameCitizenship.forEach((rows, key) => {
+      if (rows.length > 1) {
+        userSuggestionsRaw.push(
+          toMergeSuggestion('user', key, rows, 'Same normalized name + citizenship')
+        );
+      }
+    });
+    const userSuggestions = collapseUserSuggestionsToSingleEntity(userSuggestionsRaw);
+
+    const propertySuggestions = [];
+    propertyByFingerprint.forEach((rows, key) => {
+      if (rows.length > 1) {
+        propertySuggestions.push(
+          toMergeSuggestion('property', key, rows, 'Same title + location + owner + price')
+        );
+      }
+    });
+    propertyByImage.forEach((rows, key) => {
+      if (rows.length > 1) {
+        propertySuggestions.push(
+          toMergeSuggestion('property', key, rows, 'Same property image URL')
+        );
+      }
+    });
+
+    const docSuggestions = [];
+    docsByPublicId.forEach((rows, key) => {
+      if (rows.length > 1) {
+        const mapped = rows.map(({ user }) => user);
+        docSuggestions.push(
+          toMergeSuggestion('kyc_document', key, mapped, 'Same KYC publicId across users')
+        );
+      }
+    });
+    docsByImage.forEach((rows, key) => {
+      if (rows.length > 1) {
+        const mapped = rows.map(({ user }) => user);
+        docSuggestions.push(
+          toMergeSuggestion('kyc_document', key, mapped, 'Same KYC image URL across users')
+        );
+      }
+    });
+
+    const uniqueBySignature = new Map();
+    [...userSuggestions, ...propertySuggestions, ...docSuggestions].forEach((item) => {
+      const sig = `${item.entityType}:${item.key}:${item.primary?.id || ''}`;
+      if (!uniqueBySignature.has(sig)) uniqueBySignature.set(sig, item);
+    });
+
+    const suggestions = Array.from(uniqueBySignature.values())
+      .sort((a, b) => b.confidence - a.confidence || b.matchCount - a.matchCount);
+
+    const keys = suggestions.map((item) => item.key);
+    const entityTypes = suggestions.map((item) => item.entityType);
+    const cases = keys.length
+      ? await DuplicateCase.find({
+          key: { $in: keys },
+          entityType: { $in: entityTypes },
+        })
+          .populate('assignee', 'username displayName role')
+          .lean()
+      : [];
+    const caseMap = new Map(cases.map((row) => [`${row.entityType}:${row.key}`, row]));
+
+    // Auto-reopen incorrectly closed merged cases if duplicates still exist in a fresh scan.
+    const staleMergedCaseIds = suggestions
+      .filter((item) => {
+        const caseDoc = caseMap.get(`${item.entityType}:${item.key}`);
+        if (!caseDoc || caseDoc.status !== 'merged') return false;
+        const duplicates = Array.isArray(item?.duplicates) ? item.duplicates : [];
+        // Reopen only if there is at least one actionable active duplicate left.
+        return duplicates.some((dup) => dup?.isActive === true);
+      })
+      .map((item) => {
+        const row = caseMap.get(`${item.entityType}:${item.key}`);
+        return String(row?._id || '');
+      })
+      .filter(Boolean);
+    if (staleMergedCaseIds.length) {
+      await DuplicateCase.updateMany(
+        { _id: { $in: staleMergedCaseIds } },
+        {
+          $set: {
+            status: 'reviewing',
+            reviewedBy: null,
+            resolvedAt: null,
+          },
+        }
+      );
+      staleMergedCaseIds.forEach((id) => {
+        const hit = cases.find((row) => String(row._id) === String(id));
+        if (hit) {
+          hit.status = 'reviewing';
+          hit.reviewedBy = null;
+          hit.resolvedAt = null;
+        }
+      });
+    }
+
+    const enriched = suggestions
+      .map((item) => {
+        const caseDoc = caseMap.get(`${item.entityType}:${item.key}`);
+        const status = caseDoc?.status || 'new';
+        const smart = computeSmartMeta(item, caseDoc);
+        return {
+          ...item,
+          smart,
+          workflow: {
+            status,
+            assignee: caseDoc?.assignee || null,
+            caseId: caseDoc?._id || null,
+            updatedAt: caseDoc?.updatedAt || null,
+          },
+        };
+      })
+      .filter((item) => (!entityTypeFilter ? true : item.entityType === entityTypeFilter))
+      .filter((item) => item.confidence >= minConfidence)
+      .filter((item) => (includeResolved ? true : ['new', 'reviewing'].includes(item.workflow.status)))
+      .slice(0, limit);
+
+    const smartSummary = enriched.reduce(
+      (acc, item) => {
+        const severity = item?.smart?.severity || 'low';
+        if (severity === 'critical') acc.critical += 1;
+        else if (severity === 'high') acc.high += 1;
+        else if (severity === 'medium') acc.medium += 1;
+        else acc.low += 1;
+        if (item?.smart?.signals?.staleReview) acc.stale += 1;
+        return acc;
+      },
+      { critical: 0, high: 0, medium: 0, low: 0, stale: 0 }
+    );
+
+    return res.json({
+      scanned: {
+        users: users.length,
+        properties: properties.length,
+      },
+      totals: {
+        userDuplicateGroups: userSuggestions.length,
+        propertyDuplicateGroups: propertySuggestions.length,
+        docDuplicateGroups: docSuggestions.length,
+        allGroups: uniqueBySignature.size,
+      },
+      filters: {
+        entityType: entityTypeFilter || null,
+        minConfidence,
+        includeResolved,
+      },
+      smartSummary,
+      statuses,
+      suggestions: enriched,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to scan duplicates' });
+  }
+};
+
+export const getDuplicateCases = async (req, res) => {
+  try {
+    const page = parsePage(req.query.page, 1);
+    const limit = parseLimit(req.query.limit, 30);
+    const status = String(req.query.status || '').trim().toLowerCase();
+    const entityType = String(req.query.entityType || '').trim().toLowerCase();
+    const q = String(req.query.q || '').trim();
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (entityType) filter.entityType = entityType;
+    if (q) {
+      filter.$or = [{ key: safeRegex(q) }, { reason: safeRegex(q) }, { notes: safeRegex(q) }];
+    }
+
+    const [items, total] = await Promise.all([
+      DuplicateCase.find(filter)
+        .populate('assignee', 'username displayName role')
+        .populate('reviewedBy', 'username displayName role')
+        .sort({ updatedAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      DuplicateCase.countDocuments(filter),
+    ]);
+
+    return sendPaginated(res, items, total, page, limit);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch duplicate cases' });
+  }
+};
+
+export const upsertDuplicateCase = async (req, res) => {
+  try {
+    const {
+      entityType,
+      key,
+      reason,
+      confidence,
+      signals,
+      primary,
+      duplicates,
+      suggestedAction,
+      status,
+      assigneeId,
+      notes,
+      resolutionSummary,
+    } = req.body || {};
+
+    if (!entityType || !key) {
+      return res.status(400).json({ error: 'entityType and key are required' });
+    }
+
+    const updates = {
+      entityType: String(entityType),
+      key: String(key),
+      reason: String(reason || ''),
+      confidence: Number.isFinite(Number(confidence)) ? Number(confidence) : 0,
+      signals: signals || {},
+      primary: primary || {},
+      duplicates: Array.isArray(duplicates) ? duplicates : [],
+      suggestedAction: String(suggestedAction || ''),
+      status: status || 'reviewing',
+      assignee: assigneeId || undefined,
+      notes: String(notes || ''),
+      resolutionSummary: String(resolutionSummary || ''),
+    };
+
+    if (['merged', 'ignored', 'false_positive'].includes(String(updates.status))) {
+      updates.reviewedBy = req.admin._id;
+      updates.resolvedAt = new Date();
+    } else {
+      updates.reviewedBy = undefined;
+      updates.resolvedAt = undefined;
+    }
+
+    const doc = await DuplicateCase.findOneAndUpdate(
+      { entityType: updates.entityType, key: updates.key },
+      updates,
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    )
+      .populate('assignee', 'username displayName role')
+      .populate('reviewedBy', 'username displayName role');
+
+    await logAudit(req, 'duplicate_case_upserted', 'DuplicateCase', doc._id, {
+      entityType: updates.entityType,
+      key: updates.key,
+      status: updates.status,
+    });
+
+    return res.json(doc);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to save duplicate case' });
+  }
+};
+
+export const updateDuplicateCase = async (req, res) => {
+  try {
+    const { status, assigneeId, notes, resolutionSummary } = req.body || {};
+    const updates = {};
+    if (status) updates.status = String(status);
+    if (assigneeId !== undefined) updates.assignee = assigneeId || null;
+    if (notes !== undefined) updates.notes = String(notes || '');
+    if (resolutionSummary !== undefined) updates.resolutionSummary = String(resolutionSummary || '');
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ error: 'No update fields provided' });
+    }
+
+    if (updates.status && ['merged', 'ignored', 'false_positive'].includes(updates.status)) {
+      updates.reviewedBy = req.admin._id;
+      updates.resolvedAt = new Date();
+    } else if (updates.status && ['new', 'reviewing'].includes(updates.status)) {
+      updates.reviewedBy = null;
+      updates.resolvedAt = null;
+    }
+
+    const doc = await DuplicateCase.findByIdAndUpdate(req.params.id, updates, { new: true })
+      .populate('assignee', 'username displayName role')
+      .populate('reviewedBy', 'username displayName role');
+    if (!doc) return res.status(404).json({ error: 'Duplicate case not found' });
+
+    await logAudit(req, 'duplicate_case_updated', 'DuplicateCase', doc._id, updates);
+    return res.json(doc);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to update duplicate case' });
+  }
+};
+
+export const bulkUpdateDuplicateCases = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const status = String(req.body?.status || '').trim();
+    const assigneeId = req.body?.assigneeId;
+    if (!ids.length) return res.status(400).json({ error: 'ids array is required' });
+    if (!status && assigneeId === undefined) {
+      return res.status(400).json({ error: 'status or assigneeId is required' });
+    }
+
+    const updates = {};
+    if (status) updates.status = status;
+    if (assigneeId !== undefined) updates.assignee = assigneeId || null;
+    if (status && ['merged', 'ignored', 'false_positive'].includes(status)) {
+      updates.reviewedBy = req.admin._id;
+      updates.resolvedAt = new Date();
+    } else if (status && ['new', 'reviewing'].includes(status)) {
+      updates.reviewedBy = null;
+      updates.resolvedAt = null;
+    }
+
+    const result = await DuplicateCase.updateMany({ _id: { $in: ids } }, updates);
+    await logAudit(req, 'duplicate_case_bulk_updated', 'DuplicateCase', 'bulk', {
+      idsCount: ids.length,
+      updates,
+      modifiedCount: result.modifiedCount || 0,
+    });
+    return res.json({
+      success: true,
+      requested: ids.length,
+      modified: result.modifiedCount || 0,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to bulk update duplicate cases' });
+  }
+};
+
+const getDuplicateUserImpactSummary = async (userId) => {
+  const [
+    bookingsAsRenter,
+    propertiesOwned,
+    paymentsAsRenter,
+    ownerPayments,
+    messagesSent,
+    messagesReceived,
+    messagesRecipient,
+    agreementsAsOwner,
+    agreementsAsRenter,
+    complaintsAsOwner,
+    notifications,
+    amendmentsRequested,
+    amendmentsDecided,
+    depositAsRenter,
+    depositAsOwner,
+    depositCreatedBy,
+    depositApprovedBy,
+  ] = await Promise.all([
+    Booking.countDocuments({ renter: userId }),
+    Property.countDocuments({ ownerId: userId }),
+    Payment.countDocuments({ renter: userId }),
+    Payment.countDocuments({ ownerId: userId }),
+    Message.countDocuments({ sender: userId }),
+    Message.countDocuments({ receiver: userId }),
+    Message.countDocuments({ recipient: userId }),
+    Agreement.countDocuments({ owner: userId }),
+    Agreement.countDocuments({ renter: userId }),
+    Complaint.countDocuments({ ownerId: userId }),
+    Notification.countDocuments({ userId }),
+    LeaseAmendment.countDocuments({ requestedBy: userId }),
+    LeaseAmendment.countDocuments({ decidedBy: userId }),
+    DepositLedgerEntry.countDocuments({ renter: userId }),
+    DepositLedgerEntry.countDocuments({ owner: userId }),
+    DepositLedgerEntry.countDocuments({ createdBy: userId }),
+    DepositLedgerEntry.countDocuments({ approvedBy: userId }),
+  ]);
+
+  const refs = {
+    bookingsAsRenter,
+    propertiesOwned,
+    paymentsAsRenter,
+    ownerPayments,
+    messagesSent,
+    messagesReceived,
+    messagesRecipient,
+    agreementsAsOwner,
+    agreementsAsRenter,
+    complaintsAsOwner,
+    notifications,
+    amendmentsRequested,
+    amendmentsDecided,
+    depositAsRenter,
+    depositAsOwner,
+    depositCreatedBy,
+    depositApprovedBy,
+  };
+
+  const totalRefs = Object.values(refs).reduce((sum, value) => sum + Number(value || 0), 0);
+  return { refs, totalRefs };
+};
+
+const DUPLICATE_USER_MERGE_MAPPINGS = [
+  { label: 'bookingsAsRenter', model: Booking, modelName: 'Booking', field: 'renter' },
+  { label: 'propertiesOwned', model: Property, modelName: 'Property', field: 'ownerId' },
+  { label: 'paymentsAsRenter', model: Payment, modelName: 'Payment', field: 'renter' },
+  { label: 'ownerPayments', model: Payment, modelName: 'Payment', field: 'ownerId' },
+  { label: 'messagesSent', model: Message, modelName: 'Message', field: 'sender' },
+  { label: 'messagesReceived', model: Message, modelName: 'Message', field: 'receiver' },
+  { label: 'messagesRecipient', model: Message, modelName: 'Message', field: 'recipient' },
+  { label: 'agreementsAsOwner', model: Agreement, modelName: 'Agreement', field: 'owner' },
+  { label: 'agreementsAsRenter', model: Agreement, modelName: 'Agreement', field: 'renter' },
+  { label: 'complaintsAsOwner', model: Complaint, modelName: 'Complaint', field: 'ownerId' },
+  { label: 'notifications', model: Notification, modelName: 'Notification', field: 'userId' },
+  { label: 'amendmentsRequested', model: LeaseAmendment, modelName: 'LeaseAmendment', field: 'requestedBy' },
+  { label: 'amendmentsDecided', model: LeaseAmendment, modelName: 'LeaseAmendment', field: 'decidedBy' },
+  { label: 'depositAsRenter', model: DepositLedgerEntry, modelName: 'DepositLedgerEntry', field: 'renter' },
+  { label: 'depositAsOwner', model: DepositLedgerEntry, modelName: 'DepositLedgerEntry', field: 'owner' },
+  { label: 'depositCreatedBy', model: DepositLedgerEntry, modelName: 'DepositLedgerEntry', field: 'createdBy' },
+  { label: 'depositApprovedBy', model: DepositLedgerEntry, modelName: 'DepositLedgerEntry', field: 'approvedBy' },
+];
+
+const DUPLICATE_MERGE_ROLLBACK_WINDOW_MINUTES = 30;
+
+const toDocDedupKey = (doc) => {
+  const publicId = normalizeText(doc?.publicId);
+  const imageUrl = normalizeUrl(doc?.imageUrl);
+  if (publicId) return `pid:${publicId}`;
+  if (imageUrl) return `img:${imageUrl}`;
+  return `fallback:${normalizeText(JSON.stringify(doc || {}))}`;
+};
+
+const detectMergeConflicts = async (source, target) => {
+  const conflicts = [];
+
+  if (source.role === 'admin' || target.role === 'admin') {
+    conflicts.push({
+      code: 'admin_role_user',
+      severity: 'blocking',
+      message: 'Admin users cannot be merged from duplicate hub.',
+    });
+  }
+
+  const sourceIdNo = normalizeNumberLike(source.citizenshipNumber);
+  const targetIdNo = normalizeNumberLike(target.citizenshipNumber);
+  if (sourceIdNo && targetIdNo && sourceIdNo !== targetIdNo) {
+    conflicts.push({
+      code: 'citizenship_mismatch',
+      severity: 'warning',
+      message: 'Source and target have different citizenship numbers.',
+    });
+  }
+
+  const [sourceActiveApproved, targetActiveApproved] = await Promise.all([
+    Booking.find({ renter: source._id, status: 'Approved' })
+      .select('_id property fromDate toDate')
+      .lean(),
+    Booking.find({ renter: target._id, status: 'Approved' })
+      .select('_id property fromDate toDate')
+      .lean(),
+  ]);
+
+  let overlapCount = 0;
+  for (const sRow of sourceActiveApproved) {
+    const hasOverlap = targetActiveApproved.some((tRow) => {
+      if (String(sRow.property || '') !== String(tRow.property || '')) return false;
+      const sFrom = new Date(sRow.fromDate || 0).getTime();
+      const sTo = new Date(sRow.toDate || 0).getTime();
+      const tFrom = new Date(tRow.fromDate || 0).getTime();
+      const tTo = new Date(tRow.toDate || 0).getTime();
+      return sFrom <= tTo && sTo >= tFrom;
+    });
+    if (hasOverlap) overlapCount += 1;
+  }
+  if (overlapCount > 0) {
+    conflicts.push({
+      code: 'approved_booking_overlap',
+      severity: 'warning',
+      message: `Found ${overlapCount} overlapping approved booking(s) for target renter profile.`,
+      count: overlapCount,
+    });
+  }
+
+  return conflicts;
+};
+
+const getUserMoveCounts = async (sourceUserId) => {
+  const rows = await Promise.all(
+    DUPLICATE_USER_MERGE_MAPPINGS.map(async (mapRow) => ({
+      key: mapRow.label,
+      count: await mapRow.model.countDocuments({ [mapRow.field]: sourceUserId }),
+    }))
+  );
+  return rows.reduce((acc, row) => {
+    acc[row.key] = Number(row.count || 0);
+    return acc;
+  }, {});
+};
+
+const runDuplicateUserMerge = async ({ req, source, target, note }) => {
+  const sourceUserId = source._id;
+  const targetUserId = target._id;
+  const sourceSnapshot = {
+    isActive: source.isActive,
+    ownerVerificationStatus: source.ownerVerificationStatus || null,
+    kycStatus: source.kycStatus || null,
+    kycDocuments: Array.isArray(source.kycDocuments) ? source.kycDocuments : [],
+  };
+  const targetSnapshot = {
+    isActive: target.isActive,
+    ownerVerificationStatus: target.ownerVerificationStatus || null,
+    kycStatus: target.kycStatus || null,
+    kycDocuments: Array.isArray(target.kycDocuments) ? target.kycDocuments : [],
+  };
+
+  const movedRefs = [];
+  let totalModified = 0;
+
+  for (const mapRow of DUPLICATE_USER_MERGE_MAPPINGS) {
+    const found = await mapRow.model.find({ [mapRow.field]: sourceUserId }).select('_id').lean();
+    const ids = found.map((row) => row._id);
+    if (!ids.length) continue;
+    const write = await mapRow.model.updateMany(
+      { _id: { $in: ids } },
+      { $set: { [mapRow.field]: targetUserId } }
+    );
+    totalModified += Number(write?.modifiedCount || 0);
+    movedRefs.push({
+      label: mapRow.label,
+      model: mapRow.modelName,
+      field: mapRow.field,
+      ids,
+    });
+  }
+
+  const sourceDocs = Array.isArray(source.kycDocuments) ? source.kycDocuments : [];
+  const targetDocs = Array.isArray(target.kycDocuments) ? target.kycDocuments : [];
+  const targetKeys = new Set(targetDocs.map((doc) => toDocDedupKey(doc)));
+  const docsToMove = sourceDocs.filter((doc) => !targetKeys.has(toDocDedupKey(doc)));
+  if (docsToMove.length) {
+    target.kycDocuments = [...targetDocs, ...docsToMove];
+    await target.save();
+  }
+
+  source.isActive = false;
+  source.ownerVerificationStatus = source.ownerVerificationStatus || 'unverified';
+  source.kycStatus = source.kycStatus || 'unsubmitted';
+  source.mergeStatus = 'duplicate_merged';
+  source.mergedIntoUserId = targetUserId;
+  source.mergedAt = new Date();
+  source.mergeNote = String(note || '');
+  await source.save();
+
+  const rollbackExpiresAt = new Date(Date.now() + DUPLICATE_MERGE_ROLLBACK_WINDOW_MINUTES * 60 * 1000);
+  const operation = await DuplicateMergeOperation.create({
+    sourceUserId,
+    targetUserId,
+    performedBy: req.admin._id,
+    note: String(note || ''),
+    rollbackExpiresAt,
+    sourceSnapshot,
+    targetSnapshot,
+    movedRefs,
+    movedDocPublicIds: docsToMove.map((doc) => String(doc?.publicId || '')).filter(Boolean),
+    movedDocImageUrls: docsToMove.map((doc) => String(doc?.imageUrl || '')).filter(Boolean),
+  });
+
+  return { operation, totalModified, movedRefsCount: movedRefs.length, docsMoved: docsToMove.length };
+};
+
+export const getDuplicateUserImpact = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .select('_id name email role isActive createdAt')
+      .lean();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const { refs, totalRefs } = await getDuplicateUserImpactSummary(user._id);
+    const safeToHardDelete = totalRefs === 0 && user.role !== 'admin';
+    const allowedActions = [
+      'deactivate',
+      'merge_into_primary',
+      ...(safeToHardDelete ? ['hard_delete_if_safe'] : []),
+    ];
+
+    return res.json({
+      user,
+      refs,
+      totalRefs,
+      safeToHardDelete,
+      allowedActions,
+      recommendations: {
+        primary: totalRefs > 0 ? 'merge_into_primary' : 'hard_delete_if_safe',
+        fallback: 'deactivate',
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to evaluate duplicate user impact' });
+  }
+};
+
+export const getDuplicateUserMergePreview = async (req, res) => {
+  try {
+    const sourceUserId = String(req.params.userId || '').trim();
+    const targetUserId = String(req.query.targetUserId || '').trim();
+    if (!targetUserId) return res.status(400).json({ error: 'targetUserId is required' });
+    if (sourceUserId === targetUserId) {
+      return res.status(400).json({ error: 'targetUserId must be different from source user' });
+    }
+
+    const [source, target] = await Promise.all([
+      User.findById(sourceUserId)
+        .select('_id name email role isActive citizenshipNumber kycStatus ownerVerificationStatus kycDocuments createdAt')
+        .lean(),
+      User.findById(targetUserId)
+        .select('_id name email role isActive citizenshipNumber kycStatus ownerVerificationStatus kycDocuments createdAt')
+        .lean(),
+    ]);
+
+    if (!source) return res.status(404).json({ error: 'Source user not found' });
+    if (!target) return res.status(404).json({ error: 'Target user not found' });
+
+    const moveCounts = await getUserMoveCounts(source._id);
+    const sourceDocs = Array.isArray(source.kycDocuments) ? source.kycDocuments : [];
+    const targetDocs = Array.isArray(target.kycDocuments) ? target.kycDocuments : [];
+    const targetKeys = new Set(targetDocs.map((doc) => toDocDedupKey(doc)));
+    const docsToMove = sourceDocs.filter((doc) => !targetKeys.has(toDocDedupKey(doc)));
+    const conflicts = await detectMergeConflicts(source, target);
+    const blockingConflicts = conflicts.filter((item) => item.severity === 'blocking');
+
+    return res.json({
+      source: {
+        _id: source._id,
+        name: source.name,
+        email: source.email,
+        role: source.role,
+        isActive: source.isActive,
+      },
+      target: {
+        _id: target._id,
+        name: target.name,
+        email: target.email,
+        role: target.role,
+        isActive: target.isActive,
+      },
+      moveCounts,
+      docs: {
+        sourceCount: sourceDocs.length,
+        targetCount: targetDocs.length,
+        willMove: docsToMove.length,
+      },
+      conflicts,
+      canMerge: blockingConflicts.length === 0,
+      rollbackWindowMinutes: DUPLICATE_MERGE_ROLLBACK_WINDOW_MINUTES,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to build merge preview' });
+  }
+};
+
+export const commitDuplicateUserMerge = async (req, res) => {
+  try {
+    const sourceUserId = String(req.params.userId || '').trim();
+    const targetUserId = String(req.body?.targetUserId || '').trim();
+    const duplicateCaseId = String(req.body?.duplicateCaseId || '').trim();
+    const suggestionEntityType = String(req.body?.suggestionEntityType || '').trim().toLowerCase();
+    const suggestionKey = String(req.body?.suggestionKey || '').trim();
+    const note = String(req.body?.note || '').trim();
+    const confirmed = Boolean(req.body?.confirmed);
+
+    if (!targetUserId) return res.status(400).json({ error: 'targetUserId is required' });
+    if (!confirmed) return res.status(400).json({ error: 'Merge confirmation is required' });
+    if (sourceUserId === targetUserId) {
+      return res.status(400).json({ error: 'targetUserId must be different from source user' });
+    }
+
+    const source = await User.findById(sourceUserId);
+    if (!source) return res.status(404).json({ error: 'Source user not found' });
+    const target = await User.findById(targetUserId);
+    if (!target) return res.status(404).json({ error: 'Target user not found' });
+
+    const conflicts = await detectMergeConflicts(source, target);
+    const blockingConflicts = conflicts.filter((item) => item.severity === 'blocking');
+    if (blockingConflicts.length) {
+      return res.status(409).json({ error: 'Merge blocked due to conflicts', conflicts });
+    }
+
+    const { refs } = await getDuplicateUserImpactSummary(source._id);
+    const { operation, totalModified, movedRefsCount, docsMoved } = await runDuplicateUserMerge({
+      req,
+      source,
+      target,
+      note,
+    });
+    const emailDelivery = await notifyDuplicateMergeUsers({
+      sourceUser: source,
+      targetUser: target,
+      operation,
+      totalModified,
+      docsMoved,
+      rollbackWindowMinutes: DUPLICATE_MERGE_ROLLBACK_WINDOW_MINUTES,
+    });
+
+    await logAudit(req, 'duplicate_user_merged', 'User', source._id, {
+      targetUserId: target._id,
+      note,
+      refsBefore: refs,
+      totalModified,
+      movedRefsCount,
+      docsMoved,
+      mergeOperationId: operation._id,
+      rollbackExpiresAt: operation.rollbackExpiresAt,
+      emailDelivery,
+    });
+
+    let updatedCase = null;
+    const mergedCaseUpdate = {
+      status: 'merged',
+      reviewedBy: req.admin._id,
+      resolvedAt: new Date(),
+      resolutionSummary: `Merged ${source._id} into ${target._id} via confirm merge.`,
+    };
+    if (duplicateCaseId) {
+      updatedCase = await DuplicateCase.findByIdAndUpdate(
+        duplicateCaseId,
+        { $set: mergedCaseUpdate },
+        { new: true }
+      )
+        .populate('assignee', 'username displayName role')
+        .populate('reviewedBy', 'username displayName role');
+    } else if (suggestionEntityType && suggestionKey) {
+      updatedCase = await DuplicateCase.findOneAndUpdate(
+        { entityType: suggestionEntityType, key: suggestionKey },
+        {
+          $set: mergedCaseUpdate,
+          $setOnInsert: {
+            entityType: suggestionEntityType,
+            key: suggestionKey,
+            reason: 'Auto-updated after confirmed merge',
+            confidence: 90,
+            primary: { id: target._id, label: target.name || target.email || String(target._id) },
+            duplicates: [{ id: source._id, label: source.name || source.email || String(source._id) }],
+          },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      )
+        .populate('assignee', 'username displayName role')
+        .populate('reviewedBy', 'username displayName role');
+    }
+
+    return res.json({
+      success: true,
+      action: 'merge_into_primary',
+      sourceUserId: source._id,
+      targetUserId: target._id,
+      totalModified,
+      movedRefsCount,
+      docsMoved,
+      mergeOperationId: operation._id,
+      rollbackExpiresAt: operation.rollbackExpiresAt,
+      rollbackWindowMinutes: DUPLICATE_MERGE_ROLLBACK_WINDOW_MINUTES,
+      emailDelivery,
+      case: updatedCase,
+      sourceAfterMerge: {
+        _id: source._id,
+        isActive: source.isActive,
+        mergeStatus: source.mergeStatus || null,
+        mergedIntoUserId: source.mergedIntoUserId || null,
+        mergedAt: source.mergedAt || null,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to commit duplicate merge' });
+  }
+};
+
+export const rollbackDuplicateUserMerge = async (req, res) => {
+  try {
+    const operation = await DuplicateMergeOperation.findById(req.params.operationId);
+    if (!operation) return res.status(404).json({ error: 'Merge operation not found' });
+    if (operation.status !== 'completed') {
+      return res.status(409).json({ error: `Cannot rollback. Operation is ${operation.status}.` });
+    }
+
+    if (new Date(operation.rollbackExpiresAt).getTime() < Date.now()) {
+      operation.status = 'expired';
+      await operation.save();
+      return res.status(409).json({ error: 'Rollback window expired' });
+    }
+
+    const source = await User.findById(operation.sourceUserId);
+    const target = await User.findById(operation.targetUserId);
+    if (!source || !target) return res.status(404).json({ error: 'Source or target user not found for rollback' });
+
+    for (const row of operation.movedRefs || []) {
+      const mapping = DUPLICATE_USER_MERGE_MAPPINGS.find(
+        (item) => item.modelName === row.model && item.field === row.field
+      );
+      if (!mapping) continue;
+      const ids = Array.isArray(row.ids) ? row.ids : [];
+      if (!ids.length) continue;
+      await mapping.model.updateMany(
+        { _id: { $in: ids } },
+        { $set: { [mapping.field]: operation.sourceUserId } }
+      );
+    }
+
+    source.isActive = operation.sourceSnapshot?.isActive ?? source.isActive;
+    source.ownerVerificationStatus = operation.sourceSnapshot?.ownerVerificationStatus ?? source.ownerVerificationStatus;
+    source.kycStatus = operation.sourceSnapshot?.kycStatus ?? source.kycStatus;
+    source.kycDocuments = Array.isArray(operation.sourceSnapshot?.kycDocuments)
+      ? operation.sourceSnapshot.kycDocuments
+      : source.kycDocuments;
+
+    target.isActive = operation.targetSnapshot?.isActive ?? target.isActive;
+    target.ownerVerificationStatus = operation.targetSnapshot?.ownerVerificationStatus ?? target.ownerVerificationStatus;
+    target.kycStatus = operation.targetSnapshot?.kycStatus ?? target.kycStatus;
+    target.kycDocuments = Array.isArray(operation.targetSnapshot?.kycDocuments)
+      ? operation.targetSnapshot.kycDocuments
+      : target.kycDocuments;
+
+    await Promise.all([source.save(), target.save()]);
+
+    operation.status = 'rolled_back';
+    operation.rolledBackAt = new Date();
+    operation.rolledBackBy = req.admin._id;
+    await operation.save();
+
+    await logAudit(req, 'duplicate_user_merge_rolled_back', 'DuplicateMergeOperation', operation._id, {
+      sourceUserId: operation.sourceUserId,
+      targetUserId: operation.targetUserId,
+    });
+
+    return res.json({
+      success: true,
+      operationId: operation._id,
+      status: operation.status,
+      rolledBackAt: operation.rolledBackAt,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to rollback duplicate merge' });
+  }
+};
+
+export const getDuplicateMergeHistory = async (req, res) => {
+  try {
+    const page = parsePage(req.query.page, 1);
+    const limit = parseLimit(req.query.limit, 20);
+    const status = String(req.query.status || '').trim();
+    const q = String(req.query.q || '').trim().toLowerCase();
+
+    const filter = {};
+    if (status) filter.status = status;
+
+    const rows = await DuplicateMergeOperation.find(filter)
+      .populate('sourceUserId', 'name email role isActive mergedAt mergeStatus')
+      .populate('targetUserId', 'name email role isActive')
+      .populate('performedBy', 'username displayName role')
+      .populate('rolledBackBy', 'username displayName role')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const filtered = q
+      ? rows.filter((row) => {
+          const haystack = [
+            row?._id,
+            row?.status,
+            row?.sourceUserId?.name,
+            row?.sourceUserId?.email,
+            row?.targetUserId?.name,
+            row?.targetUserId?.email,
+            row?.performedBy?.displayName,
+            row?.performedBy?.username,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return haystack.includes(q);
+        })
+      : rows;
+
+    const total = filtered.length;
+    const start = (page - 1) * limit;
+    const items = filtered.slice(start, start + limit);
+    return sendPaginated(res, items, total, page, limit);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch duplicate merge history' });
+  }
+};
+
+export const getSoftDeletedDuplicateUsers = async (req, res) => {
+  try {
+    const page = parsePage(req.query.page, 1);
+    const limit = parseLimit(req.query.limit, 20);
+    const q = String(req.query.q || '').trim().toLowerCase();
+
+    const rows = await User.find({
+      isActive: false,
+      mergeStatus: 'duplicate_merged',
+    })
+      .select(
+        '_id name email role isActive citizenshipNumber kycStatus ownerVerificationStatus mergeStatus mergedIntoUserId mergedAt mergeNote createdAt updatedAt'
+      )
+      .populate('mergedIntoUserId', 'name email role isActive')
+      .sort({ mergedAt: -1, updatedAt: -1 })
+      .lean();
+
+    const filtered = q
+      ? rows.filter((row) => {
+          const haystack = [
+            row?._id,
+            row?.name,
+            row?.email,
+            row?.citizenshipNumber,
+            row?.role,
+            row?.mergeStatus,
+            row?.mergedIntoUserId?._id,
+            row?.mergedIntoUserId?.name,
+            row?.mergedIntoUserId?.email,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return haystack.includes(q);
+        })
+      : rows;
+
+    const total = filtered.length;
+    const start = (page - 1) * limit;
+    const items = filtered.slice(start, start + limit);
+    return sendPaginated(res, items, total, page, limit);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch soft deleted duplicate users' });
+  }
+};
+
+export const resolveDuplicateUser = async (req, res) => {
+  try {
+    const action = String(req.body?.action || '').trim();
+    const targetUserId = req.body?.targetUserId ? String(req.body.targetUserId) : '';
+    const note = String(req.body?.note || '').trim();
+    if (!['deactivate', 'hard_delete_if_safe', 'merge_into_primary'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    const source = await User.findById(req.params.userId);
+    if (!source) return res.status(404).json({ error: 'User not found' });
+
+    const { refs, totalRefs } = await getDuplicateUserImpactSummary(source._id);
+
+    if (action === 'hard_delete_if_safe') {
+      if (source.role === 'admin') {
+        return res.status(400).json({ error: 'Admin users cannot be hard deleted from duplicate hub' });
+      }
+      if (totalRefs > 0) {
+        return res.status(409).json({ error: 'User has linked records. Use merge or deactivate.' });
+      }
+      await User.deleteOne({ _id: source._id });
+      await logAudit(req, 'duplicate_user_hard_deleted', 'User', source._id, {
+        note,
+        refs,
+      });
+      return res.json({ success: true, action, deletedUserId: source._id });
+    }
+
+    if (action === 'deactivate') {
+      source.isActive = false;
+      await source.save();
+      await logAudit(req, 'duplicate_user_deactivated', 'User', source._id, {
+        note,
+        refs,
+      });
+      return res.json({ success: true, action, user: source });
+    }
+
+    // merge_into_primary
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'targetUserId is required for merge' });
+    }
+    if (String(source._id) === String(targetUserId)) {
+      return res.status(400).json({ error: 'targetUserId must be different from source user' });
+    }
+    const target = await User.findById(targetUserId);
+    if (!target) return res.status(404).json({ error: 'Target user not found' });
+
+    const conflicts = await detectMergeConflicts(source, target);
+    const blockingConflicts = conflicts.filter((item) => item.severity === 'blocking');
+    if (blockingConflicts.length) {
+      return res.status(409).json({ error: 'Merge blocked due to conflicts', conflicts });
+    }
+
+    const { operation, totalModified, movedRefsCount, docsMoved } = await runDuplicateUserMerge({
+      req,
+      source,
+      target,
+      note,
+    });
+    const emailDelivery = await notifyDuplicateMergeUsers({
+      sourceUser: source,
+      targetUser: target,
+      operation,
+      totalModified,
+      docsMoved,
+      rollbackWindowMinutes: DUPLICATE_MERGE_ROLLBACK_WINDOW_MINUTES,
+    });
+
+    await logAudit(req, 'duplicate_user_merged', 'User', source._id, {
+      targetUserId: target._id,
+      note,
+      refsBefore: refs,
+      totalModified,
+      movedRefsCount,
+      docsMoved,
+      mergeOperationId: operation._id,
+      rollbackExpiresAt: operation.rollbackExpiresAt,
+      emailDelivery,
+    });
+
+    return res.json({
+      success: true,
+      action,
+      sourceUserId: source._id,
+      targetUserId: target._id,
+      totalModified,
+      movedRefsCount,
+      docsMoved,
+      mergeOperationId: operation._id,
+      rollbackExpiresAt: operation.rollbackExpiresAt,
+      rollbackWindowMinutes: DUPLICATE_MERGE_ROLLBACK_WINDOW_MINUTES,
+      emailDelivery,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to resolve duplicate user' });
   }
 };
 

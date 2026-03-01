@@ -22,6 +22,7 @@ const navItems = [
   { to: '/rule-engine', label: 'Rule Engine' },
   { to: '/export-center', label: 'Export Center' },
   { to: '/admin-notes', label: 'Admin Notes' },
+  { to: '/duplicate-hub', label: 'Duplicate Hub' },
   { to: '/access-control', label: 'Access Control' },
   { to: '/audit-logs', label: 'Audit Logs' },
 ];
