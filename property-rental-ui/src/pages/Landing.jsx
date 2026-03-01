@@ -55,7 +55,7 @@ function Hero({ totalProperties, featuredCount, onSearch }) {
           <h1>Find A Reliable Property In Minutes</h1>
           <p>
             Search approved listings, compare prices, and book with secure payment tracking.
-            Built for renters, owners, and admins with a clean workflow.
+            Built for renters and owners with a clean workflow.
           </p>
           <form className="hero-search" onSubmit={submit}>
             <input
@@ -263,7 +263,7 @@ function Footer() {
       <div className="landing-wrap footer-inner">
         <div>
           <h4>Property Rental</h4>
-          <p>Operational rental platform for owners, renters, and admins.</p>
+          <p>Operational rental platform for owners and renters.</p>
         </div>
         <div className="footer-links">
           <Link to="/register">Create Account</Link>

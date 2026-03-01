@@ -6,7 +6,8 @@
   justify-content: center;
   align-items: center;
   z-index: 999;
-  backdrop-filter: blur(6px);
+  animation: modalOverlayIn 140ms ease-out;
+  will-change: opacity;
 }
 
 .modal-content {
@@ -19,6 +20,11 @@
   position: relative;
   text-align: left;
   border: 1px solid var(--border);
+  animation: modalContentIn 170ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  contain: layout paint;
 }
 
 .booking-modal {
@@ -80,7 +86,7 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  transition: all 0.18s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .modal-close:hover {
@@ -120,6 +126,26 @@
   border-radius: 10px;
   font-size: 16px;
   box-sizing: border-box;
+}
+
+@keyframes modalOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @media (max-width: 700px) {

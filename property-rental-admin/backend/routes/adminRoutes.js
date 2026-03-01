@@ -4,6 +4,8 @@ import {
   getOverview,
   getAllUsers,
   updateUserStatus,
+  markUserEmailVerified,
+  deleteUserPermanently,
   getOwnerRequests,
   updateOwnerRequest,
   getKycRequests,
@@ -73,6 +75,8 @@ router.get('/overview', getOverview);
 
 router.get('/users', getAllUsers);
 router.patch('/users/:id/status', updateUserStatus);
+router.patch('/users/:id/email-verification', markUserEmailVerified);
+router.delete('/users/:id', deleteUserPermanently);
 router.get('/owner-requests', getOwnerRequests);
 router.patch('/owner-requests/:id', updateOwnerRequest);
 router.get('/kyc-requests', getKycRequests);

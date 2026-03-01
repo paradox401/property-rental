@@ -11,7 +11,8 @@ export default function NotificationList() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const roleHome = user?.role ? `/${user.role}` : '/';
+  const roleHome =
+    user?.role === 'owner' || user?.role === 'renter' ? `/${user.role}` : '/login';
 
   const resolveNotificationLink = (link, type) => {
     if (!link) return null;
@@ -26,11 +27,7 @@ export default function NotificationList() {
     if (normalized.startsWith('/payments/')) {
       return '/renter/payments';
     }
-    if (
-      type === 'listingApproval' &&
-      (normalized === '/admin/approvals' || normalized === '/owner/properties')
-    ) {
-      if (user?.role === 'admin') return '/admin/approvals';
+    if (type === 'listingApproval' && normalized === '/owner/properties') {
       if (user?.role === 'owner') return '/owner/properties';
       return '/renter/listings';
     }
@@ -46,7 +43,7 @@ export default function NotificationList() {
     // Avoid role-mismatch redirects from protected routes.
     if (normalized.startsWith('/owner') && user?.role !== 'owner') return roleHome;
     if (normalized.startsWith('/renter') && user?.role !== 'renter') return roleHome;
-    if (normalized.startsWith('/admin') && user?.role !== 'admin') return roleHome;
+    if (normalized.startsWith('/admin')) return roleHome;
 
     return normalized;
   };

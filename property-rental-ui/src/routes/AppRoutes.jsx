@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../pages/login/Login';
 import OwnerLayout from '../layouts/OwnerLayout';
 import RenterLayout from '../layouts/RenterLayout';
-import AdminLayout from '../layouts/AdminLayout';
 import OwnerDashboard from '../pages/owner/Dashboard';
 import MyProperties from '../pages/owner/MyProperties';
 import RenterHome from '../pages/renter/Home';
@@ -31,10 +30,6 @@ import Settings from '../pages/common/Settings';
 import Agreements from '../pages/common/Agreements';
 import Profile from '../pages/common/Profile';
 import DocumentCenter from '../pages/common/DocumentCenter';
-import AdminOverview from '../pages/admin/AdminOverview';
-import Approvals from '../pages/admin/Approvals';
-import OwnerVerifications from '../pages/admin/OwnerVerifications';
-import KycRequests from '../pages/admin/KycRequests';
 
 function PrivateRoute({ children, role }) {
   const { user } = useContext(AuthContext);
@@ -44,7 +39,8 @@ function PrivateRoute({ children, role }) {
   }
 
   if (user.role !== role) {
-    return <Navigate to={`/${user.role}`} replace />;
+    const fallback = user.role === 'owner' || user.role === 'renter' ? `/${user.role}` : '/login';
+    return <Navigate to={fallback} replace />;
   }
 
   return children;
@@ -102,21 +98,6 @@ export default function AppRoutes() {
         <Route path="payment/success" element={<PaymentSuccess />} />
         <Route path="payment/failure" element={<PaymentFailure />} />
         <Route path="settings" element={<Settings />} />
-      </Route>
-
-      <Route
-        path="/admin/*"
-        element={
-          <PrivateRoute role="admin">
-            <AdminLayout />
-          </PrivateRoute>
-        }
-      >
-        <Route index element={<AdminOverview />} />
-        <Route path="approvals" element={<Approvals />} />
-        <Route path="owners" element={<OwnerVerifications />} />
-        <Route path="kyc" element={<KycRequests />} />
-        <Route path="profile" element={<Profile />} />
       </Route>
 
       <Route path="/property/:id" element={<PropertyDetails />} />

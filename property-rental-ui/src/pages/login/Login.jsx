@@ -30,13 +30,7 @@ export default function Login() {
       if (result.error) {
         setError(result.error || 'Login failed');
       } else {
-        if (role === 'owner') {
-          navigate('/owner');
-        } else if (role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/renter');
-        }
+        navigate(role === 'owner' ? '/owner' : '/renter');
       }
     } catch (err) {
       setError('Server error. Please try again later.');
@@ -77,7 +71,6 @@ export default function Login() {
             <select value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="owner">Owner</option>
               <option value="renter">Renter</option>
-              <option value="admin">Admin</option>
             </select>
 
             {error && <p className="error">{error}</p>}

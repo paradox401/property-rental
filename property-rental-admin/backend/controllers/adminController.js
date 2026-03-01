@@ -597,6 +597,122 @@ export const updateUserStatus = async (req, res) => {
   }
 };
 
+export const deleteUserPermanently = async (req, res) => {
+  try {
+    const force = String(req.query?.force || 'false').toLowerCase() === 'true';
+    const user = await User.findById(req.params.id).select('_id name email role');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user.role === 'admin') {
+      return res.status(400).json({ error: 'Admin users cannot be permanently deleted from this page' });
+    }
+
+    const { refs, totalRefs } = await getDuplicateUserImpactSummary(user._id);
+    if (totalRefs > 0 && !force) {
+      return res.status(409).json({
+        error: 'Cannot permanently delete user with linked records. Use deactivate/suspend instead.',
+        refs,
+        totalRefs,
+      });
+    }
+
+    let cascadeDeleted = {};
+    if (force && totalRefs > 0) {
+      const deletes = await Promise.all([
+        Booking.deleteMany({ renter: user._id }),
+        Property.deleteMany({ ownerId: user._id }),
+        Payment.deleteMany({ renter: user._id }),
+        Payment.deleteMany({ ownerId: user._id }),
+        Message.deleteMany({ sender: user._id }),
+        Message.deleteMany({ receiver: user._id }),
+        Message.deleteMany({ recipient: user._id }),
+        Agreement.deleteMany({ owner: user._id }),
+        Agreement.deleteMany({ renter: user._id }),
+        Complaint.deleteMany({ ownerId: user._id }),
+        Notification.deleteMany({ userId: user._id }),
+        LeaseAmendment.deleteMany({ requestedBy: user._id }),
+        LeaseAmendment.deleteMany({ decidedBy: user._id }),
+        DepositLedgerEntry.deleteMany({ renter: user._id }),
+        DepositLedgerEntry.deleteMany({ owner: user._id }),
+        DepositLedgerEntry.deleteMany({ createdBy: user._id }),
+        DepositLedgerEntry.deleteMany({ approvedBy: user._id }),
+      ]);
+      const deletedCounts = deletes.map((item) => Number(item?.deletedCount || 0));
+      cascadeDeleted = {
+        bookingsAsRenter: deletedCounts[0],
+        propertiesOwned: deletedCounts[1],
+        paymentsAsRenter: deletedCounts[2],
+        ownerPayments: deletedCounts[3],
+        messagesSent: deletedCounts[4],
+        messagesReceived: deletedCounts[5],
+        messagesRecipient: deletedCounts[6],
+        agreementsAsOwner: deletedCounts[7],
+        agreementsAsRenter: deletedCounts[8],
+        complaintsAsOwner: deletedCounts[9],
+        notifications: deletedCounts[10],
+        amendmentsRequested: deletedCounts[11],
+        amendmentsDecided: deletedCounts[12],
+        depositAsRenter: deletedCounts[13],
+        depositAsOwner: deletedCounts[14],
+        depositCreatedBy: deletedCounts[15],
+        depositApprovedBy: deletedCounts[16],
+      };
+    }
+
+    await User.deleteOne({ _id: user._id });
+    await logAudit(req, 'user_deleted_permanently', 'User', user._id, {
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      force,
+      refsBefore: refs,
+      totalRefsBefore: totalRefs,
+      cascadeDeleted,
+    });
+
+    return res.json({
+      success: true,
+      deletedUserId: user._id,
+      force,
+      totalRefsBefore: totalRefs,
+      cascadeDeleted,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to permanently delete user' });
+  }
+};
+
+export const markUserEmailVerified = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+        },
+        $unset: {
+          emailVerificationCodeHash: 1,
+          emailVerificationExpiresAt: 1,
+          emailVerificationAttemptCount: 1,
+          emailVerificationLastSentAt: 1,
+        },
+      },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    await logAudit(req, 'user_email_verified_by_admin', 'User', user._id, {
+      email: user.email,
+      emailVerified: true,
+    });
+
+    return res.json(user);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to mark user email as verified' });
+  }
+};
+
 export const getOwnerRequests = async (req, res) => {
   try {
     const currentPage = parsePage(req.query.page);
@@ -1944,10 +2060,17 @@ export const getRuleEngine = async (_req, res) => {
     const setting = await AdminSetting.findOne({ key: 'automationRules' }).lean();
     const defaults = {
       autoApproveLowRiskListings: false,
+      listingAutoApproveScoreThreshold: 80,
       autoResolveStaleComplaintsDays: 0,
+      complaintEscalationHours: 48,
+      complaintAutoResolveOnlyIfNoOwnerReply: true,
       highRiskPaymentFailRatePct: 20,
+      paymentFailSpikeWindowDays: 7,
       payoutDelayThresholdDays: 3,
+      payoutDelayEscalationLevel: 'soft',
       broadcastOnCriticalIncident: false,
+      incidentAutoCreateOpsTicket: true,
+      anomalyAlertCooldownMinutes: 60,
     };
     const rules = { ...defaults, ...(setting?.value || {}) };
     res.json({ rules });
@@ -1959,12 +2082,22 @@ export const getRuleEngine = async (_req, res) => {
 export const updateRuleEngine = async (req, res) => {
   try {
     const input = req.body || {};
+    const payoutLevel = ['soft', 'strict'].includes(String(input.payoutDelayEscalationLevel))
+      ? String(input.payoutDelayEscalationLevel)
+      : 'soft';
     const rules = {
       autoApproveLowRiskListings: Boolean(input.autoApproveLowRiskListings),
+      listingAutoApproveScoreThreshold: Math.max(50, Math.min(Number(input.listingAutoApproveScoreThreshold || 80), 100)),
       autoResolveStaleComplaintsDays: Math.max(0, Math.min(Number(input.autoResolveStaleComplaintsDays || 0), 365)),
+      complaintEscalationHours: Math.max(1, Math.min(Number(input.complaintEscalationHours || 48), 336)),
+      complaintAutoResolveOnlyIfNoOwnerReply: Boolean(input.complaintAutoResolveOnlyIfNoOwnerReply),
       highRiskPaymentFailRatePct: Math.max(1, Math.min(Number(input.highRiskPaymentFailRatePct || 20), 100)),
+      paymentFailSpikeWindowDays: Math.max(1, Math.min(Number(input.paymentFailSpikeWindowDays || 7), 30)),
       payoutDelayThresholdDays: Math.max(1, Math.min(Number(input.payoutDelayThresholdDays || 3), 60)),
+      payoutDelayEscalationLevel: payoutLevel,
       broadcastOnCriticalIncident: Boolean(input.broadcastOnCriticalIncident),
+      incidentAutoCreateOpsTicket: Boolean(input.incidentAutoCreateOpsTicket),
+      anomalyAlertCooldownMinutes: Math.max(5, Math.min(Number(input.anomalyAlertCooldownMinutes || 60), 1440)),
     };
 
     const saved = await AdminSetting.findOneAndUpdate(
