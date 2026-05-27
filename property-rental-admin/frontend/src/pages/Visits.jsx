@@ -97,6 +97,7 @@ export default function Visits() {
               <option value="">All pass status</option>
               <option value="pending_payment">Pending payment</option>
               <option value="active">Active</option>
+              <option value="consumed">Consumed</option>
               <option value="rejected">Rejected</option>
             </select>
             <button className="btn" onClick={() => loadPasses(1)}>Apply</button>
@@ -173,6 +174,7 @@ export default function Visits() {
               <option value="">All visit status</option>
               <option value="scheduled">Scheduled</option>
               <option value="completed">Completed</option>
+              <option value="booking_pending">Booking pending</option>
               <option value="cancelled">Cancelled</option>
             </select>
             <button className="btn" onClick={() => loadVisits(1)}>Apply</button>
@@ -194,6 +196,9 @@ export default function Visits() {
                 <dt>Date</dt><dd>{formatDate(visit.visitDate)}</dd>
                 <dt>Promo</dt><dd>{visit.promoCode}</dd>
                 <dt>Status</dt><dd>{visit.status}</dd>
+                <dt>Renter Done</dt><dd>{visit.renterMarkedDoneAt ? 'Yes' : 'No'}</dd>
+                <dt>Owner Done</dt><dd>{visit.ownerMarkedDoneAt ? 'Yes' : 'No'}</dd>
+                <dt>Booking Fee</dt><dd>{visit.bookingConfirmationStatus === 'none' ? 'None' : `Rs. ${visit.bookingConfirmationAmount || 0} (${visit.bookingConfirmationStatus})`}</dd>
               </dl>
             </article>
           ))}

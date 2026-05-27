@@ -27,37 +27,53 @@ body {
 }
 
 .admin-shell {
-  display: grid;
-  grid-template-columns: 260px 1fr;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-sidebar {
   background: #0f172a;
   color: #e2e8f0;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.75rem;
   position: sticky;
   top: 0;
-  height: 100vh;
-  overflow-y: auto;
+  z-index: 30;
+  min-height: 64px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: thin;
 }
 
 .admin-brand {
   font-size: 1.1rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+}
+
+.admin-sidebar nav {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .admin-nav-link {
-  display: block;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
   color: #cbd5e1;
   padding: 0.55rem 0.65rem;
   border-radius: 10px;
   font-size: 0.92rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .admin-nav-link:hover {
@@ -70,7 +86,8 @@ body {
 }
 
 .logout-btn {
-  margin-top: auto;
+  margin-left: 0.5rem;
+  flex: 0 0 auto;
   border: none;
   border-radius: 12px;
   background: linear-gradient(135deg, #dc2626, #b91c1c);
@@ -95,6 +112,7 @@ body {
 
 .admin-main {
   padding: 1.25rem;
+  min-width: 0;
 }
 
 .incident-banner {
@@ -429,30 +447,16 @@ body {
 }
 
 @media (max-width: 900px) {
-  .admin-shell { grid-template-columns: 1fr; }
   .admin-sidebar {
-    height: auto;
-    position: sticky;
-    top: 0;
-    z-index: 20;
     padding: 0.75rem;
   }
-  .admin-sidebar nav {
-    display: flex;
-    overflow-x: auto;
-    gap: 0.45rem;
-    padding-bottom: 2px;
-    scrollbar-width: thin;
-  }
   .admin-nav-link {
-    flex: 0 0 auto;
     margin: 0;
     font-size: 0.82rem;
     padding: 0.45rem 0.55rem;
-    white-space: nowrap;
   }
   .logout-btn {
-    margin-top: 0.55rem;
+    margin-left: 0.25rem;
   }
   .page-header {
     flex-wrap: wrap;
