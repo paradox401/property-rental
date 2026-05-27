@@ -1,35 +1,57 @@
-import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import API, { clearAdminSession } from '../api';
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/users', label: 'Users' },
-  { to: '/owner-requests', label: 'Owner Requests' },
-  { to: '/kyc-requests', label: 'KYC Requests' },
-  { to: '/properties', label: 'Properties' },
-  { to: '/bookings', label: 'Bookings' },
-  { to: '/payments', label: 'Payments' },
-  { to: '/visits', label: 'Visits' },
-  { to: '/complaints', label: 'Complaints' },
-  { to: '/messages', label: 'Messages' },
-  { to: '/reviews', label: 'Reviews' },
-  { to: '/content', label: 'Content' },
-  { to: '/settings', label: 'Settings' },
-  { to: '/notifications', label: 'Notifications' },
-  { to: '/reports', label: 'Reports' },
-  { to: '/revenue-command', label: 'Revenue Command' },
-  { to: '/ops-center', label: 'Ops Center' },
-  { to: '/rule-engine', label: 'Rule Engine' },
-  { to: '/export-center', label: 'Export Center' },
-  { to: '/admin-notes', label: 'Admin Notes' },
-  { to: '/duplicate-hub', label: 'Duplicate Hub' },
-  { to: '/access-control', label: 'Access Control' },
-  { to: '/audit-logs', label: 'Audit Logs' },
+const navGroups = [
+  {
+    title: 'Command',
+    items: [
+      { to: '/dashboard', label: 'Dashboard', short: 'DB' },
+      { to: '/ops-center', label: 'Ops Center', short: 'OP' },
+      { to: '/revenue-command', label: 'Revenue', short: 'RV' },
+      { to: '/reports', label: 'Reports', short: 'RP' },
+    ],
+  },
+  {
+    title: 'Operations',
+    items: [
+      { to: '/users', label: 'Users', short: 'US' },
+      { to: '/owner-requests', label: 'Owner Requests', short: 'OR' },
+      { to: '/kyc-requests', label: 'KYC Requests', short: 'KY' },
+      { to: '/properties', label: 'Properties', short: 'PR' },
+      { to: '/bookings', label: 'Bookings', short: 'BK' },
+      { to: '/payments', label: 'Payments', short: 'PY' },
+      { to: '/visits', label: 'Visits', short: 'VI' },
+    ],
+  },
+  {
+    title: 'Support',
+    items: [
+      { to: '/complaints', label: 'Complaints', short: 'CP' },
+      { to: '/messages', label: 'Messages', short: 'MS' },
+      { to: '/reviews', label: 'Reviews', short: 'RW' },
+      { to: '/notifications', label: 'Notifications', short: 'NT' },
+      { to: '/admin-notes', label: 'Admin Notes', short: 'AN' },
+    ],
+  },
+  {
+    title: 'Governance',
+    items: [
+      { to: '/content', label: 'Content', short: 'CT' },
+      { to: '/settings', label: 'Settings', short: 'ST' },
+      { to: '/rule-engine', label: 'Rule Engine', short: 'RL' },
+      { to: '/export-center', label: 'Export Center', short: 'EX' },
+      { to: '/duplicate-hub', label: 'Duplicate Hub', short: 'DH' },
+      { to: '/access-control', label: 'Access Control', short: 'AC' },
+      { to: '/audit-logs', label: 'Audit Logs', short: 'AL' },
+    ],
+  },
 ];
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('adminTheme');
     if (saved === 'dark' || saved === 'light') return saved;
@@ -69,19 +91,49 @@ export default function AdminLayout() {
     navigate('/login');
   };
 
+  const activeItem = useMemo(() => {
+    const items = navGroups.flatMap((group) => group.items);
+    return items
+      .slice()
+      .sort((a, b) => b.to.length - a.to.length)
+      .find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));
+  }, [location.pathname]);
+
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
+
   return (
-    <div className="admin-shell">
+    <div className={`admin-shell ${navOpen ? 'nav-open' : ''}`}>
+      <button
+        type="button"
+        className="admin-nav-backdrop"
+        onClick={() => setNavOpen(false)}
+        aria-label="Close admin navigation"
+      />
       <aside className="admin-sidebar">
-        <div className="admin-brand">Property Admin</div>
-        <nav>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}
-            >
-              {item.label}
-            </NavLink>
+        <div className="admin-brand">
+          <span className="admin-brand-mark">DN</span>
+          <span>
+            <strong>DeraNow</strong>
+            <small>Admin Control</small>
+          </span>
+        </div>
+        <nav className="admin-nav">
+          {navGroups.map((group) => (
+            <section className="admin-nav-group" key={group.title}>
+              <p>{group.title}</p>
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}
+                >
+                  <span className="admin-nav-short">{item.short}</span>
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </section>
           ))}
         </nav>
         <button className="logout-btn" onClick={logout}>Logout</button>
@@ -95,6 +147,18 @@ export default function AdminLayout() {
           </div>
         ) : null}
         <div className="admin-main-topbar">
+          <button
+            type="button"
+            className="admin-menu-btn"
+            onClick={() => setNavOpen((prev) => !prev)}
+            aria-label="Open admin navigation"
+          >
+            Menu
+          </button>
+          <div className="admin-current-section">
+            <span>Workspace</span>
+            <strong>{activeItem?.label || 'Dashboard'}</strong>
+          </div>
           <button
             className={`theme-toggle ${theme}`}
             type="button"

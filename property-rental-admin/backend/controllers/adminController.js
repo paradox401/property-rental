@@ -585,8 +585,51 @@ export const getAllUsers = async (req, res) => {
         .limit(currentLimit),
       User.countDocuments(filter),
     ]);
-    sendPaginated(res, users, total, currentPage, currentLimit);
+
+    const userIds = users.map((user) => user._id);
+    const [propertyCounts, bookingCounts, paymentCounts, visitCounts] = await Promise.all([
+      Property.aggregate([
+        { $match: { ownerId: { $in: userIds } } },
+        { $group: { _id: '$ownerId', count: { $sum: 1 }, pending: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } } } },
+      ]),
+      Booking.aggregate([
+        { $match: { renter: { $in: userIds } } },
+        { $group: { _id: '$renter', count: { $sum: 1 }, approved: { $sum: { $cond: [{ $eq: ['$status', 'Approved'] }, 1, 0] } } } },
+      ]),
+      Payment.aggregate([
+        { $match: { renter: { $in: userIds } } },
+        { $group: { _id: '$renter', count: { $sum: 1 }, pending: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } } } },
+      ]),
+      PropertyVisit.aggregate([
+        { $match: { renter: { $in: userIds } } },
+        { $group: { _id: '$renter', count: { $sum: 1 }, pendingBookingFees: { $sum: { $cond: [{ $eq: ['$bookingConfirmationStatus', 'pending_verification'] }, 1, 0] } } } },
+      ]),
+    ]);
+    const keyed = (rows) => new Map(rows.map((row) => [String(row._id), row]));
+    const propertiesByUser = keyed(propertyCounts);
+    const bookingsByUser = keyed(bookingCounts);
+    const paymentsByUser = keyed(paymentCounts);
+    const visitsByUser = keyed(visitCounts);
+    const decoratedUsers = users.map((user) => {
+      const plain = user.toObject ? user.toObject() : user;
+      const id = String(plain._id);
+      return {
+        ...plain,
+        adminStats: {
+          properties: propertiesByUser.get(id)?.count || 0,
+          pendingProperties: propertiesByUser.get(id)?.pending || 0,
+          bookings: bookingsByUser.get(id)?.count || 0,
+          approvedBookings: bookingsByUser.get(id)?.approved || 0,
+          payments: paymentsByUser.get(id)?.count || 0,
+          pendingPayments: paymentsByUser.get(id)?.pending || 0,
+          visits: visitsByUser.get(id)?.count || 0,
+          pendingBookingFees: visitsByUser.get(id)?.pendingBookingFees || 0,
+        },
+      };
+    });
+    sendPaginated(res, decoratedUsers, total, currentPage, currentLimit);
   } catch (error) {
+    console.error('getAllUsers error:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 };
