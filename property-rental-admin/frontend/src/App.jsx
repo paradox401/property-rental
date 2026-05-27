@@ -8,6 +8,7 @@ import KycRequests from './pages/KycRequests';
 import Properties from './pages/Properties';
 import Bookings from './pages/Bookings';
 import Payments from './pages/Payments';
+import Visits from './pages/Visits';
 import Complaints from './pages/Complaints';
 import Messages from './pages/Messages';
 import Reviews from './pages/Reviews';
@@ -64,6 +65,7 @@ function App() {
           <Route path="/properties" element={<Properties />} />
           <Route path="/bookings" element={<Bookings />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/visits" element={<Visits />} />
           <Route path="/complaints" element={<Complaints />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/reviews" element={<Reviews />} />

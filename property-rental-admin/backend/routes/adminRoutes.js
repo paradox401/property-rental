@@ -18,6 +18,10 @@ import {
   updateBookingStatus,
   getAllPayments,
   updatePaymentStatus,
+  getVisitPassRequests,
+  getPropertyVisits,
+  approveVisitPassRequest,
+  rejectVisitPassRequest,
   allocateOwnerPayout,
   markOwnerPayoutTransferred,
   getAllComplaints,
@@ -98,6 +102,11 @@ router.get('/payments', getAllPayments);
 router.patch('/payments/:id/status', updatePaymentStatus);
 router.post('/payments/:id/allocate-owner', allocateOwnerPayout);
 router.patch('/payments/:id/transfer-owner', markOwnerPayoutTransferred);
+
+router.get('/visits/passes', requireAdminPermission('workflow:read'), getVisitPassRequests);
+router.get('/visits', requireAdminPermission('workflow:read'), getPropertyVisits);
+router.patch('/visits/passes/:id/approve', requireAdminPermission('workflow:write'), approveVisitPassRequest);
+router.patch('/visits/passes/:id/reject', requireAdminPermission('workflow:write'), rejectVisitPassRequest);
 
 router.get('/complaints', getAllComplaints);
 router.patch('/complaints/:id/status', updateComplaintStatus);

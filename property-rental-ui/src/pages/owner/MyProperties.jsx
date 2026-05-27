@@ -223,8 +223,16 @@ export default function MyProperties() {
       )}
 
       {isEditing && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay" onClick={handleCancel}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="modal-close"
+              onClick={handleCancel}
+              aria-label="Close popup"
+              title="Close"
+            >
+              ✕
+            </button>
             <h2>Edit Property</h2>
             <div className="form-group">
               <label>Title*</label>
@@ -305,8 +313,16 @@ export default function MyProperties() {
         </div>
       )}
       {viewProperty && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay" onClick={() => setViewProperty(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="modal-close"
+              onClick={() => setViewProperty(null)}
+              aria-label="Close popup"
+              title="Close"
+            >
+              ✕
+            </button>
             <h2>Property Details</h2>
             <img
               src={viewProperty.image || '/default-image.jpg'}

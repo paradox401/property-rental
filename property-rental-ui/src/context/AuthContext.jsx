@@ -66,6 +66,7 @@ export function AuthProvider({ children }) {
       updateUser(userData);
       setToken(data.token);
       setRefreshToken(data.refreshToken || null);
+      sessionStorage.setItem('languageChooserPrompt', '1');
 
       localStorage.setItem('token', data.token);
       if (data.refreshToken) {
@@ -92,6 +93,7 @@ export function AuthProvider({ children }) {
     setRefreshToken(null);
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('languageChooserPrompt');
   };
 
   const refreshSession = async () => {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
+import { useLanguage } from '../../context/LanguageContext';
 import './ForgotPassword.css';
 
 export default function ResetPassword() {
@@ -11,6 +12,7 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const { t } = useLanguage();
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -18,15 +20,15 @@ export default function ResetPassword() {
     setSuccess('');
 
     if (!token) {
-      setError('Missing reset token');
+      setError(t('auth.missingResetToken'));
       return;
     }
     if (!password || password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('auth.passwordMinLength'));
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth.passwordsDontMatch'));
       return;
     }
 
@@ -39,7 +41,7 @@ export default function ResetPassword() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to reset password');
-      setSuccess(data.message || 'Password reset successful.');
+      setSuccess(data.message || t('auth.resetSuccess'));
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
       setError(err.message || 'Failed to reset password');
@@ -51,11 +53,11 @@ export default function ResetPassword() {
   return (
     <div className="forgot-container">
       <div className="forgot-card">
-        <h2>Reset Password</h2>
-        <p className="forgot-subtitle">Set your new account password.</p>
+        <h2>{t('auth.resetPasswordTitle')}</h2>
+        <p className="forgot-subtitle">{t('auth.resetPasswordSubtitle')}</p>
 
         <form onSubmit={onSubmit}>
-          <label>New Password</label>
+          <label>{t('auth.newPassword')}</label>
           <input
             type="password"
             placeholder="********"
@@ -63,7 +65,7 @@ export default function ResetPassword() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <label>Confirm Password</label>
+          <label>{t('auth.confirmPassword')}</label>
           <input
             type="password"
             placeholder="********"
@@ -75,12 +77,12 @@ export default function ResetPassword() {
           {success && <p className="forgot-success">{success}</p>}
 
           <button type="submit" disabled={loading}>
-            {loading ? 'Updating...' : 'Update Password'}
+            {loading ? t('auth.updating') : t('auth.updatePassword')}
           </button>
         </form>
 
         <div className="forgot-footer">
-          <Link to="/login">Back to Login</Link>
+          <Link to="/login">{t('auth.backToLogin')}</Link>
         </div>
       </div>
     </div>

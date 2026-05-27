@@ -10,6 +10,7 @@ const navItems = [
   { to: '/properties', label: 'Properties' },
   { to: '/bookings', label: 'Bookings' },
   { to: '/payments', label: 'Payments' },
+  { to: '/visits', label: 'Visits' },
   { to: '/complaints', label: 'Complaints' },
   { to: '/messages', label: 'Messages' },
   { to: '/reviews', label: 'Reviews' },

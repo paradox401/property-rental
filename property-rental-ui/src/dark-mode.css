@@ -31,6 +31,33 @@
   border-bottom-color: var(--border);
 }
 
+:root[data-theme='dark'] .mobile-bottom-nav,
+:root[data-theme='dark'] .mobile-nav-sheet {
+  background: rgba(17, 24, 39, 0.88) !important;
+  border-color: rgba(55, 65, 81, 0.9) !important;
+}
+
+:root[data-theme='dark'] .mobile-bottom-nav-link {
+  color: #9ca3af !important;
+}
+
+:root[data-theme='dark'] .mobile-bottom-nav-link.active,
+:root[data-theme='dark'] .mobile-bottom-nav-link[aria-expanded='true'] {
+  background: linear-gradient(180deg, rgba(20, 184, 166, 0.22), rgba(20, 184, 166, 0.1)) !important;
+  color: #ccfbf1 !important;
+}
+
+:root[data-theme='dark'] .mobile-nav-sheet-link {
+  background: rgba(31, 41, 55, 0.9) !important;
+  border-color: rgba(55, 65, 81, 0.9) !important;
+  color: var(--text) !important;
+}
+
+:root[data-theme='dark'] .mobile-nav-sheet-icon {
+  background: rgba(20, 184, 166, 0.14) !important;
+  color: #99f6e4 !important;
+}
+
 :root[data-theme='dark'] .renter-layout .topbar h3,
 :root[data-theme='dark'] .owner-layout .topbar h3,
 :root[data-theme='dark'] .admin-layout .topbar h3,
@@ -196,6 +223,27 @@
   color: #ccfbf1 !important;
 }
 
+:root[data-theme='dark'] .chat-sidebar {
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.96)) !important;
+  border-color: var(--border) !important;
+}
+
+:root[data-theme='dark'] .profile-status-card {
+  background: linear-gradient(180deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.92));
+  border-color: var(--border);
+}
+
+:root[data-theme='dark'] .profile-upload-hint {
+  background: color-mix(in srgb, var(--info-bg) 48%, var(--surface));
+  border-color: var(--info-border);
+  color: var(--info-text);
+}
+
+:root[data-theme='dark'] .profile-avatar {
+  color: #ccfbf1;
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.22), rgba(245, 158, 11, 0.14));
+}
+
 :root[data-theme='dark'] .chat-header,
 :root[data-theme='dark'] .chat-input {
   background: var(--surface-muted) !important;
@@ -203,13 +251,47 @@
 }
 
 :root[data-theme='dark'] .chat-messages {
-  background: color-mix(in srgb, var(--surface) 82%, var(--bg) 18%) !important;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(17, 24, 39, 0.96)) !important;
 }
 
+:root[data-theme='dark'] .chat-search-box input,
 :root[data-theme='dark'] .chat-input input {
   background: var(--surface) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
+}
+
+:root[data-theme='dark'] .chat-input-shell,
+:root[data-theme='dark'] .chat-filter-pill,
+:root[data-theme='dark'] .chat-header-action,
+:root[data-theme='dark'] .chat-sidebar-action,
+:root[data-theme='dark'] .chat-back-btn,
+:root[data-theme='dark'] .chat-thread-pin,
+:root[data-theme='dark'] .chat-selected-file-chip {
+  background: color-mix(in srgb, var(--surface-muted) 88%, var(--surface)) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+:root[data-theme='dark'] .chat-filter-pill.active,
+:root[data-theme='dark'] .chat-thread-pin.pinned {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface)) !important;
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border)) !important;
+  color: #ccfbf1 !important;
+}
+
+:root[data-theme='dark'] .chat-filter-pill span,
+:root[data-theme='dark'] .chat-thread-pin-badge {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface)) !important;
+  color: #ccfbf1 !important;
+}
+
+:root[data-theme='dark'] .chat-sidebar-avatar,
+:root[data-theme='dark'] .chat-thread-avatar,
+:root[data-theme='dark'] .chat-header-avatar,
+:root[data-theme='dark'] .chat-send-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong)) !important;
+  color: #ffffff !important;
 }
 
 :root[data-theme='dark'] .chat-input input::placeholder {
@@ -245,15 +327,19 @@
 }
 
 :root[data-theme='dark'] .chat-attach-btn {
-  background: var(--surface) !important;
-  border-color: var(--border) !important;
-  color: var(--text) !important;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border)) !important;
+  color: #ccfbf1 !important;
 }
 
 :root[data-theme='dark'] .chat-selected-files {
   background: var(--surface-muted) !important;
   border-top-color: var(--border) !important;
   color: var(--text-muted) !important;
+}
+
+:root[data-theme='dark'] .chat-thread-presence {
+  border-color: var(--surface-muted) !important;
 }
 
 :root[data-theme='dark'] .thread-item.active,

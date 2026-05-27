@@ -11,6 +11,7 @@ export default function Message() {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [conversationMap, setConversationMap] = useState({});
+  const [showThreadList, setShowThreadList] = useState(true);
 
   const sortUsersByInbox = (rawUsers, nextConversationMap) => {
     return [...rawUsers].sort((a, b) => {
@@ -70,6 +71,12 @@ export default function Message() {
     return () => clearInterval(interval);
   }, [token]);
 
+  useEffect(() => {
+    if (!selectedUser) {
+      setShowThreadList(true);
+    }
+  }, [selectedUser]);
+
   const handleTogglePin = async (chatUser) => {
     if (!token || !chatUser?._id) return;
     const currentPinned = Boolean(conversationMap[chatUser._id]?.pinned);
@@ -95,15 +102,23 @@ export default function Message() {
   };
 
   return (
-    <div className="message-page">
+    <div className={`message-page ${selectedUser && !showThreadList ? 'show-chat' : 'show-list'}`}>
       <ChatList
         users={users}
-        onSelectUser={setSelectedUser}
+        onSelectUser={(user) => {
+          setSelectedUser(user);
+          setShowThreadList(false);
+        }}
         selectedUser={selectedUser}
         conversationMap={conversationMap}
         onTogglePin={handleTogglePin}
       />
-      {selectedUser && <ChatWindow selectedUser={selectedUser} />}
+      {selectedUser && (
+        <ChatWindow
+          selectedUser={selectedUser}
+          onBack={() => setShowThreadList(true)}
+        />
+      )}
     </div>
   );
 }

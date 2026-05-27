@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
+import { useLanguage } from '../../context/LanguageContext';
 import './Settings.css';
 
 const DEFAULT_TYPES = {
@@ -29,6 +30,7 @@ const DEFAULT_APP = {
 
 export default function Settings() {
   const { token, user, setUser } = useContext(AuthContext);
+  const { t, openLanguageChooser } = useLanguage();
   const [prefs, setPrefs] = useState({ inApp: true, email: false, types: DEFAULT_TYPES });
   const [privacyPrefs, setPrivacyPrefs] = useState(DEFAULT_PRIVACY);
   const [appPrefs, setAppPrefs] = useState(DEFAULT_APP);
@@ -82,7 +84,7 @@ export default function Settings() {
     });
 
     if (res.ok) {
-      setMessage('Preferences updated.');
+      setMessage(t('settings.updated'));
       setUser({
         ...(user || {}),
         notificationPreferences: prefs,
@@ -90,7 +92,7 @@ export default function Settings() {
         appPreferences: appPrefs,
       });
     } else {
-      setMessage('Failed to update preferences.');
+      setMessage(t('settings.failed'));
     }
     setSaving(false);
   };
@@ -98,8 +100,8 @@ export default function Settings() {
   return (
     <div className="settings-page">
       <div className="settings-card">
-        <h2>Notification Preferences</h2>
-        <p>Choose how you want to receive updates.</p>
+        <h2>{t('settings.title')}</h2>
+        <p>{t('settings.subtitle')}</p>
 
         <div className="settings-group">
           <label className="toggle">
@@ -108,7 +110,7 @@ export default function Settings() {
               checked={prefs.inApp}
               onChange={() => setPrefs((prev) => ({ ...prev, inApp: !prev.inApp }))}
             />
-            <span>In-app notifications</span>
+            <span>{t('settings.inAppNotifications')}</span>
           </label>
           <label className="toggle">
             <input
@@ -116,11 +118,11 @@ export default function Settings() {
               checked={prefs.email}
               onChange={() => setPrefs((prev) => ({ ...prev, email: !prev.email }))}
             />
-            <span>Email notifications (coming soon)</span>
+            <span>{t('settings.emailNotificationsSoon')}</span>
           </label>
         </div>
 
-        <h3>Types</h3>
+        <h3>{t('settings.types')}</h3>
         <div className="settings-grid">
           {Object.keys(prefs.types).map((key) => (
             <label key={key} className="checkbox">
@@ -130,7 +132,7 @@ export default function Settings() {
           ))}
         </div>
 
-        <h3>Privacy & Security</h3>
+        <h3>{t('settings.privacySecurity')}</h3>
         <div className="settings-group">
           <label className="toggle">
             <input
@@ -143,7 +145,7 @@ export default function Settings() {
                 }))
               }
             />
-            <span>Show my email to renter/owner in booking workflow</span>
+            <span>{t('settings.showEmail')}</span>
           </label>
           <label className="toggle">
             <input
@@ -156,7 +158,7 @@ export default function Settings() {
                 }))
               }
             />
-            <span>Show my phone number to renter/owner</span>
+            <span>{t('settings.showPhone')}</span>
           </label>
           <label className="toggle">
             <input
@@ -166,31 +168,31 @@ export default function Settings() {
                 setPrivacyPrefs((prev) => ({ ...prev, loginAlerts: !prev.loginAlerts }))
               }
             />
-            <span>Notify me on new login</span>
+            <span>{t('settings.loginAlerts')}</span>
           </label>
         </div>
 
-        <h3>App Preferences</h3>
+        <h3>{t('settings.appPreferences')}</h3>
         <div className="settings-group">
           <label className="settings-field">
-            <span>Language</span>
+            <span>{t('settings.language')}</span>
             <select
               value={appPrefs.language}
               onChange={(e) => setAppPrefs((prev) => ({ ...prev, language: e.target.value }))}
             >
-              <option value="en">English</option>
-              <option value="ne">Nepali</option>
+              <option value="en">{t('common.english')}</option>
+              <option value="ne">{t('common.nepali')}</option>
             </select>
           </label>
           <label className="settings-field">
-            <span>Theme</span>
+            <span>{t('settings.theme')}</span>
             <select
               value={appPrefs.theme}
               onChange={(e) => setAppPrefs((prev) => ({ ...prev, theme: e.target.value }))}
             >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
+              <option value="system">{t('common.system')}</option>
+              <option value="light">{t('common.light')}</option>
+              <option value="dark">{t('common.dark')}</option>
             </select>
           </label>
           <label className="toggle">
@@ -201,14 +203,17 @@ export default function Settings() {
                 setAppPrefs((prev) => ({ ...prev, compactMode: !prev.compactMode }))
               }
             />
-            <span>Compact mode (tighter spacing)</span>
+            <span>{t('settings.compactMode')}</span>
           </label>
+          <button type="button" className="settings-language-trigger" onClick={openLanguageChooser}>
+            {t('language.chooserTitle')}
+          </button>
         </div>
 
         {message && <p className="settings-message">{message}</p>}
 
         <button onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Preferences'}
+          {saving ? t('settings.saving') : t('settings.savePreferences')}
         </button>
       </div>
     </div>

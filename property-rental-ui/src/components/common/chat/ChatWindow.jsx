@@ -1,5 +1,13 @@
 import { useState, useEffect, useContext, useRef } from 'react';
 import axios from 'axios';
+import {
+  HiOutlineChevronLeft,
+  HiOutlineInformationCircle,
+  HiOutlinePaperAirplane,
+  HiOutlinePhone,
+  HiOutlinePhoto,
+  HiOutlineVideoCamera,
+} from 'react-icons/hi2';
 import { AuthContext } from '../../../context/AuthContext';
 import { API_BASE_URL } from '../../../config/api';
 import { useSocket } from '../../../context/SocketContext';
@@ -25,7 +33,15 @@ const toMessageObject = (payloadMessage = {}) => ({
   createdAt: payloadMessage.createdAt || new Date().toISOString(),
 });
 
-export default function ChatWindow({ selectedUser }) {
+const getInitials = (value = '') =>
+  String(value)
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || '?';
+
+export default function ChatWindow({ selectedUser, onBack }) {
   const { user, token } = useContext(AuthContext);
   const socket = useSocket();
   const [messages, setMessages] = useState([]);
@@ -34,6 +50,7 @@ export default function ChatWindow({ selectedUser }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [openReactionFor, setOpenReactionFor] = useState(null);
   const typingTimeout = useRef(null);
+  const bottomRef = useRef(null);
 
   const fetchMessages = async () => {
     if (!selectedUser || !token) return;
@@ -179,6 +196,10 @@ export default function ChatWindow({ selectedUser }) {
     };
   }, []);
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, isTyping]);
+
   const selectedUserLabel = selectedUser?.name || selectedUser?.email || 'User';
   const handleFileChange = (event) => {
     const nextFiles = Array.from(event.target.files || []);
@@ -216,12 +237,36 @@ export default function ChatWindow({ selectedUser }) {
   };
 
   const canSend = Boolean(newMessage.trim() || selectedFiles.length > 0);
+  const headerStatus = isTyping ? 'Typing…' : 'Active conversation';
 
   return (
     <div className="chat-window">
       <div className="chat-header">
-        <h4>Chat with {selectedUserLabel}</h4>
-        {isTyping && <span className="chat-typing-indicator">Typing...</span>}
+        {onBack ? (
+          <button type="button" className="chat-back-btn" onClick={onBack}>
+            <HiOutlineChevronLeft />
+          </button>
+        ) : null}
+        <div className="chat-header-main">
+          <div className="chat-header-avatar" aria-hidden="true">
+            {getInitials(selectedUserLabel)}
+          </div>
+          <div className="chat-header-copy">
+            <h4>{selectedUserLabel}</h4>
+            <span className="chat-typing-indicator">{headerStatus}</span>
+          </div>
+        </div>
+        <div className="chat-header-actions">
+          <button type="button" className="chat-header-action" title="Voice call">
+            <HiOutlinePhone />
+          </button>
+          <button type="button" className="chat-header-action" title="Video call">
+            <HiOutlineVideoCamera />
+          </button>
+          <button type="button" className="chat-header-action" title="Conversation info">
+            <HiOutlineInformationCircle />
+          </button>
+        </div>
       </div>
       <div className="chat-messages">
         {messages.length === 0 ? <div className="chat-empty">No messages yet. Start the conversation.</div> : null}
@@ -295,25 +340,7 @@ export default function ChatWindow({ selectedUser }) {
             </div>
           );
         })}
-      </div>
-      <div className="chat-input">
-        <label className="chat-attach-btn" htmlFor="chat-attachment-input">📎</label>
-        <input
-          id="chat-attachment-input"
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFileChange}
-          className="chat-attachment-input"
-        />
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => handleTypingChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message"
-        />
-        <button onClick={handleSend} disabled={!canSend}>Send</button>
+        <div ref={bottomRef} />
       </div>
       {selectedFiles.length > 0 ? (
         <div className="chat-selected-files">
@@ -327,6 +354,31 @@ export default function ChatWindow({ selectedUser }) {
           </div>
         </div>
       ) : null}
+      <div className="chat-input">
+        <label className="chat-attach-btn" htmlFor="chat-attachment-input" title="Add photo">
+          <HiOutlinePhoto />
+        </label>
+        <input
+          id="chat-attachment-input"
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleFileChange}
+          className="chat-attachment-input"
+        />
+        <div className="chat-input-shell">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => handleTypingChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Aa"
+          />
+        </div>
+        <button onClick={handleSend} disabled={!canSend} className="chat-send-btn" title="Send message">
+          <HiOutlinePaperAirplane />
+        </button>
+      </div>
     </div>
   );
 }

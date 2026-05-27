@@ -79,15 +79,29 @@ export default function Profile() {
 
   const kycStatus = String(profile?.kycStatus || 'unsubmitted').toLowerCase();
   const docs = useMemo(() => (Array.isArray(profile?.kycDocuments) ? profile.kycDocuments : []), [profile]);
+  const initials = String(profile?.name || user?.name || 'U')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
 
   if (!profile) return <p className="profile-loading">Loading profile...</p>;
 
   return (
     <div className="profile-page">
       <div className="profile-header-card surface-card">
-        <div>
-          <h2>My Profile</h2>
-          <p>Manage your account and KYC documents.</p>
+        <div className="profile-hero">
+          <div className="profile-avatar" aria-hidden="true">{initials || 'U'}</div>
+          <div className="profile-hero-copy">
+            <span className="profile-eyebrow">Account Center</span>
+            <h2>My Profile</h2>
+            <p>Manage your account details and verification documents.</p>
+          </div>
+          <div className={`profile-status-card ${kycStatus}`}>
+            <span className="profile-status-label">KYC Status</span>
+            <span className={`kyc-chip ${kycStatus}`}>{kycStatus}</span>
+          </div>
         </div>
         <div className="profile-meta-grid">
           <div>
@@ -111,7 +125,11 @@ export default function Profile() {
 
       <div className="profile-card surface-card">
         <div className="kyc-title-row">
-          <h3>KYC Verification</h3>
+          <div className="profile-section-copy">
+            <span className="profile-section-eyebrow">Verification</span>
+            <h3>KYC Verification</h3>
+            <p>Upload your identity documents to unlock verified access.</p>
+          </div>
           <span className={`kyc-chip ${kycStatus}`}>{kycStatus}</span>
         </div>
 
@@ -125,6 +143,9 @@ export default function Profile() {
           </p>
         ) : (
           <>
+            <div className="profile-upload-hint">
+              Add at least one ID document. A passport photo is optional but recommended.
+            </div>
             <div className="kyc-form-grid">
               <label className="kyc-field">
                 <span>Document Type</span>
@@ -170,7 +191,11 @@ export default function Profile() {
       </div>
 
       <div className="profile-card surface-card">
-        <h3>KYC Documents</h3>
+        <div className="profile-section-copy">
+          <span className="profile-section-eyebrow">Uploads</span>
+          <h3>KYC Documents</h3>
+          <p>Review the files you have already submitted.</p>
+        </div>
         {docs.length > 0 ? (
           <div className="kyc-doc-grid">
             {docs.map((doc) => (

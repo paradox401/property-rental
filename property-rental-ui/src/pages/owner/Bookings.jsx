@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
+import { useLanguage } from '../../context/LanguageContext';
 import './Bookings.css';
 
 const jsonHeaders = (token) => ({
@@ -10,6 +11,7 @@ const jsonHeaders = (token) => ({
 
 export default function Bookings() {
   const { token } = useContext(AuthContext);
+  const { t } = useLanguage();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -247,128 +249,270 @@ export default function Bookings() {
     );
   };
 
-  if (loading) return <p>Loading bookings...</p>;
+  const getWorkflowHint = (booking) => {
+    const workflow = booking?.workflow;
+    const stage = workflow?.stage || 'requested';
+    const status = booking?.status || 'Pending';
+    const paymentStatus = String(booking?.paymentStatus || 'pending').toLowerCase();
+
+    if (stage === 'rejected' || status === 'Rejected') return t('ownerBookings.bookingRejected');
+    if (status === 'Cancelled') return t('ownerBookings.bookingCancelled');
+    if (stage === 'requested' || status === 'Pending') return t('ownerBookings.reviewApproveReject');
+    if (stage === 'accepted' && !workflow?.flags?.agreementSigned) return t('ownerBookings.waitingAgreement');
+    if (stage === 'agreement_signed' && !workflow?.flags?.paid) {
+      if (paymentStatus === 'pending_verification') return t('ownerBookings.paymentAwaitingAdmin');
+      return t('ownerBookings.waitingPayment');
+    }
+    if (stage === 'paid' && !workflow?.flags?.movedIn) return t('ownerBookings.moveInBegins');
+    if (stage === 'moved_in') return t('ownerBookings.bookingActive');
+    return t('ownerBookings.continueWorkflow');
+  };
+
+  if (loading) return <p>{t('ownerBookings.loading')}</p>;
   if (error) return <p style={{ color: 'red' }}>{error}</p>;
 
   return (
     <div className="bookings-container">
-      <h2>Booking Requests</h2>
+      <h2>{t('ownerBookings.title')}</h2>
       {bookings.length === 0 ? (
-        <p>No booking requests found.</p>
+        <p>{t('ownerBookings.empty')}</p>
       ) : (
-        <table className="bookings-table">
-          <thead>
-            <tr>
-              <th>Tenant</th>
-              <th>Property</th>
-              <th>From</th>
-              <th>To</th>
-              <th>Status</th>
-              <th>Timeline</th>
-              <th>Payment</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bookings.map(({ _id, renter, property, fromDate, toDate, status = 'Pending', paymentStatus, workflow, renewalStatus }) => (
-              <React.Fragment key={_id}>
-                <tr>
-                  <td>{renter?.name || renter?.email || 'N/A'}</td>
-                  <td>{property?.title || 'N/A'}</td>
-                  <td>{new Date(fromDate).toLocaleDateString()}</td>
-                  <td>{new Date(toDate).toLocaleDateString()}</td>
-                  <td className={`status ${String(status).toLowerCase()}`}>{status}</td>
-                  <td>{renderTimeline(workflow)}</td>
-                  <td>{paymentStatus || 'pending'}</td>
-                  <td>
-                    <div className="booking-actions">
-                      {status === 'Pending' ? (
-                        <>
-                          <button disabled={updatingId === _id} className="btn-approve" onClick={() => updateStatus(_id, 'Approved')}>Approve</button>
-                          <button disabled={updatingId === _id} className="btn-reject" onClick={() => updateStatus(_id, 'Rejected')}>Reject</button>
-                        </>
-                      ) : null}
-                      {status === 'Approved' ? (
-                        <button className="btn-approve" disabled={renewingId === _id || renewalStatus === 'pending'} onClick={() => handleRenew(_id)}>
-                          {renewalStatus === 'pending' ? 'Renewal Requested' : renewingId === _id ? 'Renewing...' : 'Renew +1M'}
-                        </button>
-                      ) : null}
-                      {(status === 'Pending' || status === 'Approved') ? (
-                        <button className="btn-reject" onClick={() => cancelBooking(_id)}>Cancel</button>
-                      ) : null}
-                      <button className="btn-approve" onClick={() => toggleManage(_id)}>
-                        {activeBookingId === _id ? 'Hide Manage' : 'Manage'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                {activeBookingId === _id ? (
+        <>
+          <table className="bookings-table">
+            <thead>
+              <tr>
+                <th>{t('ownerBookings.tenant')}</th>
+                <th>{t('ownerBookings.property')}</th>
+                <th>{t('ownerBookings.from')}</th>
+                <th>{t('ownerBookings.to')}</th>
+                <th>{t('ownerBookings.status')}</th>
+                <th>{t('ownerBookings.timeline')}</th>
+                <th>{t('ownerBookings.nextStep')}</th>
+                <th>{t('ownerBookings.payment')}</th>
+                <th>{t('ownerBookings.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookings.map(({ _id, renter, property, fromDate, toDate, status = 'Pending', paymentStatus, workflow, renewalStatus }) => (
+                <React.Fragment key={`table-${_id}`}>
                   <tr>
-                    <td colSpan="8">
-                      <div className="booking-panel">
-                        {panelLoading ? <p>Loading controls...</p> : null}
-                        {panelError ? <p className="error">{panelError}</p> : null}
-                        {!panelLoading ? (
+                    <td data-label={t('ownerBookings.tenant')}>{renter?.name || renter?.email || 'N/A'}</td>
+                    <td data-label={t('ownerBookings.property')}>{property?.title || 'N/A'}</td>
+                    <td data-label={t('ownerBookings.from')}>{new Date(fromDate).toLocaleDateString()}</td>
+                    <td data-label={t('ownerBookings.to')}>{new Date(toDate).toLocaleDateString()}</td>
+                    <td data-label={t('ownerBookings.status')}><span className={`status ${String(status).toLowerCase()}`}>{status}</span></td>
+                    <td data-label={t('ownerBookings.timeline')}>{renderTimeline(workflow)}</td>
+                    <td data-label={t('ownerBookings.nextStep')}><span className="workflow-hint">{getWorkflowHint({ status, paymentStatus, workflow })}</span></td>
+                    <td data-label={t('ownerBookings.payment')}>{paymentStatus === 'pending_verification' ? t('ownerBookings.pendingVerification') : paymentStatus || 'pending'}</td>
+                    <td data-label={t('ownerBookings.actions')}>
+                      <div className="booking-actions">
+                        {status === 'Pending' ? (
                           <>
-                            <h4>Lease Amendments</h4>
-                            <div className="booking-chip-list">
-                              {amendments.map((a) => (
-                                <div key={a._id} className="booking-chip">
-                                  {a.status.toUpperCase()} | {a.reason || 'No reason'} | Rent: {a.proposedMonthlyRent ?? '-'}
-                                  {a.status === 'pending' ? (
-                                    <>
-                                      <button className="btn-approve" onClick={() => decideAmendment(_id, a._id, 'approved')}>Approve</button>
-                                      <button className="btn-reject" onClick={() => decideAmendment(_id, a._id, 'rejected')}>Reject</button>
-                                    </>
-                                  ) : null}
-                                </div>
-                              ))}
-                              {amendments.length === 0 ? <span className="booking-chip">No amendment history.</span> : null}
-                            </div>
-
-                            <h4>Deposit Ledger</h4>
-                            {ledger.summary ? (
-                              <p className="workflow-hint">
-                                Held Rs {ledger.summary.netHeld} | Received Rs {ledger.summary.received} | Pending Rs {ledger.summary.pending}
-                              </p>
-                            ) : null}
-                            <div className="booking-panel-grid">
-                              <input type="number" placeholder="Deposit amount" value={depositForm.amount} onChange={(e) => setDepositForm((p) => ({ ...p, amount: e.target.value }))} />
-                              <input type="text" placeholder="Deposit note" value={depositForm.reason} onChange={(e) => setDepositForm((p) => ({ ...p, reason: e.target.value }))} />
-                              <button className="btn-approve" onClick={() => receiveDeposit(_id)}>Record Deposit</button>
-                            </div>
-                            <div className="booking-panel-grid">
-                              <input type="number" placeholder="Deduction amount" value={deductionForm.amount} onChange={(e) => setDeductionForm((p) => ({ ...p, amount: e.target.value }))} />
-                              <input type="text" placeholder="Deduction reason" value={deductionForm.reason} onChange={(e) => setDeductionForm((p) => ({ ...p, reason: e.target.value }))} />
-                              <button className="btn-reject" onClick={() => addDeduction(_id)}>Add Deduction</button>
-                            </div>
-                            <div className="booking-chip-list">
-                              {(ledger.items || []).map((entry) => (
-                                <div key={entry._id} className="booking-chip">
-                                  {entry.type} | Rs {entry.amount} | {entry.status}
-                                  {entry.status === 'pending' ? (
-                                    <>
-                                      <button className="btn-approve" onClick={() => decideLedger(_id, entry._id, 'approved')}>Approve</button>
-                                      <button className="btn-reject" onClick={() => decideLedger(_id, entry._id, 'rejected')}>Reject</button>
-                                    </>
-                                  ) : null}
-                                  {entry.type === 'refund_requested' && entry.status === 'approved' ? (
-                                    <button className="btn-approve" onClick={() => decideLedger(_id, entry._id, 'paid')}>Mark Paid</button>
-                                  ) : null}
-                                </div>
-                              ))}
-                              {(ledger.items || []).length === 0 ? <span className="booking-chip">No deposit entries.</span> : null}
-                            </div>
+                            <button disabled={updatingId === _id} className="btn-approve" onClick={() => updateStatus(_id, 'Approved')}>{t('ownerBookings.approve')}</button>
+                            <button disabled={updatingId === _id} className="btn-reject" onClick={() => updateStatus(_id, 'Rejected')}>{t('ownerBookings.reject')}</button>
                           </>
                         ) : null}
+                        {status === 'Approved' ? (
+                          <button className="btn-approve" disabled={renewingId === _id || renewalStatus === 'pending'} onClick={() => handleRenew(_id)}>
+                            {renewalStatus === 'pending' ? t('ownerBookings.renewalRequested') : renewingId === _id ? t('ownerBookings.renewing') : t('ownerBookings.renewOneMonth')}
+                          </button>
+                        ) : null}
+                        {(status === 'Pending' || status === 'Approved') ? (
+                          <button className="btn-reject" onClick={() => cancelBooking(_id)}>{t('ownerBookings.cancel')}</button>
+                        ) : null}
+                        <button className="btn-approve" onClick={() => toggleManage(_id)}>
+                          {activeBookingId === _id ? t('ownerBookings.hideManage') : t('ownerBookings.manage')}
+                        </button>
                       </div>
                     </td>
                   </tr>
+                  {activeBookingId === _id ? (
+                    <tr>
+                      <td className="booking-panel-cell" colSpan="9">
+                        <div className="booking-panel">
+                          {panelLoading ? <p>Loading controls...</p> : null}
+                          {panelError ? <p className="error">{panelError}</p> : null}
+                          {!panelLoading ? (
+                            <>
+                              <h4>{t('ownerBookings.leaseAmendments')}</h4>
+                              <div className="booking-chip-list">
+                                {amendments.map((a) => (
+                                  <div key={a._id} className="booking-chip">
+                                    {a.status.toUpperCase()} | {a.reason || 'No reason'} | Rent: {a.proposedMonthlyRent ?? '-'}
+                                    {a.status === 'pending' ? (
+                                      <>
+                                        <button className="btn-approve" onClick={() => decideAmendment(_id, a._id, 'approved')}>{t('ownerBookings.approve')}</button>
+                                        <button className="btn-reject" onClick={() => decideAmendment(_id, a._id, 'rejected')}>{t('ownerBookings.reject')}</button>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                ))}
+                                {amendments.length === 0 ? <span className="booking-chip">{t('ownerBookings.noAmendmentHistory')}</span> : null}
+                              </div>
+
+                              <h4>{t('ownerBookings.depositLedger')}</h4>
+                              {ledger.summary ? (
+                                <p className="workflow-hint">
+                                  Held Rs {ledger.summary.netHeld} | Received Rs {ledger.summary.received} | Pending Rs {ledger.summary.pending}
+                                </p>
+                              ) : null}
+                              <div className="booking-panel-grid">
+                                <input type="number" placeholder={t('ownerBookings.depositAmount')} value={depositForm.amount} onChange={(e) => setDepositForm((p) => ({ ...p, amount: e.target.value }))} />
+                                <input type="text" placeholder={t('ownerBookings.depositNote')} value={depositForm.reason} onChange={(e) => setDepositForm((p) => ({ ...p, reason: e.target.value }))} />
+                                <button className="btn-approve" onClick={() => receiveDeposit(_id)}>{t('ownerBookings.recordDeposit')}</button>
+                              </div>
+                              <div className="booking-panel-grid">
+                                <input type="number" placeholder={t('ownerBookings.deductionAmount')} value={deductionForm.amount} onChange={(e) => setDeductionForm((p) => ({ ...p, amount: e.target.value }))} />
+                                <input type="text" placeholder={t('ownerBookings.deductionReason')} value={deductionForm.reason} onChange={(e) => setDeductionForm((p) => ({ ...p, reason: e.target.value }))} />
+                                <button className="btn-reject" onClick={() => addDeduction(_id)}>{t('ownerBookings.addDeduction')}</button>
+                              </div>
+                              <div className="booking-chip-list">
+                                {(ledger.items || []).map((entry) => (
+                                  <div key={entry._id} className="booking-chip">
+                                    {entry.type} | Rs {entry.amount} | {entry.status}
+                                    {entry.status === 'pending' ? (
+                                      <>
+                                        <button className="btn-approve" onClick={() => decideLedger(_id, entry._id, 'approved')}>{t('ownerBookings.approve')}</button>
+                                        <button className="btn-reject" onClick={() => decideLedger(_id, entry._id, 'rejected')}>{t('ownerBookings.reject')}</button>
+                                      </>
+                                    ) : null}
+                                    {entry.type === 'refund_requested' && entry.status === 'approved' ? (
+                                      <button className="btn-approve" onClick={() => decideLedger(_id, entry._id, 'paid')}>{t('ownerBookings.markPaid')}</button>
+                                    ) : null}
+                                  </div>
+                                ))}
+                                {(ledger.items || []).length === 0 ? <span className="booking-chip">{t('ownerBookings.noDepositEntries')}</span> : null}
+                              </div>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="bookings-mobile-list">
+            {bookings.map(({ _id, renter, property, fromDate, toDate, status = 'Pending', paymentStatus, workflow, renewalStatus }) => (
+              <article key={`mobile-${_id}`} className="booking-mobile-card">
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('ownerBookings.tenant')}</span>
+                  <strong className="booking-mobile-value">{renter?.name || renter?.email || 'N/A'}</strong>
+                </div>
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('ownerBookings.property')}</span>
+                  <strong className="booking-mobile-value">{property?.title || 'N/A'}</strong>
+                </div>
+                <div className="booking-mobile-grid">
+                  <div className="booking-mobile-block">
+                    <span className="booking-mobile-label">{t('ownerBookings.from')}</span>
+                    <span className="booking-mobile-value">{new Date(fromDate).toLocaleDateString()}</span>
+                  </div>
+                  <div className="booking-mobile-block">
+                    <span className="booking-mobile-label">{t('ownerBookings.to')}</span>
+                    <span className="booking-mobile-value">{new Date(toDate).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('ownerBookings.status')}</span>
+                  <span className={`status ${String(status).toLowerCase()}`}>{status}</span>
+                </div>
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('ownerBookings.timeline')}</span>
+                  {renderTimeline(workflow)}
+                </div>
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('ownerBookings.nextStep')}</span>
+                  <span className="workflow-hint booking-mobile-hint">{getWorkflowHint({ status, paymentStatus, workflow })}</span>
+                </div>
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('ownerBookings.payment')}</span>
+                  <span className="booking-mobile-value">{paymentStatus === 'pending_verification' ? t('ownerBookings.pendingVerification') : paymentStatus || 'pending'}</span>
+                </div>
+                <div className="booking-mobile-actions">
+                  {status === 'Pending' ? (
+                    <>
+                      <button disabled={updatingId === _id} className="btn-approve" onClick={() => updateStatus(_id, 'Approved')}>{t('ownerBookings.approve')}</button>
+                      <button disabled={updatingId === _id} className="btn-reject" onClick={() => updateStatus(_id, 'Rejected')}>{t('ownerBookings.reject')}</button>
+                    </>
+                  ) : null}
+                  {status === 'Approved' ? (
+                    <button className="btn-approve" disabled={renewingId === _id || renewalStatus === 'pending'} onClick={() => handleRenew(_id)}>
+                      {renewalStatus === 'pending' ? t('ownerBookings.renewalRequested') : renewingId === _id ? t('ownerBookings.renewing') : t('ownerBookings.renewOneMonth')}
+                    </button>
+                  ) : null}
+                  {(status === 'Pending' || status === 'Approved') ? (
+                    <button className="btn-reject" onClick={() => cancelBooking(_id)}>{t('ownerBookings.cancel')}</button>
+                  ) : null}
+                  <button className="btn-approve" onClick={() => toggleManage(_id)}>
+                    {activeBookingId === _id ? t('ownerBookings.hideManage') : t('ownerBookings.manage')}
+                  </button>
+                </div>
+                {activeBookingId === _id ? (
+                  <div className="booking-panel booking-mobile-panel">
+                    {panelLoading ? <p>Loading controls...</p> : null}
+                    {panelError ? <p className="error">{panelError}</p> : null}
+                    {!panelLoading ? (
+                      <>
+                        <h4>{t('ownerBookings.leaseAmendments')}</h4>
+                        <div className="booking-chip-list">
+                          {amendments.map((a) => (
+                            <div key={a._id} className="booking-chip">
+                              {a.status.toUpperCase()} | {a.reason || 'No reason'} | Rent: {a.proposedMonthlyRent ?? '-'}
+                              {a.status === 'pending' ? (
+                                <>
+                                  <button className="btn-approve" onClick={() => decideAmendment(_id, a._id, 'approved')}>{t('ownerBookings.approve')}</button>
+                                  <button className="btn-reject" onClick={() => decideAmendment(_id, a._id, 'rejected')}>{t('ownerBookings.reject')}</button>
+                                </>
+                              ) : null}
+                            </div>
+                          ))}
+                          {amendments.length === 0 ? <span className="booking-chip">{t('ownerBookings.noAmendmentHistory')}</span> : null}
+                        </div>
+
+                        <h4>{t('ownerBookings.depositLedger')}</h4>
+                        {ledger.summary ? (
+                          <p className="workflow-hint booking-mobile-hint">
+                            Held Rs {ledger.summary.netHeld} | Received Rs {ledger.summary.received} | Pending Rs {ledger.summary.pending}
+                          </p>
+                        ) : null}
+                        <div className="booking-panel-grid">
+                          <input type="number" placeholder={t('ownerBookings.depositAmount')} value={depositForm.amount} onChange={(e) => setDepositForm((p) => ({ ...p, amount: e.target.value }))} />
+                          <input type="text" placeholder={t('ownerBookings.depositNote')} value={depositForm.reason} onChange={(e) => setDepositForm((p) => ({ ...p, reason: e.target.value }))} />
+                          <button className="btn-approve" onClick={() => receiveDeposit(_id)}>{t('ownerBookings.recordDeposit')}</button>
+                        </div>
+                        <div className="booking-panel-grid">
+                          <input type="number" placeholder={t('ownerBookings.deductionAmount')} value={deductionForm.amount} onChange={(e) => setDeductionForm((p) => ({ ...p, amount: e.target.value }))} />
+                          <input type="text" placeholder={t('ownerBookings.deductionReason')} value={deductionForm.reason} onChange={(e) => setDeductionForm((p) => ({ ...p, reason: e.target.value }))} />
+                          <button className="btn-reject" onClick={() => addDeduction(_id)}>{t('ownerBookings.addDeduction')}</button>
+                        </div>
+                        <div className="booking-chip-list">
+                          {(ledger.items || []).map((entry) => (
+                            <div key={entry._id} className="booking-chip">
+                              {entry.type} | Rs {entry.amount} | {entry.status}
+                              {entry.status === 'pending' ? (
+                                <>
+                                  <button className="btn-approve" onClick={() => decideLedger(_id, entry._id, 'approved')}>{t('ownerBookings.approve')}</button>
+                                  <button className="btn-reject" onClick={() => decideLedger(_id, entry._id, 'rejected')}>{t('ownerBookings.reject')}</button>
+                                </>
+                              ) : null}
+                              {entry.type === 'refund_requested' && entry.status === 'approved' ? (
+                                <button className="btn-approve" onClick={() => decideLedger(_id, entry._id, 'paid')}>{t('ownerBookings.markPaid')}</button>
+                              ) : null}
+                            </div>
+                          ))}
+                          {(ledger.items || []).length === 0 ? <span className="booking-chip">{t('ownerBookings.noDepositEntries')}</span> : null}
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
                 ) : null}
-              </React.Fragment>
+              </article>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </>
       )}
     </div>
   );

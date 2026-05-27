@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom'; // ✅ Added Link
 import { image } from '../../assets/assets';
 import { AuthContext } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import './Login.css';
 
 export default function Login() {
@@ -13,13 +14,14 @@ export default function Login() {
 
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
+  const { t } = useLanguage();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     if (!email || !password) {
-      setError('Please enter both email and password.');
+      setError(t('auth.enterBothEmailPassword'));
       return;
     }
 
@@ -28,12 +30,12 @@ export default function Login() {
       const result = await login(email, password, role);
 
       if (result.error) {
-        setError(result.error || 'Login failed');
+        setError(result.error || t('auth.login'));
       } else {
         navigate(role === 'owner' ? '/owner' : '/renter');
       }
     } catch (err) {
-      setError('Server error. Please try again later.');
+      setError(t('auth.serverError'));
     } finally {
       setLoading(false);
     }
@@ -42,16 +44,16 @@ export default function Login() {
   return (
     <div className="login-container">
       <div className="login-left">
-        <h1>WELCOME<span className="green">!</span></h1>
+        <h1>{t('auth.welcome').replace('!', '')}<span className="green">!</span></h1>
         <img src={image.property} alt="Property" />
       </div>
       <div className="login-right">
         <div className="login-box">
 
           <h2><span className="logo">Property</span> Rental</h2>
-          <h3>LogIn</h3>
+          <h3>{t('auth.loginTitle')}</h3>
           <form onSubmit={handleSubmit}>
-            <label>Email</label>
+            <label>{t('auth.email')}</label>
             <input
               type="email"
               placeholder="you@example.com"
@@ -59,7 +61,7 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
             />
 
-            <label>Password</label>
+            <label>{t('auth.password')}</label>
             <input
               type="password"
               placeholder="********"
@@ -67,22 +69,22 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
 
-            <label>Login As</label>
+            <label>{t('auth.loginAs')}</label>
             <select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="owner">Owner</option>
-              <option value="renter">Renter</option>
+              <option value="owner">{t('common.owner')}</option>
+              <option value="renter">{t('common.renter')}</option>
             </select>
 
             {error && <p className="error">{error}</p>}
 
             <button type="submit" disabled={loading}>
-              {loading ? 'Logging in...' : 'Log In'}
+              {loading ? t('auth.loggingIn') : t('auth.login')}
             </button>
           </form>
           <div className="login-footer">
-            <Link to="/forgot-password">Forgot Password?</Link>
+            <Link to="/forgot-password">{t('auth.forgotPassword')}</Link>
             <p>
-              Don't have an account? <Link to="/register">Sign Up</Link>
+              {t('auth.noAccount')} <Link to="/register">{t('auth.signUp')}</Link>
             </p>
           </div>
         </div>

@@ -16,7 +16,10 @@ import LeaseAmendment from '../models/LeaseAmendment.js';
 import DepositLedgerEntry from '../models/DepositLedgerEntry.js';
 import DuplicateCase from '../models/DuplicateCase.js';
 import DuplicateMergeOperation from '../models/DuplicateMergeOperation.js';
+import VisitPass from '../models/VisitPass.js';
+import PropertyVisit from '../models/PropertyVisit.js';
 import { calcMoMChangePct, calcOccupancyRate, calcProfit } from '../utils/kpiMath.js';
+import crypto from 'crypto';
 
 const safeRegex = (value) => new RegExp(String(value || '').trim(), 'i');
 const parsePage = (value, fallback = 1) => {
@@ -306,6 +309,15 @@ const logAudit = async (req, action, entityType, entityId, details = null) => {
   } catch (error) {
     console.error('Audit log error:', error.message);
   }
+};
+
+const generateVisitPromoCode = async () => {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = `DERA-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const exists = await VisitPass.exists({ promoCode: code });
+    if (!exists) return code;
+  }
+  return `DERA-${Date.now().toString(36).toUpperCase()}`;
 };
 
 export const getOverview = async (_req, res) => {
@@ -1054,6 +1066,125 @@ export const updatePaymentStatus = async (req, res) => {
     res.json(payment);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update payment status' });
+  }
+};
+
+export const getVisitPassRequests = async (req, res) => {
+  try {
+    const { status, page, limit } = req.query;
+    const filter = status ? { status } : {};
+    const currentPage = parsePage(page);
+    const currentLimit = parseLimit(limit);
+
+    const [passes, total] = await Promise.all([
+      VisitPass.find(filter)
+        .populate('renter', 'name email citizenshipNumber')
+        .populate('requestedForProperty', 'title location image price type')
+        .populate('approvedBy', 'username displayName')
+        .populate('rejectedBy', 'username displayName')
+        .sort({ createdAt: -1 })
+        .skip((currentPage - 1) * currentLimit)
+        .limit(currentLimit)
+        .lean(),
+      VisitPass.countDocuments(filter),
+    ]);
+
+    sendPaginated(res, passes, total, currentPage, currentLimit);
+  } catch (error) {
+    console.error('getVisitPassRequests error:', error);
+    res.status(500).json({ error: 'Failed to fetch visit pass requests' });
+  }
+};
+
+export const getPropertyVisits = async (req, res) => {
+  try {
+    const { status, page, limit } = req.query;
+    const filter = status ? { status } : {};
+    const currentPage = parsePage(page);
+    const currentLimit = parseLimit(limit);
+
+    const [visits, total] = await Promise.all([
+      PropertyVisit.find(filter)
+        .populate('renter', 'name email citizenshipNumber')
+        .populate('property', 'title location image price type')
+        .populate('owner', 'name email')
+        .populate('visitPass', 'promoCode status amount transactionRef contactPhone')
+        .sort({ visitDate: -1, createdAt: -1 })
+        .skip((currentPage - 1) * currentLimit)
+        .limit(currentLimit)
+        .lean(),
+      PropertyVisit.countDocuments(filter),
+    ]);
+
+    sendPaginated(res, visits, total, currentPage, currentLimit);
+  } catch (error) {
+    console.error('getPropertyVisits error:', error);
+    res.status(500).json({ error: 'Failed to fetch property visits' });
+  }
+};
+
+export const approveVisitPassRequest = async (req, res) => {
+  try {
+    const visitPass = await VisitPass.findById(req.params.id).populate('renter', 'name email');
+    if (!visitPass) return res.status(404).json({ error: 'Visit pass not found' });
+
+    if (visitPass.status !== 'active') {
+      visitPass.status = 'active';
+      visitPass.promoCode = visitPass.promoCode || await generateVisitPromoCode();
+      visitPass.approvedAt = new Date();
+      visitPass.approvedBy = req.admin?._id;
+      visitPass.rejectedAt = undefined;
+      visitPass.rejectedBy = undefined;
+      visitPass.adminRemark = String(req.body?.adminRemark || visitPass.adminRemark || '').trim();
+      await visitPass.save();
+    }
+
+    await Notification.create({
+      userId: visitPass.renter?._id || visitPass.renter,
+      type: 'payment',
+      message: `Your DeraNow visit pass is approved. Promo code: ${visitPass.promoCode}`,
+      link: '/renter/visits',
+    });
+
+    await logAudit(req, 'visit_pass_approved', 'VisitPass', visitPass._id, {
+      promoCode: visitPass.promoCode,
+      amount: visitPass.amount,
+    });
+
+    res.json({ message: 'Visit pass approved and promo code sent', pass: visitPass });
+  } catch (error) {
+    console.error('approveVisitPassRequest error:', error);
+    res.status(500).json({ error: 'Failed to approve visit pass' });
+  }
+};
+
+export const rejectVisitPassRequest = async (req, res) => {
+  try {
+    const visitPass = await VisitPass.findById(req.params.id).populate('renter', 'name email');
+    if (!visitPass) return res.status(404).json({ error: 'Visit pass not found' });
+
+    visitPass.status = 'rejected';
+    visitPass.rejectedAt = new Date();
+    visitPass.rejectedBy = req.admin?._id;
+    visitPass.adminRemark = String(req.body?.adminRemark || '').trim();
+    await visitPass.save();
+
+    await Notification.create({
+      userId: visitPass.renter?._id || visitPass.renter,
+      type: 'payment',
+      message: `Your DeraNow visit pass payment was rejected.${visitPass.adminRemark ? ` ${visitPass.adminRemark}` : ''}`,
+      link: '/renter/visits',
+    });
+
+    await logAudit(req, 'visit_pass_rejected', 'VisitPass', visitPass._id, {
+      amount: visitPass.amount,
+      adminRemark: visitPass.adminRemark,
+    });
+
+    res.json({ message: 'Visit pass rejected', pass: visitPass });
+  } catch (error) {
+    console.error('rejectVisitPassRequest error:', error);
+    res.status(500).json({ error: 'Failed to reject visit pass' });
   }
 };
 

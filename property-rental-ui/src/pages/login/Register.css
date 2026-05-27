@@ -1,13 +1,14 @@
 /* Reset and base styles for the register component */
 .register-container {
   display: flex;
-  min-height: 100vh;
+  min-height: var(--app-height);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg);
   margin: 0;
   padding: 0;
+  padding-top: var(--safe-top);
 }
 
 /* Left side - Join section */
@@ -80,6 +81,7 @@
   padding: 2rem;
   background-color: #ffffff;
   overflow-y: auto;
+  transition: padding-bottom 180ms ease;
 }
 
 .register-right h2 {
@@ -341,6 +343,7 @@
 @media (max-width: 768px) {
   .register-container {
     flex-direction: column;
+    padding-top: 0;
   }
 
   .register-left {
@@ -360,8 +363,9 @@
 
   .register-right {
     flex: none;
-    padding: 1.5rem 1rem;
+    padding: 1.5rem 1rem calc(1.5rem + var(--keyboard-offset));
     min-height: 65vh;
+    justify-content: flex-start;
   }
 
   .register-right form {
@@ -372,7 +376,7 @@
 @media (max-width: 480px) {
   .register-left {
     min-height: 30vh;
-    padding: 1.5rem 1rem;
+    padding: calc(1.5rem + var(--safe-top)) 1rem 1.5rem;
   }
 
   .register-left h1 {
@@ -384,7 +388,7 @@
   }
 
   .register-right {
-    padding: 1rem 0.75rem;
+    padding: 1rem 0.75rem calc(1rem + var(--keyboard-offset));
     min-height: 70vh;
   }
 
@@ -401,7 +405,7 @@
   .register-right input[type="password"],
   .register-right select {
     padding: 0.75rem;
-    font-size: 0.9rem;
+    font-size: 16px;
   }
 
   .register-right button[type="submit"] {
@@ -413,7 +417,7 @@
 /* Extra small screens */
 @media (max-width: 360px) {
   .register-right {
-    padding: 0.75rem 0.5rem;
+    padding: 0.75rem 0.5rem calc(0.9rem + var(--keyboard-offset));
   }
 
   .register-right form {
@@ -429,7 +433,7 @@
   .register-right input[type="password"],
   .register-right select {
     padding: 0.625rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: 16px;
   }
 }
 

@@ -3,6 +3,7 @@ import './MyBookings.css';
 import PropertyDetails from '../../components/common/PropertyDetails';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 const jsonHeaders = (token) => ({
   'Content-Type': 'application/json',
@@ -11,6 +12,7 @@ const jsonHeaders = (token) => ({
 
 export default function Bookings() {
   const { token } = useContext(AuthContext);
+  const { t } = useLanguage();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -227,134 +229,243 @@ export default function Bookings() {
     const status = booking?.status || 'Pending';
     const paymentStatus = String(booking?.paymentStatus || 'pending').toLowerCase();
 
-    if (stage === 'rejected' || status === 'Rejected') return 'Booking was rejected.';
-    if (status === 'Cancelled') return 'Booking cancelled.';
-    if (stage === 'requested' || status === 'Pending') return 'Waiting for owner approval.';
-    if (stage === 'accepted' && !workflow?.flags?.agreementSigned) return 'Sign agreement from Agreements page.';
+    if (stage === 'rejected' || status === 'Rejected') return t('renterBookings.bookingRejected');
+    if (status === 'Cancelled') return t('renterBookings.bookingCancelled');
+    if (stage === 'requested' || status === 'Pending') return t('renterBookings.waitingOwnerApproval');
+    if (stage === 'accepted' && !workflow?.flags?.agreementSigned) return t('renterBookings.signAgreement');
     if (stage === 'agreement_signed' && !workflow?.flags?.paid) {
-      if (paymentStatus === 'pending_verification') return 'Payment pending admin verification.';
-      return 'Submit rent payment from Payments page.';
+      if (paymentStatus === 'pending_verification') return t('renterBookings.paymentPendingAdminVerification');
+      return t('renterBookings.submitRentPayment');
     }
-    if (stage === 'paid' && !workflow?.flags?.movedIn) return 'Move-in starts on booking date.';
-    if (stage === 'moved_in') return 'Booking active. Manage amendments/deposit below.';
-    return 'Continue booking flow.';
+    if (stage === 'paid' && !workflow?.flags?.movedIn) return t('renterBookings.moveInStarts');
+    if (stage === 'moved_in') return t('renterBookings.bookingActive');
+    return t('renterBookings.continueFlow');
   };
 
   return (
-    <div className="bookings-container">
-      <h2>My Bookings</h2>
+    <div className="bookings-container renter-bookings-container">
+      <h2>{t('renterBookings.title')}</h2>
       {loading ? (
-        <p>Loading bookings...</p>
+        <p>{t('renterBookings.loading')}</p>
       ) : error ? (
         <p className="error">{error}</p>
       ) : bookings.length === 0 ? (
-        <p>No bookings found.</p>
+        <p>{t('renterBookings.empty')}</p>
       ) : (
-        <table className="bookings-table">
-          <thead>
-            <tr>
-              <th>Property</th>
-              <th>From</th>
-              <th>To</th>
-              <th>Status</th>
-              <th>Timeline</th>
-              <th>Next Step</th>
-              <th>Payment</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bookings.map(({ _id, property, fromDate, toDate, status, paymentStatus, workflow, renewalStatus }) => (
-              <React.Fragment key={_id}>
-                <tr>
-                  <td>{property?.title || 'N/A'}</td>
-                  <td>{new Date(fromDate).toLocaleDateString()}</td>
-                  <td>{new Date(toDate).toLocaleDateString()}</td>
-                  <td>{status || 'N/A'}</td>
-                  <td>{renderTimeline(workflow)}</td>
-                  <td><span className="workflow-hint">{getWorkflowHint({ status, paymentStatus, workflow })}</span></td>
-                  <td>{paymentStatus === 'pending_verification' ? 'pending verification' : paymentStatus || 'pending'}</td>
-                  <td>
-                    <div className="booking-actions">
-                      <button onClick={() => setSelectedProperty(property)}>View Details</button>
-                      <button className="btn-renew" onClick={() => toggleManage(_id)}>
-                        {activeBookingId === _id ? 'Hide Manage' : 'Manage'}
-                      </button>
-                      {status === 'Approved' && (
-                        <button
-                          className="btn-renew"
-                          disabled={renewingId === _id || renewalStatus === 'pending'}
-                          onClick={() => renewBooking(_id)}
-                        >
-                          {renewalStatus === 'pending' ? 'Renewal Pending' : renewingId === _id ? 'Requesting...' : 'Renew +1M'}
-                        </button>
-                      )}
-                      {(status === 'Pending' || status === 'Approved') && (
-                        <button className="btn-renew" onClick={() => cancelBooking(_id)}>Cancel</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                {activeBookingId === _id ? (
+        <>
+          <table className="bookings-table">
+            <thead>
+              <tr>
+                <th>{t('renterBookings.property')}</th>
+                <th>{t('renterBookings.from')}</th>
+                <th>{t('renterBookings.to')}</th>
+                <th>{t('renterBookings.status')}</th>
+                <th>{t('renterBookings.timeline')}</th>
+                <th>{t('renterBookings.nextStep')}</th>
+                <th>{t('renterBookings.payment')}</th>
+                <th>{t('renterBookings.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookings.map(({ _id, property, fromDate, toDate, status, paymentStatus, workflow, renewalStatus }) => (
+                <React.Fragment key={`table-${_id}`}>
                   <tr>
-                    <td colSpan="8">
-                      <div className="booking-panel">
-                        {panelLoading ? <p>Loading controls...</p> : null}
-                        {panelError ? <p className="error">{panelError}</p> : null}
-                        {!panelLoading ? (
-                          <>
-                            <h4>Request Lease Amendment</h4>
-                            <div className="booking-panel-grid">
-                              <input type="date" value={amendmentForm.proposedFromDate} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedFromDate: e.target.value }))} />
-                              <input type="date" value={amendmentForm.proposedToDate} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedToDate: e.target.value }))} />
-                              <input type="number" placeholder="Monthly rent (optional)" value={amendmentForm.proposedMonthlyRent} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedMonthlyRent: e.target.value }))} />
-                              <input type="text" placeholder="Reason" value={amendmentForm.reason} onChange={(e) => setAmendmentForm((p) => ({ ...p, reason: e.target.value }))} />
-                              <button className="btn-renew" onClick={() => submitAmendment(_id)}>Submit Amendment</button>
-                            </div>
-                            <div className="booking-chip-list">
-                              {amendments.map((a) => (
-                                <span key={a._id} className="booking-chip">
-                                  {a.status.toUpperCase()} | {a.reason || 'No reason'} | Rent: {a.proposedMonthlyRent ?? '-'}
-                                </span>
-                              ))}
-                              {amendments.length === 0 ? <span className="booking-chip">No amendment history.</span> : null}
-                            </div>
-
-                            <h4>Deposit Ledger</h4>
-                            {ledger.summary ? (
-                              <p className="workflow-hint">
-                                Held Rs {ledger.summary.netHeld} | Received Rs {ledger.summary.received} | Pending Rs {ledger.summary.pending}
-                              </p>
-                            ) : null}
-                            <div className="booking-panel-grid">
-                              <input type="number" placeholder="Refund amount" value={refundForm.amount} onChange={(e) => setRefundForm((p) => ({ ...p, amount: e.target.value }))} />
-                              <input type="text" placeholder="Refund reason" value={refundForm.reason} onChange={(e) => setRefundForm((p) => ({ ...p, reason: e.target.value }))} />
-                              <button className="btn-renew" onClick={() => requestRefund(_id)}>Request Refund</button>
-                            </div>
-                            <div className="booking-chip-list">
-                              {(ledger.items || []).map((entry) => (
-                                <div key={entry._id} className="booking-chip">
-                                  {entry.type} | Rs {entry.amount} | {entry.status}
-                                  {entry.type === 'deduction' && entry.status === 'pending' ? (
-                                    <>
-                                      <button className="btn-renew" onClick={() => decideDeduction(_id, entry._id, 'approved')}>Approve</button>
-                                      <button className="btn-renew" onClick={() => decideDeduction(_id, entry._id, 'rejected')}>Reject</button>
-                                    </>
-                                  ) : null}
-                                </div>
-                              ))}
-                              {(ledger.items || []).length === 0 ? <span className="booking-chip">No deposit entries.</span> : null}
-                            </div>
-                          </>
-                        ) : null}
+                    <td data-label={t('renterBookings.property')}>{property?.title || 'N/A'}</td>
+                    <td data-label={t('renterBookings.from')}>{new Date(fromDate).toLocaleDateString()}</td>
+                    <td data-label={t('renterBookings.to')}>{new Date(toDate).toLocaleDateString()}</td>
+                    <td data-label={t('renterBookings.status')}>{status || 'N/A'}</td>
+                    <td data-label={t('renterBookings.timeline')}>{renderTimeline(workflow)}</td>
+                    <td data-label={t('renterBookings.nextStep')}><span className="workflow-hint">{getWorkflowHint({ status, paymentStatus, workflow })}</span></td>
+                    <td data-label={t('renterBookings.payment')}>{paymentStatus === 'pending_verification' ? t('renterBookings.pendingVerification') : paymentStatus || 'pending'}</td>
+                    <td data-label={t('renterBookings.actions')}>
+                      <div className="booking-actions">
+                        <button onClick={() => setSelectedProperty(property)}>{t('renterBookings.viewDetails')}</button>
+                        <button className="btn-renew" onClick={() => toggleManage(_id)}>
+                          {activeBookingId === _id ? t('renterBookings.hideManage') : t('renterBookings.manage')}
+                        </button>
+                        {status === 'Approved' && (
+                          <button
+                            className="btn-renew"
+                            disabled={renewingId === _id || renewalStatus === 'pending'}
+                            onClick={() => renewBooking(_id)}
+                          >
+                            {renewalStatus === 'pending' ? t('renterBookings.renewPending') : renewingId === _id ? t('renterBookings.requesting') : t('renterBookings.renewOneMonth')}
+                          </button>
+                        )}
+                        {(status === 'Pending' || status === 'Approved') && (
+                          <button className="btn-renew" onClick={() => cancelBooking(_id)}>{t('renterBookings.cancel')}</button>
+                        )}
                       </div>
                     </td>
                   </tr>
+                  {activeBookingId === _id ? (
+                    <tr>
+                      <td className="booking-panel-cell" colSpan="8">
+                        <div className="booking-panel">
+                          {panelLoading ? <p>Loading controls...</p> : null}
+                          {panelError ? <p className="error">{panelError}</p> : null}
+                          {!panelLoading ? (
+                            <>
+                              <h4>{t('renterBookings.leaseAmendment')}</h4>
+                              <div className="booking-panel-grid">
+                                <input type="date" value={amendmentForm.proposedFromDate} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedFromDate: e.target.value }))} />
+                                <input type="date" value={amendmentForm.proposedToDate} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedToDate: e.target.value }))} />
+                                <input type="number" placeholder={t('renterBookings.monthlyRentOptional')} value={amendmentForm.proposedMonthlyRent} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedMonthlyRent: e.target.value }))} />
+                                <input type="text" placeholder={t('renterBookings.reason')} value={amendmentForm.reason} onChange={(e) => setAmendmentForm((p) => ({ ...p, reason: e.target.value }))} />
+                                <button className="btn-renew" onClick={() => submitAmendment(_id)}>{t('renterBookings.submitAmendment')}</button>
+                              </div>
+                              <div className="booking-chip-list">
+                                {amendments.map((a) => (
+                                  <span key={a._id} className="booking-chip">
+                                    {a.status.toUpperCase()} | {a.reason || 'No reason'} | Rent: {a.proposedMonthlyRent ?? '-'}
+                                  </span>
+                                ))}
+                                {amendments.length === 0 ? <span className="booking-chip">{t('renterBookings.noAmendmentHistory')}</span> : null}
+                              </div>
+
+                              <h4>{t('renterBookings.depositLedger')}</h4>
+                              {ledger.summary ? (
+                                <p className="workflow-hint">
+                                  Held Rs {ledger.summary.netHeld} | Received Rs {ledger.summary.received} | Pending Rs {ledger.summary.pending}
+                                </p>
+                              ) : null}
+                              <div className="booking-panel-grid">
+                                <input type="number" placeholder={t('renterBookings.refundAmount')} value={refundForm.amount} onChange={(e) => setRefundForm((p) => ({ ...p, amount: e.target.value }))} />
+                                <input type="text" placeholder={t('renterBookings.refundReason')} value={refundForm.reason} onChange={(e) => setRefundForm((p) => ({ ...p, reason: e.target.value }))} />
+                                <button className="btn-renew" onClick={() => requestRefund(_id)}>{t('renterBookings.requestRefund')}</button>
+                              </div>
+                              <div className="booking-chip-list">
+                                {(ledger.items || []).map((entry) => (
+                                  <div key={entry._id} className="booking-chip">
+                                    {entry.type} | Rs {entry.amount} | {entry.status}
+                                    {entry.type === 'deduction' && entry.status === 'pending' ? (
+                                      <>
+                                        <button className="btn-renew" onClick={() => decideDeduction(_id, entry._id, 'approved')}>Approve</button>
+                                        <button className="btn-renew" onClick={() => decideDeduction(_id, entry._id, 'rejected')}>Reject</button>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                ))}
+                                {(ledger.items || []).length === 0 ? <span className="booking-chip">{t('renterBookings.noDepositEntries')}</span> : null}
+                              </div>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="bookings-mobile-list">
+            {bookings.map(({ _id, property, fromDate, toDate, status, paymentStatus, workflow, renewalStatus }) => (
+              <article key={`mobile-${_id}`} className="booking-mobile-card">
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('renterBookings.property')}</span>
+                  <strong className="booking-mobile-value">{property?.title || 'N/A'}</strong>
+                </div>
+                <div className="booking-mobile-grid">
+                  <div className="booking-mobile-block">
+                    <span className="booking-mobile-label">{t('renterBookings.from')}</span>
+                    <span className="booking-mobile-value">{new Date(fromDate).toLocaleDateString()}</span>
+                  </div>
+                  <div className="booking-mobile-block">
+                    <span className="booking-mobile-label">{t('renterBookings.to')}</span>
+                    <span className="booking-mobile-value">{new Date(toDate).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('renterBookings.status')}</span>
+                  <span className="booking-mobile-value">{status || 'N/A'}</span>
+                </div>
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('renterBookings.timeline')}</span>
+                  {renderTimeline(workflow)}
+                </div>
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('renterBookings.nextStep')}</span>
+                  <span className="workflow-hint booking-mobile-hint">{getWorkflowHint({ status, paymentStatus, workflow })}</span>
+                </div>
+                <div className="booking-mobile-block">
+                  <span className="booking-mobile-label">{t('renterBookings.payment')}</span>
+                  <span className="booking-mobile-value">{paymentStatus === 'pending_verification' ? t('renterBookings.pendingVerification') : paymentStatus || 'pending'}</span>
+                </div>
+                <div className="booking-mobile-actions">
+                  <button onClick={() => setSelectedProperty(property)}>{t('renterBookings.viewDetails')}</button>
+                  <button className="btn-renew" onClick={() => toggleManage(_id)}>
+                    {activeBookingId === _id ? t('renterBookings.hideManage') : t('renterBookings.manage')}
+                  </button>
+                  {status === 'Approved' && (
+                    <button
+                      className="btn-renew"
+                      disabled={renewingId === _id || renewalStatus === 'pending'}
+                      onClick={() => renewBooking(_id)}
+                    >
+                      {renewalStatus === 'pending' ? t('renterBookings.renewPending') : renewingId === _id ? t('renterBookings.requesting') : t('renterBookings.renewOneMonth')}
+                    </button>
+                  )}
+                  {(status === 'Pending' || status === 'Approved') && (
+                    <button className="btn-renew" onClick={() => cancelBooking(_id)}>{t('renterBookings.cancel')}</button>
+                  )}
+                </div>
+                {activeBookingId === _id ? (
+                  <div className="booking-panel booking-mobile-panel">
+                    {panelLoading ? <p>Loading controls...</p> : null}
+                    {panelError ? <p className="error">{panelError}</p> : null}
+                    {!panelLoading ? (
+                      <>
+                        <h4>{t('renterBookings.leaseAmendment')}</h4>
+                        <div className="booking-panel-grid">
+                          <input type="date" value={amendmentForm.proposedFromDate} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedFromDate: e.target.value }))} />
+                          <input type="date" value={amendmentForm.proposedToDate} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedToDate: e.target.value }))} />
+                          <input type="number" placeholder={t('renterBookings.monthlyRentOptional')} value={amendmentForm.proposedMonthlyRent} onChange={(e) => setAmendmentForm((p) => ({ ...p, proposedMonthlyRent: e.target.value }))} />
+                          <input type="text" placeholder={t('renterBookings.reason')} value={amendmentForm.reason} onChange={(e) => setAmendmentForm((p) => ({ ...p, reason: e.target.value }))} />
+                          <button className="btn-renew" onClick={() => submitAmendment(_id)}>{t('renterBookings.submitAmendment')}</button>
+                        </div>
+                        <div className="booking-chip-list">
+                          {amendments.map((a) => (
+                            <span key={a._id} className="booking-chip">
+                              {a.status.toUpperCase()} | {a.reason || 'No reason'} | Rent: {a.proposedMonthlyRent ?? '-'}
+                            </span>
+                          ))}
+                          {amendments.length === 0 ? <span className="booking-chip">{t('renterBookings.noAmendmentHistory')}</span> : null}
+                        </div>
+
+                        <h4>{t('renterBookings.depositLedger')}</h4>
+                        {ledger.summary ? (
+                          <p className="workflow-hint booking-mobile-hint">
+                            Held Rs {ledger.summary.netHeld} | Received Rs {ledger.summary.received} | Pending Rs {ledger.summary.pending}
+                          </p>
+                        ) : null}
+                        <div className="booking-panel-grid">
+                          <input type="number" placeholder={t('renterBookings.refundAmount')} value={refundForm.amount} onChange={(e) => setRefundForm((p) => ({ ...p, amount: e.target.value }))} />
+                          <input type="text" placeholder={t('renterBookings.refundReason')} value={refundForm.reason} onChange={(e) => setRefundForm((p) => ({ ...p, reason: e.target.value }))} />
+                          <button className="btn-renew" onClick={() => requestRefund(_id)}>{t('renterBookings.requestRefund')}</button>
+                        </div>
+                        <div className="booking-chip-list">
+                          {(ledger.items || []).map((entry) => (
+                            <div key={entry._id} className="booking-chip">
+                              {entry.type} | Rs {entry.amount} | {entry.status}
+                              {entry.type === 'deduction' && entry.status === 'pending' ? (
+                                <>
+                                  <button className="btn-renew" onClick={() => decideDeduction(_id, entry._id, 'approved')}>Approve</button>
+                                  <button className="btn-renew" onClick={() => decideDeduction(_id, entry._id, 'rejected')}>Reject</button>
+                                </>
+                              ) : null}
+                            </div>
+                          ))}
+                          {(ledger.items || []).length === 0 ? <span className="booking-chip">{t('renterBookings.noDepositEntries')}</span> : null}
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
                 ) : null}
-              </React.Fragment>
+              </article>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </>
       )}
 
       {selectedProperty && (

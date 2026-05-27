@@ -58,8 +58,18 @@
   color: var(--text-muted);
 }
 
+.settings-language-trigger {
+  justify-self: start;
+  background: color-mix(in srgb, var(--accent) 88%, white);
+}
+
 @media (max-width: 600px) {
   .settings-page {
     padding: 1.5rem 1rem;
+  }
+
+  .settings-language-trigger {
+    width: 100%;
+    justify-self: stretch;
   }
 }

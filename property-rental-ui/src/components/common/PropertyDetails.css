@@ -112,3 +112,23 @@
   letter-spacing: 0.06em;
   margin-left: 0.5rem;
 }
+
+@media (max-width: 760px) {
+  .property-details-popup {
+    gap: 12px;
+  }
+
+  .details-close-btn {
+    justify-self: flex-end;
+  }
+
+  .review-header {
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: flex-start;
+  }
+
+  .rating-form {
+    padding: 12px;
+  }
+}

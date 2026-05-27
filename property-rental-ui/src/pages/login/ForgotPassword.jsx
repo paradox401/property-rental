@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
+import { useLanguage } from '../../context/LanguageContext';
 import './ForgotPassword.css';
 
 export default function ForgotPassword() {
@@ -9,6 +10,7 @@ export default function ForgotPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [resetUrl, setResetUrl] = useState('');
+  const { t } = useLanguage();
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -17,7 +19,7 @@ export default function ForgotPassword() {
     setResetUrl('');
 
     if (!email) {
-      setError('Email is required');
+      setError(t('auth.emailRequired'));
       return;
     }
 
@@ -30,7 +32,7 @@ export default function ForgotPassword() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit request');
-      setSuccess(data.message || 'If the email exists, a reset link has been sent.');
+      setSuccess(data.message || t('auth.resetEmailSent'));
       if (data.resetUrl) setResetUrl(data.resetUrl);
     } catch (err) {
       setError(err.message || 'Failed to submit request');
@@ -42,11 +44,11 @@ export default function ForgotPassword() {
   return (
     <div className="forgot-container">
       <div className="forgot-card">
-        <h2>Forgot Password</h2>
-        <p className="forgot-subtitle">Enter your email to receive a reset link.</p>
+        <h2>{t('auth.forgotPasswordTitle')}</h2>
+        <p className="forgot-subtitle">{t('auth.forgotPasswordSubtitle')}</p>
 
         <form onSubmit={onSubmit}>
-          <label>Email</label>
+          <label>{t('auth.email')}</label>
           <input
             type="email"
             placeholder="you@example.com"
@@ -58,17 +60,17 @@ export default function ForgotPassword() {
           {success && <p className="forgot-success">{success}</p>}
           {resetUrl && (
             <p className="forgot-dev-link">
-              Dev reset link: <a href={resetUrl}>{resetUrl}</a>
+              {t('auth.devResetLink')}: <a href={resetUrl}>{resetUrl}</a>
             </p>
           )}
 
           <button type="submit" disabled={loading}>
-            {loading ? 'Sending...' : 'Send Reset Link'}
+            {loading ? t('auth.sending') : t('auth.sendResetLink')}
           </button>
         </form>
 
         <div className="forgot-footer">
-          <Link to="/login">Back to Login</Link>
+          <Link to="/login">{t('auth.backToLogin')}</Link>
         </div>
       </div>
     </div>

@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+const configuredBase = (import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://property-rental-admin.onrender.com/api/admin')
+  .trim()
+  .replace(/\/+$/, '');
+
 const API = axios.create({
-  baseURL: 'http://localhost:8001/api/admin',
+  baseURL: configuredBase,
 });
 
 API.interceptors.request.use((config) => {

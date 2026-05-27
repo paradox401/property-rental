@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { image } from '../../assets/assets';
 import { API_BASE_URL } from '../../config/api';
+import { useLanguage } from '../../context/LanguageContext';
 import './Register.css';
 
 export default function Register() {
@@ -19,6 +20,7 @@ export default function Register() {
   const [otpLoading, setOtpLoading] = useState(false);
 
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +28,7 @@ export default function Register() {
     setSuccess('');
 
     if (!email || !password) {
-      setError('Please fill all fields.');
+      setError(t('auth.fillAllFields'));
       return;
     }
 
@@ -46,16 +48,16 @@ export default function Register() {
         if (data.verificationRequired) {
           setVerificationRequired(true);
           setVerificationEmail(data.email || email);
-          setSuccess(data.message || 'OTP sent. Please verify your email.');
+          setSuccess(data.message || t('auth.otpSent'));
         } else {
-          setSuccess('Registration successful! Redirecting...');
+          setSuccess(t('auth.registrationSuccess'));
           setTimeout(() => {
             navigate('/login');
           }, 2000);
         }
       }
     } catch (err) {
-      setError('Server error. Please try again later.');
+      setError(t('auth.serverError'));
     } finally {
       setLoading(false);
     }
@@ -66,7 +68,7 @@ export default function Register() {
     setError('');
     setSuccess('');
     if (!verificationEmail || !otp) {
-      setError('Please enter OTP.');
+      setError(t('auth.enterOtpRequired'));
       return;
     }
     setOtpLoading(true);
@@ -80,11 +82,11 @@ export default function Register() {
       if (!res.ok) {
         setError(data.error || 'OTP verification failed');
       } else {
-        setSuccess('Email verified successfully! Redirecting to login...');
+        setSuccess(t('auth.emailVerifiedRedirect'));
         setTimeout(() => navigate('/login'), 1500);
       }
     } catch {
-      setError('Server error. Please try again later.');
+      setError(t('auth.serverError'));
     } finally {
       setOtpLoading(false);
     }
@@ -94,7 +96,7 @@ export default function Register() {
     setError('');
     setSuccess('');
     if (!verificationEmail) {
-      setError('Missing verification email.');
+      setError(t('auth.missingEmail'));
       return;
     }
     setOtpLoading(true);
@@ -108,10 +110,10 @@ export default function Register() {
       if (!res.ok) {
         setError(data.error || 'Failed to resend OTP');
       } else {
-        setSuccess(data.message || 'OTP resent');
+        setSuccess(data.message || t('auth.otpResent'));
       }
     } catch {
-      setError('Server error. Please try again later.');
+      setError(t('auth.serverError'));
     } finally {
       setOtpLoading(false);
     }
@@ -121,7 +123,7 @@ export default function Register() {
     <div className="register-container">
       <div className="register-left">
         <h1>
-          JOIN<span className="green"> US</span>
+          {t('auth.joinUs')}
         </h1>
         <img src={image.property} alt="Property" />
       </div>
@@ -129,24 +131,24 @@ export default function Register() {
         <h2>
           <span className="logo">Property</span> Rental
         </h2>
-        <h3>{verificationRequired ? 'Verify Email' : 'Register'}</h3>
+        <h3>{verificationRequired ? t('auth.verifyEmail') : t('auth.registerTitle')}</h3>
         {!verificationRequired ? (
         <form onSubmit={handleSubmit}>
-          <label> Name</label>
+          <label>{t('auth.fullName')}</label>
           <input
             type="text"
-            placeholder="Full Name"
+            placeholder={t('auth.fullName')}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          <label>Citizenship Number</label>
+          <label>{t('auth.citizenshipNumber')}</label>
           <input
             type="text"
-            placeholder="Citizenship Number"
+            placeholder={t('auth.citizenshipNumber')}
             value={citizenshipNumber}
             onChange={(e) => setCitizenshipNumber(e.target.value)}
           />
-          <label>Email</label>
+          <label>{t('auth.email')}</label>
           <input
             type="email"
             placeholder="you@example.com"
@@ -154,7 +156,7 @@ export default function Register() {
             onChange={(e) => setEmail(e.target.value)}
           />
 
-          <label>Password</label>
+          <label>{t('auth.password')}</label>
           <input
             type="password"
             placeholder="********"
@@ -162,44 +164,44 @@ export default function Register() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <label>Register As</label>
+          <label>{t('auth.registerAs')}</label>
           <select value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="owner">Owner</option>
-            <option value="renter">Renter</option>
+            <option value="owner">{t('common.owner')}</option>
+            <option value="renter">{t('common.renter')}</option>
           </select>
 
           {error && <p className="error">{error}</p>}
           {success && <p className="success">{success}</p>}
 
           <button type="submit" disabled={loading}>
-            {loading ? 'Registering...' : 'Register'}
+            {loading ? t('auth.registering') : t('auth.register')}
           </button>
         </form>
         ) : (
         <form onSubmit={handleVerifyOtp}>
-          <label>Email</label>
+          <label>{t('auth.email')}</label>
           <input type="email" value={verificationEmail} readOnly />
 
-          <label>OTP</label>
+          <label>{t('auth.otp')}</label>
           <input
             type="text"
-            placeholder="Enter 6-digit OTP"
+            placeholder={t('auth.enterOtp')}
             value={otp}
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
           />
           {error && <p className="error">{error}</p>}
           {success && <p className="success">{success}</p>}
           <button type="submit" disabled={otpLoading}>
-            {otpLoading ? 'Verifying...' : 'Verify OTP'}
+            {otpLoading ? t('auth.verifying') : t('auth.verifyOtp')}
           </button>
           <button type="button" disabled={otpLoading} onClick={handleResendOtp}>
-            {otpLoading ? 'Please wait...' : 'Resend OTP'}
+            {otpLoading ? t('auth.pleaseWait') : t('auth.resendOtp')}
           </button>
         </form>
         )}
         <div className="register-footer">
           <p>
-            Already have an account? <Link to="/login">Log In</Link>
+            {t('auth.alreadyAccount')} <Link to="/login">{t('auth.login')}</Link>
           </p>
         </div>
       </div>
