@@ -22,6 +22,8 @@ import {
   getPropertyVisits,
   approveVisitPassRequest,
   rejectVisitPassRequest,
+  approveVisitBookingConfirmation,
+  rejectVisitBookingConfirmation,
   allocateOwnerPayout,
   markOwnerPayoutTransferred,
   getAllComplaints,
@@ -105,6 +107,8 @@ router.patch('/payments/:id/transfer-owner', markOwnerPayoutTransferred);
 
 router.get('/visits/passes', requireAdminPermission('workflow:read'), getVisitPassRequests);
 router.get('/visits', requireAdminPermission('workflow:read'), getPropertyVisits);
+router.patch('/visits/:id/booking-confirmation/approve', requireAdminPermission('workflow:write'), approveVisitBookingConfirmation);
+router.patch('/visits/:id/booking-confirmation/reject', requireAdminPermission('workflow:write'), rejectVisitBookingConfirmation);
 router.patch('/visits/passes/:id/approve', requireAdminPermission('workflow:write'), approveVisitPassRequest);
 router.patch('/visits/passes/:id/reject', requireAdminPermission('workflow:write'), rejectVisitPassRequest);
 

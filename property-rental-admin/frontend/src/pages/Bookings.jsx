@@ -2,10 +2,12 @@ import { Fragment, useEffect, useState } from 'react';
 import API from '../api';
 import Pagination from '../components/Pagination';
 import { formatDate, parsePaged, statusClass } from '../utils';
+import './Bookings.css';
 
 export default function Bookings() {
   const [rows, setRows] = useState([]);
   const [status, setStatus] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState('');
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 20, totalPages: 1 });
   const [openBookingId, setOpenBookingId] = useState('');
   const [amendments, setAmendments] = useState([]);
@@ -14,7 +16,14 @@ export default function Bookings() {
   const [panelLoading, setPanelLoading] = useState(false);
 
   const load = async (nextPage = 1) => {
-    const res = await API.get('/bookings', { params: { status: status || undefined, page: nextPage, limit: 20 } });
+    const res = await API.get('/bookings', {
+      params: {
+        status: status || undefined,
+        paymentStatus: paymentStatus || undefined,
+        page: nextPage,
+        limit: 20,
+      },
+    });
     const parsed = parsePaged(res.data);
     setRows(parsed.items);
     setMeta(parsed.meta);
@@ -24,6 +33,13 @@ export default function Bookings() {
 
   const setBookingStatus = async (id, nextStatus) => {
     await API.patch(`/bookings/${id}/status`, { status: nextStatus });
+    load(meta.page);
+  };
+
+  const setPaymentVerificationFromVisit = async (booking) => {
+    const visitId = booking.visitConfirmation?._id;
+    if (!visitId) return;
+    await API.patch(`/visits/${visitId}/booking-confirmation/approve`);
     load(meta.page);
   };
 
@@ -70,48 +86,100 @@ export default function Bookings() {
 
   return (
     <div>
-      <div className="page-header"><div><h1>Bookings</h1><p className="page-subtitle">Track booking lifecycle and intervene in disputes.</p></div></div>
+      <div className="page-header"><div><h1>Bookings</h1><p className="page-subtitle">Track booking lifecycle, renter details, visit-confirmation payments, amendments, and deposits.</p></div></div>
       <div className="toolbar">
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All status</option>
           <option value="Pending">Pending</option>
           <option value="Approved">Approved</option>
           <option value="Rejected">Rejected</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+        <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
+          <option value="">All payment status</option>
+          <option value="pending">Pending</option>
+          <option value="pending_verification">Pending verification</option>
+          <option value="paid">Paid</option>
         </select>
         <button className="btn" onClick={() => load(1)}>Apply</button>
       </div>
       <div className="table-wrap">
         <table className="table">
-          <thead><tr><th>Property</th><th>Owner</th><th>Renter</th><th>From</th><th>To</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Property</th><th>Owner</th><th>Renter</th><th>Dates</th><th>Rent</th><th>Status</th><th>Payment</th><th>Source</th><th>Actions</th></tr></thead>
           <tbody>
             {rows.map((b) => (
               <Fragment key={b._id}>
                 <tr>
-                  <td>{b.property?.title || '-'}</td>
+                  <td>
+                    <strong>{b.property?.title || '-'}</strong>
+                    <small>{b.property?.location || ''}</small>
+                  </td>
                   <td>{b.property?.ownerId?.name || b.property?.ownerId?.email || '-'}</td>
-                  <td>{b.renter?.name || '-'}</td>
-                  <td>{formatDate(b.fromDate)}</td>
-                  <td>{formatDate(b.toDate)}</td>
+                  <td>
+                    <strong>{b.bookingDetails?.fullName || b.renter?.name || '-'}</strong>
+                    <small>{b.bookingDetails?.phone || b.renter?.email || '-'}</small>
+                  </td>
+                  <td>{formatDate(b.fromDate)} to {formatDate(b.toDate)}</td>
+                  <td>Rs. {b.agreedMonthlyRent ?? b.property?.price ?? '-'}</td>
                   <td><span className={`badge ${statusClass(b.status)}`}>{b.status}</span></td>
+                  <td><span className={`badge ${statusClass(b.paymentStatus || 'pending')}`}>{b.paymentStatus || 'pending'}</span></td>
+                  <td>
+                    {b.visitConfirmation ? (
+                      <div className="booking-source">
+                        <strong>Post-visit</strong>
+                        <small>Rs. {b.visitConfirmation.bookingConfirmationAmount || 0}</small>
+                        <small>{b.visitConfirmation.bookingConfirmationTransactionRef || '-'}</small>
+                      </div>
+                    ) : (
+                      'Direct'
+                    )}
+                  </td>
                   <td className="admin-actions-cell">
                     <div className="admin-action-row">
                       <button className="btn admin-action-btn" onClick={() => setBookingStatus(b._id, 'Approved')}>Approve</button>
                       <button className="btn admin-action-btn danger" onClick={() => setBookingStatus(b._id, 'Rejected')}>Reject</button>
                       <button className="btn admin-action-btn warn" onClick={() => setBookingStatus(b._id, 'Pending')}>Pending</button>
+                      <button className="btn admin-action-btn danger" onClick={() => setBookingStatus(b._id, 'Cancelled')}>Cancel</button>
+                      {b.visitConfirmation?.bookingConfirmationStatus === 'pending_verification' ? (
+                        <button className="btn admin-action-btn" onClick={() => setPaymentVerificationFromVisit(b)}>Mark Paid</button>
+                      ) : null}
                       <button className="btn admin-action-btn secondary" onClick={() => openPanel(b._id)}>
-                        {openBookingId === b._id ? 'Hide Controls' : 'Amendments & Deposit'}
+                        {openBookingId === b._id ? 'Hide Details' : 'Details'}
                       </button>
                     </div>
                   </td>
                 </tr>
                 {openBookingId === b._id ? (
                   <tr key={`${b._id}-panel`}>
-                    <td colSpan="7">
+                    <td colSpan="9">
                       {panelLoading ? (
                         <p>Loading controls...</p>
                       ) : (
                         <div className="card" style={{ margin: '0.4rem 0' }}>
                           {panelError ? <p className="error">{panelError}</p> : null}
+                          <div className="booking-admin-detail-grid">
+                            <section>
+                              <h3>Renter Details</h3>
+                              <dl>
+                                <dt>Name</dt><dd>{b.bookingDetails?.fullName || b.renter?.name || '-'}</dd>
+                                <dt>Phone</dt><dd>{b.bookingDetails?.phone || '-'}</dd>
+                                <dt>Email</dt><dd>{b.bookingDetails?.email || b.renter?.email || '-'}</dd>
+                                <dt>Occupants</dt><dd>{b.bookingDetails?.occupants || '-'}</dd>
+                                <dt>Employment</dt><dd>{b.bookingDetails?.employmentStatus || '-'}</dd>
+                                <dt>Monthly Income</dt><dd>{b.bookingDetails?.monthlyIncome ? `Rs. ${b.bookingDetails.monthlyIncome}` : '-'}</dd>
+                              </dl>
+                            </section>
+                            <section>
+                              <h3>Booking Details</h3>
+                              <dl>
+                                <dt>Move reason</dt><dd>{b.bookingDetails?.moveInReason || '-'}</dd>
+                                <dt>Emergency</dt><dd>{b.bookingDetails?.emergencyContactName || '-'} {b.bookingDetails?.emergencyContactPhone ? `(${b.bookingDetails.emergencyContactPhone})` : ''}</dd>
+                                <dt>Note</dt><dd>{b.bookingDetails?.noteToOwner || '-'}</dd>
+                                <dt>Visit fee</dt><dd>{b.visitConfirmation ? `Rs. ${b.visitConfirmation.bookingConfirmationAmount || 0} (${b.visitConfirmation.bookingConfirmationStatus})` : '-'}</dd>
+                                <dt>Fee ref</dt><dd>{b.visitConfirmation?.bookingConfirmationTransactionRef || '-'}</dd>
+                              </dl>
+                            </section>
+                          </div>
                           <h3 style={{ marginTop: 0 }}>Lease Amendments</h3>
                           <div className="table-wrap" style={{ marginBottom: '0.8rem' }}>
                             <table className="table">
@@ -182,7 +250,7 @@ export default function Bookings() {
                 ) : null}
               </Fragment>
             ))}
-            {rows.length === 0 && <tr><td colSpan="7">No bookings found.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan="9">No bookings found.</td></tr>}
           </tbody>
         </table>
       </div>

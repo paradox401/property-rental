@@ -12,6 +12,7 @@ export default function Visits() {
   const [status, setStatus] = useState('');
   const [visitStatus, setVisitStatus] = useState('');
   const [remarks, setRemarks] = useState({});
+  const [visitRemarks, setVisitRemarks] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -20,6 +21,7 @@ export default function Visits() {
     active: passes.filter((item) => item.status === 'active').length,
     rejected: passes.filter((item) => item.status === 'rejected').length,
     scheduled: visits.filter((item) => item.status === 'scheduled').length,
+    bookingPending: visits.filter((item) => item.bookingConfirmationStatus === 'pending_verification').length,
   }), [passes, visits]);
 
   const loadPasses = async (nextPage = 1) => {
@@ -66,6 +68,18 @@ export default function Visits() {
     }
   };
 
+  const decideBookingConfirmation = async (id, decision) => {
+    setError('');
+    try {
+      await API.patch(`/visits/${id}/booking-confirmation/${decision}`, {
+        adminRemark: visitRemarks[id] || '',
+      });
+      await Promise.all([loadPasses(passMeta.page), loadVisits(visitMeta.page)]);
+    } catch (err) {
+      setError(err?.response?.data?.error || err.message || `Failed to ${decision} booking confirmation`);
+    }
+  };
+
   if (loading) return <p>Loading visit controls...</p>;
 
   return (
@@ -84,6 +98,7 @@ export default function Visits() {
         <article><span>Active promo passes</span><strong>{summary.active}</strong></article>
         <article><span>Rejected payments</span><strong>{summary.rejected}</strong></article>
         <article><span>Scheduled visits</span><strong>{summary.scheduled}</strong></article>
+        <article><span>Booking fees pending</span><strong>{summary.bookingPending}</strong></article>
       </section>
 
       <section className="visit-admin-section">
@@ -167,7 +182,7 @@ export default function Visits() {
         <div className="visit-admin-section-head">
           <div>
             <h2>Scheduled property visits</h2>
-            <p>See which renter is visiting which property and when.</p>
+            <p>Track visit completion and verify booking confirmation payments after both parties mark the visit done.</p>
           </div>
           <div className="toolbar">
             <select value={visitStatus} onChange={(e) => setVisitStatus(e.target.value)}>
@@ -199,7 +214,23 @@ export default function Visits() {
                 <dt>Renter Done</dt><dd>{visit.renterMarkedDoneAt ? 'Yes' : 'No'}</dd>
                 <dt>Owner Done</dt><dd>{visit.ownerMarkedDoneAt ? 'Yes' : 'No'}</dd>
                 <dt>Booking Fee</dt><dd>{visit.bookingConfirmationStatus === 'none' ? 'None' : `Rs. ${visit.bookingConfirmationAmount || 0} (${visit.bookingConfirmationStatus})`}</dd>
+                <dt>Fee Reference</dt><dd>{visit.bookingConfirmationTransactionRef || '-'}</dd>
+                <dt>Booking</dt><dd>{visit.booking ? `${visit.booking.status} / ${visit.booking.paymentStatus}` : '-'}</dd>
               </dl>
+              {visit.bookingConfirmationStatus === 'pending_verification' && (
+                <div className="visit-confirmation-actions">
+                  <input
+                    className="remark-input"
+                    value={visitRemarks[visit._id] || ''}
+                    onChange={(e) => setVisitRemarks((prev) => ({ ...prev, [visit._id]: e.target.value }))}
+                    placeholder="Optional reject reason"
+                  />
+                  <div className="visit-actions">
+                    <button className="btn action-btn paid-btn" onClick={() => decideBookingConfirmation(visit._id, 'approve')}>Mark paid</button>
+                    <button className="btn action-btn danger" onClick={() => decideBookingConfirmation(visit._id, 'reject')}>Reject</button>
+                  </div>
+                </div>
+              )}
             </article>
           ))}
           {visits.length === 0 && <p>No scheduled visits found.</p>}

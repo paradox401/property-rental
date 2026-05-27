@@ -5,7 +5,7 @@
 
 .visit-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -111,6 +111,14 @@
   font-weight: 700;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.visit-confirmation-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
 .visit-admin-error {

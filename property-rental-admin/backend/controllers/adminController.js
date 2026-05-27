@@ -946,8 +946,9 @@ export const deleteProperty = async (req, res) => {
 
 export const getAllBookings = async (req, res) => {
   try {
-    const { status, page, limit } = req.query;
+    const { status, paymentStatus, page, limit } = req.query;
     const filter = status ? { status } : {};
+    if (paymentStatus) filter.paymentStatus = paymentStatus;
     const currentPage = parsePage(page);
     const currentLimit = parseLimit(limit);
     const [bookings, total] = await Promise.all([
@@ -963,8 +964,24 @@ export const getAllBookings = async (req, res) => {
       Booking.countDocuments(filter),
     ]);
 
-    sendPaginated(res, bookings, total, currentPage, currentLimit);
+    const bookingIds = bookings.map((booking) => booking._id);
+    const visitConfirmations = await PropertyVisit.find({ booking: { $in: bookingIds } })
+      .select('booking status promoCode bookingConfirmationStatus bookingConfirmationAmount bookingConfirmationTransactionRef renterMarkedDoneAt ownerMarkedDoneAt visitDate')
+      .lean();
+    const visitByBookingId = new Map(
+      visitConfirmations.map((visit) => [String(visit.booking), visit])
+    );
+    const decoratedBookings = bookings.map((booking) => {
+      const plain = booking.toObject ? booking.toObject() : booking;
+      return {
+        ...plain,
+        visitConfirmation: visitByBookingId.get(String(plain._id)) || null,
+      };
+    });
+
+    sendPaginated(res, decoratedBookings, total, currentPage, currentLimit);
   } catch (error) {
+    console.error('getAllBookings error:', error);
     res.status(500).json({ error: 'Failed to fetch bookings' });
   }
 };
@@ -972,7 +989,7 @@ export const getAllBookings = async (req, res) => {
 export const updateBookingStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    if (!['Pending', 'Approved', 'Rejected'].includes(status)) {
+    if (!['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(status)) {
       return res.status(400).json({ error: 'Invalid booking status' });
     }
 
@@ -996,6 +1013,8 @@ export const updateBookingStatus = async (req, res) => {
     booking.status = status;
     booking.acceptedAt = status === 'Approved' ? new Date() : null;
     booking.rejectedAt = status === 'Rejected' ? new Date() : null;
+    booking.cancelledAt = status === 'Cancelled' ? new Date() : booking.cancelledAt;
+    booking.cancelledByRole = status === 'Cancelled' ? 'admin' : booking.cancelledByRole;
     await booking.save();
 
     await logAudit(req, 'booking_status_changed', 'Booking', booking._id, { status });
@@ -1109,6 +1128,7 @@ export const getPropertyVisits = async (req, res) => {
         .populate('property', 'title location image price type')
         .populate('owner', 'name email')
         .populate('visitPass', 'promoCode status amount transactionRef contactPhone')
+        .populate('booking', 'status paymentStatus fromDate toDate agreedMonthlyRent bookingDetails acceptedAt rejectedAt')
         .sort({ visitDate: -1, createdAt: -1 })
         .skip((currentPage - 1) * currentLimit)
         .limit(currentLimit)
@@ -1120,6 +1140,102 @@ export const getPropertyVisits = async (req, res) => {
   } catch (error) {
     console.error('getPropertyVisits error:', error);
     res.status(500).json({ error: 'Failed to fetch property visits' });
+  }
+};
+
+export const approveVisitBookingConfirmation = async (req, res) => {
+  try {
+    const visit = await PropertyVisit.findById(req.params.id)
+      .populate('renter', 'name email')
+      .populate('property', 'title')
+      .populate('booking');
+    if (!visit) return res.status(404).json({ error: 'Property visit not found' });
+
+    if (!visit.booking) {
+      return res.status(400).json({ error: 'No booking confirmation is attached to this visit' });
+    }
+    if (visit.bookingConfirmationStatus !== 'pending_verification') {
+      return res.status(400).json({ error: 'Booking confirmation is not pending verification' });
+    }
+
+    visit.bookingConfirmationStatus = 'paid';
+    visit.status = 'booking_pending';
+    await visit.save();
+
+    visit.booking.paymentStatus = 'paid';
+    visit.booking.status = 'Approved';
+    visit.booking.acceptedAt = new Date();
+    visit.booking.rejectedAt = undefined;
+    await visit.booking.save();
+
+    await Notification.create({
+      userId: visit.renter?._id || visit.renter,
+      type: 'payment',
+      message: `Your booking confirmation payment for "${visit.property?.title || 'property'}" has been approved.`,
+      link: '/renter/bookings',
+    });
+
+    await logAudit(req, 'visit_booking_confirmation_approved', 'PropertyVisit', visit._id, {
+      booking: visit.booking._id,
+      amount: visit.bookingConfirmationAmount,
+    });
+
+    res.json({ message: 'Booking confirmation approved', visit });
+  } catch (error) {
+    console.error('approveVisitBookingConfirmation error:', error);
+    res.status(500).json({ error: 'Failed to approve booking confirmation' });
+  }
+};
+
+export const rejectVisitBookingConfirmation = async (req, res) => {
+  try {
+    const adminRemark = String(req.body?.adminRemark || '').trim();
+    const visit = await PropertyVisit.findById(req.params.id)
+      .populate('renter', 'name email')
+      .populate('property', 'title')
+      .populate('booking');
+    if (!visit) return res.status(404).json({ error: 'Property visit not found' });
+
+    if (!visit.booking) {
+      return res.status(400).json({ error: 'No booking confirmation is attached to this visit' });
+    }
+    if (visit.bookingConfirmationStatus !== 'pending_verification') {
+      return res.status(400).json({ error: 'Booking confirmation is not pending verification' });
+    }
+
+    visit.bookingConfirmationStatus = 'failed';
+    visit.status = 'completed';
+    await visit.save();
+
+    visit.booking.paymentStatus = 'pending';
+    visit.booking.status = 'Rejected';
+    visit.booking.acceptedAt = undefined;
+    visit.booking.rejectedAt = new Date();
+    if (adminRemark) {
+      visit.booking.bookingDetails = {
+        ...(visit.booking.bookingDetails || {}),
+        adminRemark,
+      };
+    }
+    await visit.booking.save();
+
+    await Notification.create({
+      userId: visit.renter?._id || visit.renter,
+      type: 'payment',
+      message: `Your booking confirmation payment for "${visit.property?.title || 'property'}" was rejected.${adminRemark ? ` ${adminRemark}` : ''}`,
+      link: '/renter/visits',
+    });
+
+    await logAudit(req, 'visit_booking_confirmation_rejected', 'PropertyVisit', visit._id, {
+      booking: visit.booking._id,
+      amount: visit.bookingConfirmationAmount,
+      adminRemark,
+    });
+
+    res.json({ message: 'Booking confirmation rejected', visit });
+  } catch (error) {
+    console.error('rejectVisitBookingConfirmation error:', error);
+    res.status(500).json({ error: 'Failed to reject booking confirmation' });
   }
 };
 
