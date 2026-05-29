@@ -4,6 +4,10 @@ import './Settings.css';
 
 const defaults = {
   platformFeePercent: '0',
+  visitCharge: '500',
+  roomBookingCharge: '2000',
+  flatBookingCharge: '2500',
+  houseBookingCharge: '4000',
   bookingExpiryHours: '24',
   maxListingsPerOwner: '100',
   allowInstantBooking: 'true',
@@ -54,12 +58,26 @@ export default function Settings() {
 
   const numericValidationErrors = [];
   const fee = Number(settings.platformFeePercent);
+  const visitCharge = Number(settings.visitCharge);
+  const roomBookingCharge = Number(settings.roomBookingCharge);
+  const flatBookingCharge = Number(settings.flatBookingCharge);
+  const houseBookingCharge = Number(settings.houseBookingCharge);
   const expiry = Number(settings.bookingExpiryHours);
   const maxListings = Number(settings.maxListingsPerOwner);
 
   if (Number.isNaN(fee) || fee < 0 || fee > 100) {
     numericValidationErrors.push('Platform fee must be between 0 and 100.');
   }
+  [
+    ['Visit charge', visitCharge],
+    ['Room booking charge', roomBookingCharge],
+    ['Flat booking charge', flatBookingCharge],
+    ['House booking charge', houseBookingCharge],
+  ].forEach(([label, value]) => {
+    if (Number.isNaN(value) || value < 0 || value > 1000000) {
+      numericValidationErrors.push(`${label} must be between 0 and 1,000,000.`);
+    }
+  });
   if (Number.isNaN(expiry) || expiry < 1 || expiry > 720) {
     numericValidationErrors.push('Booking expiry must be between 1 and 720 hours.');
   }
@@ -261,6 +279,73 @@ export default function Settings() {
               />
               <small>Recommended range: 2% to 12%</small>
             </label>
+          </div>
+        </div>
+
+        <div className="settings-divider" />
+
+        <div className="settings-section">
+          <h3>DeraNow Charges</h3>
+          <p>These amounts are used by the renter app and backend visit/booking flows.</p>
+          <div className="settings-grid charges-grid">
+            <label className="settings-field">
+              <span>Visit Charge (Rs.)</span>
+              <input
+                type="number"
+                min="0"
+                max="1000000"
+                step="1"
+                value={settings.visitCharge}
+                onChange={(e) => onFieldChange('visitCharge', e.target.value)}
+              />
+              <small>Charged when a renter requests a visit pass.</small>
+            </label>
+
+            <label className="settings-field">
+              <span>Room Booking Charge (Rs.)</span>
+              <input
+                type="number"
+                min="0"
+                max="1000000"
+                step="1"
+                value={settings.roomBookingCharge}
+                onChange={(e) => onFieldChange('roomBookingCharge', e.target.value)}
+              />
+              <small>Backend property type: Condo. Frontend label: Room.</small>
+            </label>
+
+            <label className="settings-field">
+              <span>Flat Booking Charge (Rs.)</span>
+              <input
+                type="number"
+                min="0"
+                max="1000000"
+                step="1"
+                value={settings.flatBookingCharge}
+                onChange={(e) => onFieldChange('flatBookingCharge', e.target.value)}
+              />
+              <small>Applies to flat/apartment listings.</small>
+            </label>
+
+            <label className="settings-field">
+              <span>House Booking Charge (Rs.)</span>
+              <input
+                type="number"
+                min="0"
+                max="1000000"
+                step="1"
+                value={settings.houseBookingCharge}
+                onChange={(e) => onFieldChange('houseBookingCharge', e.target.value)}
+              />
+              <small>Applies to house listings.</small>
+            </label>
+          </div>
+          <div className="charge-preview">
+            <span>Current charge policy</span>
+            <strong>Visit Rs. {Number(settings.visitCharge || 0).toLocaleString()}</strong>
+            <strong>Room Rs. {Number(settings.roomBookingCharge || 0).toLocaleString()}</strong>
+            <strong>Flat Rs. {Number(settings.flatBookingCharge || 0).toLocaleString()}</strong>
+            <strong>House Rs. {Number(settings.houseBookingCharge || 0).toLocaleString()}</strong>
           </div>
         </div>
 

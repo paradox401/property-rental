@@ -2473,10 +2473,14 @@ export const getIncidentBanner = async (_req, res) => {
 
 export const getReconciliation = async (_req, res) => {
   try {
-    const [bookings, payments, agreements] = await Promise.all([
+    const [bookings, payments, agreements, visitPasses, propertyVisits] = await Promise.all([
       Booking.find().select('_id status paymentStatus').lean(),
-      Payment.find().select('_id booking status payoutStatus ownerAmount amount').lean(),
+      Payment.find().select('_id booking status payoutStatus ownerAmount amount createdAt').lean(),
       Agreement.find().select('_id booking currentVersion versions').lean(),
+      VisitPass.find().select('_id amount status transactionRef renter createdAt updatedAt').lean(),
+      PropertyVisit.find()
+        .select('_id booking bookingConfirmationStatus bookingConfirmationAmount bookingConfirmationTransactionRef property renter status createdAt updatedAt')
+        .lean(),
     ]);
 
     const paymentByBooking = new Map();
@@ -2527,10 +2531,82 @@ export const getReconciliation = async (_req, res) => {
       }
     }
 
+    const summarizeAmountByStatus = (items, statusKey, amountKey) =>
+      items.reduce((acc, item) => {
+        const status = item[statusKey] || 'unknown';
+        const amount = Number(item[amountKey] || 0);
+        const current = acc[status] || { count: 0, amount: 0 };
+        acc[status] = {
+          count: current.count + 1,
+          amount: current.amount + amount,
+        };
+        return acc;
+      }, {});
+
+    const visitPaymentSummary = summarizeAmountByStatus(visitPasses, 'status', 'amount');
+    const bookingChargeSummary = summarizeAmountByStatus(
+      propertyVisits.filter((visit) => Number(visit.bookingConfirmationAmount || 0) > 0 || visit.bookingConfirmationStatus !== 'none'),
+      'bookingConfirmationStatus',
+      'bookingConfirmationAmount'
+    );
+    const rentPaymentSummary = summarizeAmountByStatus(payments, 'status', 'amount');
+
+    visitPasses.forEach((pass) => {
+      if (pass.status === 'pending_payment' && pass.transactionRef) {
+        issues.push({
+          type: 'visit_payment_pending_review',
+          visitPassId: pass._id,
+          message: 'Visit pass has renter payment reference but is still pending review',
+          severity: 'medium',
+        });
+      }
+      if (pass.status === 'rejected' && Number(pass.amount || 0) > 0) {
+        issues.push({
+          type: 'visit_payment_rejected',
+          visitPassId: pass._id,
+          message: 'Visit payment was rejected and may need renter follow-up',
+          severity: 'medium',
+        });
+      }
+    });
+
+    propertyVisits.forEach((visit) => {
+      if (visit.bookingConfirmationStatus === 'pending_verification') {
+        issues.push({
+          type: 'booking_charge_pending_review',
+          visitId: visit._id,
+          bookingId: visit.booking,
+          message: 'Booking confirmation charge is waiting for admin verification',
+          severity: 'medium',
+        });
+      }
+      if (visit.bookingConfirmationStatus === 'paid' && !visit.booking) {
+        issues.push({
+          type: 'booking_charge_without_booking',
+          visitId: visit._id,
+          message: 'Booking charge is paid but no booking record is linked',
+          severity: 'high',
+        });
+      }
+    });
+
     res.json({
       totalIssues: issues.length,
       high: issues.filter((item) => item.severity === 'high').length,
       medium: issues.filter((item) => item.severity === 'medium').length,
+      summaries: {
+        visitPayments: visitPaymentSummary,
+        bookingCharges: bookingChargeSummary,
+        rentPayments: rentPaymentSummary,
+        pendingFailed: {
+          pendingRentPayments: payments.filter((payment) => payment.status === 'Pending').length,
+          failedRentPayments: payments.filter((payment) => payment.status === 'Failed').length,
+          pendingVisitPayments: visitPasses.filter((pass) => pass.status === 'pending_payment').length,
+          rejectedVisitPayments: visitPasses.filter((pass) => pass.status === 'rejected').length,
+          pendingBookingCharges: propertyVisits.filter((visit) => visit.bookingConfirmationStatus === 'pending_verification').length,
+          failedBookingCharges: propertyVisits.filter((visit) => visit.bookingConfirmationStatus === 'failed').length,
+        },
+      },
       items: issues.slice(0, 200),
     });
   } catch (error) {

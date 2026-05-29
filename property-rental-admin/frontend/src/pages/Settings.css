@@ -114,6 +114,39 @@
   font-size: 0.75rem;
 }
 
+.charges-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.charge-preview {
+  margin-top: 0.85rem;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, #f8fafc, #ecfdf5);
+  border-radius: 12px;
+  padding: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.charge-preview span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.charge-preview strong {
+  border: 1px solid #bbf7d0;
+  background: #ffffff;
+  color: #166534;
+  border-radius: 999px;
+  padding: 0.28rem 0.62rem;
+  font-size: 0.82rem;
+}
+
 .settings-divider {
   border-top: 1px dashed var(--border);
 }
@@ -211,6 +244,10 @@
     grid-template-columns: 1fr;
   }
 
+  .charges-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .settings-meta-row {
     grid-template-columns: 1fr;
   }
@@ -218,5 +255,11 @@
   .settings-change-item {
     grid-template-columns: 1fr;
     gap: 0.25rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .charges-grid {
+    grid-template-columns: 1fr;
   }
 }

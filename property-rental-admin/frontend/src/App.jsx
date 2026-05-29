@@ -18,6 +18,7 @@ import Notifications from './pages/Notifications';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
 import RevenueCommand from './pages/RevenueCommand';
+import Reconciliation from './pages/Reconciliation';
 import OpsCenter from './pages/OpsCenter';
 import ExportCenter from './pages/ExportCenter';
 import AccessControl from './pages/AccessControl';
@@ -74,6 +75,7 @@ function App() {
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/revenue-command" element={<RevenueCommand />} />
+          <Route path="/reconciliation" element={<Reconciliation />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/ops-center" element={<OpsCenter />} />
           <Route path="/export-center" element={<ExportCenter />} />

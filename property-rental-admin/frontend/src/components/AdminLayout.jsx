@@ -9,6 +9,7 @@ const navGroups = [
       { to: '/dashboard', label: 'Dashboard', short: 'DB' },
       { to: '/ops-center', label: 'Ops Center', short: 'OP' },
       { to: '/revenue-command', label: 'Revenue', short: 'RV' },
+      { to: '/reconciliation', label: 'Reconciliation', short: 'RC' },
       { to: '/reports', label: 'Reports', short: 'RP' },
     ],
   },
