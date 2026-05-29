@@ -320,6 +320,36 @@ const generateVisitPromoCode = async () => {
   return `DERA-${Date.now().toString(36).toUpperCase()}`;
 };
 
+const normalizeRevenueAmount = (value) => Number(Number(value || 0).toFixed(2));
+
+const combineRevenueRowsByMonth = (rows = []) => {
+  const grouped = new Map();
+
+  rows.forEach((row) => {
+    const month = row.month;
+    if (!month) return;
+    const current = grouped.get(month) || {
+      month,
+      revenue: 0,
+      paymentRevenue: 0,
+      visitPassRevenue: 0,
+      bookingFeeRevenue: 0,
+      paidTransactions: 0,
+      revenueEvents: 0,
+    };
+
+    current.revenue += Number(row.revenue || 0);
+    current.paymentRevenue += Number(row.paymentRevenue || 0);
+    current.visitPassRevenue += Number(row.visitPassRevenue || 0);
+    current.bookingFeeRevenue += Number(row.bookingFeeRevenue || 0);
+    current.paidTransactions += Number(row.paidTransactions || 0);
+    current.revenueEvents += Number(row.revenueEvents || 0);
+    grouped.set(month, current);
+  });
+
+  return Array.from(grouped.values()).sort((a, b) => String(a.month).localeCompare(String(b.month)));
+};
+
 export const getOverview = async (_req, res) => {
   try {
     const activityDays = Math.max(1, Math.min(Number(_req.query?.activityDays || 30), 365));
@@ -344,27 +374,52 @@ export const getOverview = async (_req, res) => {
       Payment.countDocuments({ status: 'Failed' }),
     ]);
 
-    const paymentAgg = await Payment.aggregate([
-      { $match: { status: 'Paid' } },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: '$amount' },
-          totalOwnerDistributed: {
-            $sum: {
-              $cond: [
-                { $eq: ['$payoutStatus', 'Transferred'] },
-                { $ifNull: ['$ownerAmount', 0] },
-                0,
-              ],
+    const [paymentAgg, visitPassAgg, bookingFeeAgg] = await Promise.all([
+      Payment.aggregate([
+        { $match: { status: 'Paid' } },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$amount' },
+            totalOwnerDistributed: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$payoutStatus', 'Transferred'] },
+                  { $ifNull: ['$ownerAmount', 0] },
+                  0,
+                ],
+              },
             },
           },
         },
-      },
+      ]),
+      VisitPass.aggregate([
+        { $match: { status: { $in: ['active', 'consumed'] } } },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$amount' },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      PropertyVisit.aggregate([
+        { $match: { bookingConfirmationStatus: 'paid' } },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$bookingConfirmationAmount' },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
 
-    const totalRevenue = paymentAgg[0]?.totalRevenue || 0;
-    const ownerDistributed = paymentAgg[0]?.totalOwnerDistributed || 0;
+    const paymentRevenue = normalizeRevenueAmount(paymentAgg[0]?.totalRevenue || 0);
+    const visitPassRevenue = normalizeRevenueAmount(visitPassAgg[0]?.totalRevenue || 0);
+    const bookingFeeRevenue = normalizeRevenueAmount(bookingFeeAgg[0]?.totalRevenue || 0);
+    const totalRevenue = normalizeRevenueAmount(paymentRevenue + visitPassRevenue + bookingFeeRevenue);
+    const ownerDistributed = normalizeRevenueAmount(paymentAgg[0]?.totalOwnerDistributed || 0);
     const profit = calcProfit(totalRevenue, ownerDistributed);
 
     const [
@@ -373,6 +428,8 @@ export const getOverview = async (_req, res) => {
       occupiedPropertyRows,
       paidCurrentMonthAgg,
       transferredOwnerCurrentMonthAgg,
+      visitPassCurrentMonthAgg,
+      bookingFeeCurrentMonthAgg,
     ] = await Promise.all([
       Booking.aggregate([
         {
@@ -418,15 +475,38 @@ export const getOverview = async (_req, res) => {
         },
         { $group: { _id: null, ownerAmount: { $sum: { $ifNull: ['$ownerAmount', 0] } } } },
       ]),
+      VisitPass.aggregate([
+        {
+          $match: {
+            status: { $in: ['active', 'consumed'] },
+            createdAt: { $gte: monthStart, $lte: monthEnd },
+          },
+        },
+        { $group: { _id: null, amount: { $sum: '$amount' } } },
+      ]),
+      PropertyVisit.aggregate([
+        {
+          $match: {
+            bookingConfirmationStatus: 'paid',
+            createdAt: { $gte: monthStart, $lte: monthEnd },
+          },
+        },
+        { $group: { _id: null, amount: { $sum: '$bookingConfirmationAmount' } } },
+      ]),
     ]);
 
     const liveMRR = activeBookingRentRows.reduce(
       (sum, row) => sum + Number(row.monthlyRent || 0),
       0
     );
-    const realizedMRR = Number(paidCurrentMonthAgg[0]?.amount || 0);
-    const ownerDistributedCurrentMonth = Number(transferredOwnerCurrentMonthAgg[0]?.ownerAmount || 0);
-    const platformProfitCurrentMonth = calcProfit(realizedMRR, ownerDistributedCurrentMonth);
+    const realizedMRR = normalizeRevenueAmount(paidCurrentMonthAgg[0]?.amount || 0);
+    const visitPassRevenueCurrentMonth = normalizeRevenueAmount(visitPassCurrentMonthAgg[0]?.amount || 0);
+    const bookingFeeRevenueCurrentMonth = normalizeRevenueAmount(bookingFeeCurrentMonthAgg[0]?.amount || 0);
+    const currentMonthRevenue = normalizeRevenueAmount(
+      realizedMRR + visitPassRevenueCurrentMonth + bookingFeeRevenueCurrentMonth
+    );
+    const ownerDistributedCurrentMonth = normalizeRevenueAmount(transferredOwnerCurrentMonthAgg[0]?.ownerAmount || 0);
+    const platformProfitCurrentMonth = calcProfit(currentMonthRevenue, ownerDistributedCurrentMonth);
     const occupiedProperties = occupiedPropertyRows.length;
     const occupancyRate = calcOccupancyRate(occupiedProperties, approvedPropertyCount);
 
@@ -510,6 +590,9 @@ export const getOverview = async (_req, res) => {
         payments,
         messages,
         revenue: totalRevenue,
+        paymentRevenue,
+        visitPassRevenue,
+        bookingFeeRevenue,
         ownerDistributed,
         profit,
       },
@@ -519,6 +602,10 @@ export const getOverview = async (_req, res) => {
             'Sum of monthly rent (property.price) for active approved bookings where fromDate <= today <= toDate.',
           realizedMRR:
             'Sum of paid payment amount for current month (Payment.status = Paid within current month).',
+          visitPassRevenue:
+            'Sum of approved visit pass payments (VisitPass.status in active/consumed).',
+          bookingFeeRevenue:
+            'Sum of paid booking confirmation fees (PropertyVisit.bookingConfirmationStatus = paid).',
           occupancyRate:
             'Occupied approved properties / total approved properties * 100, where occupied means at least one active approved booking.',
           platformProfit:
@@ -527,6 +614,9 @@ export const getOverview = async (_req, res) => {
         values: {
           liveMRR: Number(liveMRR.toFixed(2)),
           realizedMRR: Number(realizedMRR.toFixed(2)),
+          visitPassRevenueCurrentMonth: Number(visitPassRevenueCurrentMonth.toFixed(2)),
+          bookingFeeRevenueCurrentMonth: Number(bookingFeeRevenueCurrentMonth.toFixed(2)),
+          currentMonthRevenue: Number(currentMonthRevenue.toFixed(2)),
           occupancyRate,
           approvedProperties: approvedPropertyCount,
           occupiedProperties,
@@ -1631,14 +1721,29 @@ export const sendBroadcast = async (req, res) => {
 
 export const getReports = async (_req, res) => {
   try {
-    const [propertyByStatus, bookingByStatus, paymentByStatus, complaintByStatus] = await Promise.all([
+    const [propertyByStatus, bookingByStatus, paymentByStatus, complaintByStatus, visitPassRevenue, bookingFeeRevenue] = await Promise.all([
       Property.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
       Booking.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
       Payment.aggregate([{ $group: { _id: '$status', count: { $sum: 1 }, total: { $sum: '$amount' } } }]),
       Complaint.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      VisitPass.aggregate([
+        { $match: { status: { $in: ['active', 'consumed'] } } },
+        { $group: { _id: 'Visit Charges', count: { $sum: 1 }, total: { $sum: '$amount' } } },
+      ]),
+      PropertyVisit.aggregate([
+        { $match: { bookingConfirmationStatus: 'paid' } },
+        { $group: { _id: 'Booking Charges', count: { $sum: 1 }, total: { $sum: '$bookingConfirmationAmount' } } },
+      ]),
     ]);
+    const revenueBySource = [
+      ...paymentByStatus
+        .filter((row) => row._id === 'Paid')
+        .map((row) => ({ _id: 'Rent Payments', count: row.count, total: row.total })),
+      ...(visitPassRevenue || []),
+      ...(bookingFeeRevenue || []),
+    ];
 
-    res.json({ propertyByStatus, bookingByStatus, paymentByStatus, complaintByStatus });
+    res.json({ propertyByStatus, bookingByStatus, paymentByStatus, complaintByStatus, revenueBySource });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch reports' });
   }
@@ -1664,6 +1769,12 @@ export const getRevenueCommandCenter = async (_req, res) => {
       pendingPayoutRows,
       paymentStatuses7d,
       monthlyRevenueRows,
+      visitPassThisMonthAgg,
+      bookingFeeThisMonthAgg,
+      visitPassPreviousMonthAgg,
+      bookingFeePreviousMonthAgg,
+      visitPassTrendRows,
+      bookingFeeTrendRows,
       churnRiskRows,
       unsignedAgreements,
     ] = await Promise.all([
@@ -1723,6 +1834,44 @@ export const getRevenueCommandCenter = async (_req, res) => {
         },
         { $sort: { _id: 1 } },
       ]),
+      VisitPass.aggregate([
+        { $match: { status: { $in: ['active', 'consumed'] }, createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd } } },
+        { $group: { _id: null, amount: { $sum: '$amount' }, count: { $sum: 1 } } },
+      ]),
+      PropertyVisit.aggregate([
+        { $match: { bookingConfirmationStatus: 'paid', createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd } } },
+        { $group: { _id: null, amount: { $sum: '$bookingConfirmationAmount' }, count: { $sum: 1 } } },
+      ]),
+      VisitPass.aggregate([
+        { $match: { status: { $in: ['active', 'consumed'] }, createdAt: { $gte: previousMonthStart, $lt: currentMonthStart } } },
+        { $group: { _id: null, amount: { $sum: '$amount' } } },
+      ]),
+      PropertyVisit.aggregate([
+        { $match: { bookingConfirmationStatus: 'paid', createdAt: { $gte: previousMonthStart, $lt: currentMonthStart } } },
+        { $group: { _id: null, amount: { $sum: '$bookingConfirmationAmount' } } },
+      ]),
+      VisitPass.aggregate([
+        { $match: { status: { $in: ['active', 'consumed'] }, createdAt: { $gte: previousThreeMonthStart, $lte: currentMonthEnd } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+            amount: { $sum: '$amount' },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      PropertyVisit.aggregate([
+        { $match: { bookingConfirmationStatus: 'paid', createdAt: { $gte: previousThreeMonthStart, $lte: currentMonthEnd } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+            amount: { $sum: '$bookingConfirmationAmount' },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
       Booking.find({
         status: 'Approved',
         toDate: { $gte: now, $lte: next30Days },
@@ -1737,8 +1886,15 @@ export const getRevenueCommandCenter = async (_req, res) => {
     const liveMRR = activeBookingRows.reduce((sum, row) => sum + Number(row.monthlyRent || 0), 0);
     const realizedMRR = Number(paidThisMonthAgg[0]?.amount || 0);
     const paidTxnThisMonth = Number(paidThisMonthAgg[0]?.count || 0);
-    const previousMonthRevenue = Number(paidPreviousMonthAgg[0]?.amount || 0);
-    const momChangePct = calcMoMChangePct(realizedMRR, previousMonthRevenue);
+    const visitPassRevenueThisMonth = Number(visitPassThisMonthAgg[0]?.amount || 0);
+    const bookingFeeRevenueThisMonth = Number(bookingFeeThisMonthAgg[0]?.amount || 0);
+    const totalRevenueThisMonth = normalizeRevenueAmount(realizedMRR + visitPassRevenueThisMonth + bookingFeeRevenueThisMonth);
+    const previousMonthRevenue = normalizeRevenueAmount(
+      Number(paidPreviousMonthAgg[0]?.amount || 0) +
+        Number(visitPassPreviousMonthAgg[0]?.amount || 0) +
+        Number(bookingFeePreviousMonthAgg[0]?.amount || 0)
+    );
+    const momChangePct = calcMoMChangePct(totalRevenueThisMonth, previousMonthRevenue);
 
     const payoutAgingBuckets = {
       '0-3d': { count: 0, amount: 0 },
@@ -1860,6 +2016,9 @@ export const getRevenueCommandCenter = async (_req, res) => {
       headline: {
         liveMRR: Number(liveMRR.toFixed(2)),
         realizedMRR: Number(realizedMRR.toFixed(2)),
+        visitPassRevenue: Number(visitPassRevenueThisMonth.toFixed(2)),
+        bookingFeeRevenue: Number(bookingFeeRevenueThisMonth.toFixed(2)),
+        totalRevenue: totalRevenueThisMonth,
         paidTransactionsThisMonth: paidTxnThisMonth,
         pendingPayoutTotal: Number(totalPendingPayout.toFixed(2)),
         monthOverMonthChangePct: momChangePct,
@@ -1878,10 +2037,44 @@ export const getRevenueCommandCenter = async (_req, res) => {
         items: churnRisk,
       },
       anomalies,
-      trend: monthlyRevenueRows.map((row) => ({
-        month: row._id,
-        revenue: Number(row.amount || 0),
-        paidTransactions: Number(row.count || 0),
+      trend: combineRevenueRowsByMonth(
+        [
+          ...monthlyRevenueRows.map((row) => ({
+            month: row._id,
+            revenue: Number(row.amount || 0),
+            paymentRevenue: Number(row.amount || 0),
+            visitPassRevenue: 0,
+            bookingFeeRevenue: 0,
+            paidTransactions: Number(row.count || 0),
+            revenueEvents: Number(row.count || 0),
+          })),
+          ...visitPassTrendRows.map((row) => ({
+            month: row._id,
+            revenue: Number(row.amount || 0),
+            paymentRevenue: 0,
+            visitPassRevenue: Number(row.amount || 0),
+            bookingFeeRevenue: 0,
+            paidTransactions: Number(row.count || 0),
+            revenueEvents: Number(row.count || 0),
+          })),
+          ...bookingFeeTrendRows.map((row) => ({
+            month: row._id,
+            revenue: Number(row.amount || 0),
+            paymentRevenue: 0,
+            visitPassRevenue: 0,
+            bookingFeeRevenue: Number(row.amount || 0),
+            paidTransactions: Number(row.count || 0),
+            revenueEvents: Number(row.count || 0),
+          })),
+        ]
+      ).map((row) => ({
+        month: row.month,
+        revenue: Number(row.revenue || 0),
+        paymentRevenue: Number(row.paymentRevenue || 0),
+        visitPassRevenue: Number(row.visitPassRevenue || 0),
+        bookingFeeRevenue: Number(row.bookingFeeRevenue || 0),
+        paidTransactions: Number(row.paidTransactions || 0),
+        revenueEvents: Number(row.revenueEvents || 0),
       })),
       paymentHealth7d: {
         paid: paidCount7d,

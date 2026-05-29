@@ -34,6 +34,10 @@ export default function Reports() {
 
       <div className="kpi-grid">
         <div className="card">
+          <h3>Revenue Sources</h3>
+          <div className="table-wrap"><table className="table"><thead><tr><th>Source</th><th>Total Amount</th><th>Count</th></tr></thead><tbody>{renderRows(data?.revenueBySource, 'total')}{!(data?.revenueBySource || []).length && <tr><td colSpan="3">No data</td></tr>}</tbody></table></div>
+        </div>
+        <div className="card">
           <h3>Properties</h3>
           <div className="table-wrap"><table className="table"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>{renderRows(data?.propertyByStatus)}{!(data?.propertyByStatus || []).length && <tr><td colSpan="2">No data</td></tr>}</tbody></table></div>
         </div>

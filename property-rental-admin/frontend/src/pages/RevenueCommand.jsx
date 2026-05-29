@@ -49,6 +49,9 @@ export default function RevenueCommand() {
       <section className="kpi-grid">
         <div className="kpi"><div className="kpi-label">Live MRR</div><div className="kpi-value">{currency(headline.liveMRR)}</div></div>
         <div className="kpi"><div className="kpi-label">Realized MRR</div><div className="kpi-value">{currency(headline.realizedMRR)}</div></div>
+        <div className="kpi"><div className="kpi-label">Visit Charges</div><div className="kpi-value">{currency(headline.visitPassRevenue)}</div></div>
+        <div className="kpi"><div className="kpi-label">Booking Charges</div><div className="kpi-value">{currency(headline.bookingFeeRevenue)}</div></div>
+        <div className="kpi"><div className="kpi-label">Total Revenue</div><div className="kpi-value">{currency(headline.totalRevenue)}</div></div>
         <div className="kpi"><div className="kpi-label">Pending Payout</div><div className="kpi-value">{currency(headline.pendingPayoutTotal)}</div></div>
         <div className="kpi"><div className="kpi-label">MoM Change</div><div className="kpi-value">{headline.monthOverMonthChangePct || 0}%</div></div>
       </section>
@@ -143,8 +146,11 @@ export default function RevenueCommand() {
             <thead>
               <tr>
                 <th>Month</th>
-                <th>Paid Revenue</th>
-                <th>Paid Transactions</th>
+                <th>Total Revenue</th>
+                <th>Rent Payments</th>
+                <th>Visit Charges</th>
+                <th>Booking Charges</th>
+                <th>Events</th>
               </tr>
             </thead>
             <tbody>
@@ -152,11 +158,14 @@ export default function RevenueCommand() {
                 <tr key={row.month}>
                   <td>{row.month}</td>
                   <td>{currency(row.revenue)}</td>
-                  <td>{row.paidTransactions}</td>
+                  <td>{currency(row.paymentRevenue)}</td>
+                  <td>{currency(row.visitPassRevenue)}</td>
+                  <td>{currency(row.bookingFeeRevenue)}</td>
+                  <td>{row.revenueEvents}</td>
                 </tr>
               ))}
               {trend.length === 0 && (
-                <tr><td colSpan="3">No trend data available.</td></tr>
+                <tr><td colSpan="6">No trend data available.</td></tr>
               )}
             </tbody>
           </table>

@@ -121,8 +121,20 @@ export default function Dashboard() {
         <div className="kpi"><div className="kpi-label">Occupancy Rate</div><div className="kpi-value">{kpiValues.occupancyRate || 0}%</div></div>
         <div className="kpi"><div className="kpi-label">Platform Profit (Month)</div><div className="kpi-value">Rs. {kpiValues.platformProfit || 0}</div></div>
         <div className="kpi"><div className="kpi-label">Revenue</div><div className="kpi-value">Rs. {totals.revenue || 0}</div></div>
+        <div className="kpi"><div className="kpi-label">Visit Charges</div><div className="kpi-value">Rs. {totals.visitPassRevenue || 0}</div></div>
+        <div className="kpi"><div className="kpi-label">Booking Charges</div><div className="kpi-value">Rs. {totals.bookingFeeRevenue || 0}</div></div>
         <div className="kpi"><div className="kpi-label">Owner Distributed</div><div className="kpi-value">Rs. {totals.ownerDistributed || 0}</div></div>
         <div className="kpi"><div className="kpi-label">Profit</div><div className="kpi-value">Rs. {totals.profit || 0}</div></div>
+      </section>
+
+      <section className="card" style={{ marginTop: '1rem' }}>
+        <h3>Revenue Breakdown</h3>
+        <div className="kpi-grid" style={{ marginTop: '0.8rem' }}>
+          <div className="kpi"><div className="kpi-label">Rent Payment Revenue</div><div className="kpi-value">Rs. {totals.paymentRevenue || 0}</div></div>
+          <div className="kpi"><div className="kpi-label">Visit Charge Revenue</div><div className="kpi-value">Rs. {totals.visitPassRevenue || 0}</div></div>
+          <div className="kpi"><div className="kpi-label">Booking Charge Revenue</div><div className="kpi-value">Rs. {totals.bookingFeeRevenue || 0}</div></div>
+          <div className="kpi"><div className="kpi-label">Current Month Total</div><div className="kpi-value">Rs. {kpiValues.currentMonthRevenue || 0}</div></div>
+        </div>
       </section>
 
       <section className="card" style={{ marginTop: '1rem' }}>
