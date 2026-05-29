@@ -13,6 +13,7 @@ import {
   reviewKycRequest,
   getAllProperties,
   updatePropertyStatus,
+  updatePropertyDetails,
   deleteProperty,
   getAllBookings,
   updateBookingStatus,
@@ -90,6 +91,7 @@ router.patch('/kyc-requests/:id/documents/:docId', reviewKycDocument);
 router.patch('/kyc-requests/:id', reviewKycRequest);
 
 router.get('/properties', getAllProperties);
+router.put('/properties/:id', updatePropertyDetails);
 router.patch('/properties/:id/status', updatePropertyStatus);
 router.delete('/properties/:id', deleteProperty);
 

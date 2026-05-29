@@ -1050,18 +1050,82 @@ export const getAllProperties = async (req, res) => {
 
 export const updatePropertyStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, reviewChecklist = {}, reviewNote = '' } = req.body;
     if (!['Pending', 'Approved', 'Rejected'].includes(status)) {
       return res.status(400).json({ error: 'Invalid property status' });
     }
 
-    const property = await Property.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    const property = await Property.findByIdAndUpdate(
+      req.params.id,
+      {
+        status,
+        reviewChecklist: {
+          photoQuality: Boolean(reviewChecklist.photoQuality),
+          locationClarity: Boolean(reviewChecklist.locationClarity),
+          duplicateCheck: Boolean(reviewChecklist.duplicateCheck),
+          priceReasonable: Boolean(reviewChecklist.priceReasonable),
+          ownerVerified: Boolean(reviewChecklist.ownerVerified),
+        },
+        reviewNote: String(reviewNote || '').trim(),
+        reviewedBy: req.admin?._id,
+        reviewedAt: new Date(),
+      },
+      { new: true }
+    ).populate('ownerId', 'name email ownerVerificationStatus');
     if (!property) return res.status(404).json({ error: 'Property not found' });
 
-    await logAudit(req, 'property_status_changed', 'Property', property._id, { status });
+    await logAudit(req, 'property_status_changed', 'Property', property._id, {
+      status,
+      reviewChecklist,
+      reviewNote,
+    });
     res.json(property);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update property status' });
+  }
+};
+
+export const updatePropertyDetails = async (req, res) => {
+  try {
+    const allowedTypes = ['Apartment', 'House', 'Condo'];
+    const payload = req.body || {};
+    const update = {};
+
+    ['title', 'location', 'approximateLocation', 'description', 'image'].forEach((field) => {
+      if (payload[field] !== undefined) update[field] = String(payload[field] || '').trim();
+    });
+    ['price', 'bedrooms', 'bathrooms'].forEach((field) => {
+      if (payload[field] !== undefined) {
+        const value = Number(payload[field]);
+        if (!Number.isFinite(value) || value < 0) {
+          throw new Error(`${field} must be a valid non-negative number`);
+        }
+        update[field] = value;
+      }
+    });
+    if (payload.type !== undefined) {
+      if (!allowedTypes.includes(payload.type)) {
+        return res.status(400).json({ error: 'Invalid property type' });
+      }
+      update.type = payload.type;
+    }
+    if (payload.parkingAvailable !== undefined) update.parkingAvailable = Boolean(payload.parkingAvailable);
+    if (payload.petFriendly !== undefined) update.petFriendly = Boolean(payload.petFriendly);
+    if (Array.isArray(payload.images)) {
+      update.images = payload.images.filter(Boolean).slice(0, 5);
+      update.image = update.image || update.images[0] || '';
+    }
+
+    const property = await Property.findByIdAndUpdate(req.params.id, update, {
+      new: true,
+      runValidators: true,
+    }).populate('ownerId', 'name email ownerVerificationStatus');
+    if (!property) return res.status(404).json({ error: 'Property not found' });
+
+    await logAudit(req, 'property_details_updated', 'Property', property._id, { fields: Object.keys(update) });
+    res.json(property);
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Failed to update property details' });
   }
 };
 

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const propertySchema = new mongoose.Schema({
   title: { type: String, required: true },
   location: { type: String, required: true },
+  approximateLocation: { type: String, trim: true, default: '' },
   price: { type: Number, required: true },
   bedrooms: { type: Number, required: true },
   bathrooms: { type: Number, required: true },
@@ -25,6 +26,16 @@ const propertySchema = new mongoose.Schema({
     enum: ['Pending', 'Approved', 'Rejected'],
     default: 'Pending'
   },
+  reviewChecklist: {
+    photoQuality: { type: Boolean, default: false },
+    locationClarity: { type: Boolean, default: false },
+    duplicateCheck: { type: Boolean, default: false },
+    priceReasonable: { type: Boolean, default: false },
+    ownerVerified: { type: Boolean, default: false },
+  },
+  reviewNote: { type: String, trim: true, default: '' },
+  reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+  reviewedAt: { type: Date },
   rating: { type: Number, default: 0, min: 0, max: 5 }
 
 }, {
